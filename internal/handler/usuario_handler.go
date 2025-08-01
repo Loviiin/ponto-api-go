@@ -3,14 +3,15 @@ package handler
 import (
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/internal/service"
+	"net/http"
 )
 import "github.com/gin-gonic/gin"
 
 type UsuarioHandler struct {
-	service *service.UsuarioService
+	service service.UsuarioService
 }
 
-func NewUsuarioHandler(s *service.UsuarioService) *UsuarioHandler {
+func NewUsuarioHandler(s service.UsuarioService) *UsuarioHandler {
 	return &UsuarioHandler{
 		service: s,
 	}
@@ -25,21 +26,21 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 		Cargo string `json:"cargo" binding:"required"`
 	}
 	var request criarUsuarioRequest
-	erro := c.ShouldBindJSON(&request)
-	if erro != nil {
-		c.JSON(400, gin.H{"erro": erro.Error()})
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	var Usuariodevdd = model.Usuario{}
-	Usuariodevdd.Nome = request.Nome
-	Usuariodevdd.Email = request.Email
-	Usuariodevdd.Senha = request.Senha
-	Usuariodevdd.Cargo = request.Cargo
+	usuario := model.Usuario{
+		Nome:  request.Nome,
+		Email: request.Email,
+		Senha: request.Senha,
+		Cargo: request.Cargo,
+	}
 
-	err := h.service.CriarUsuario(&Usuariodevdd)
+	err := h.service.CriarUsuario(&usuario)
 	if err != nil {
-		c.JSON(409, gin.H{"erro": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(201, Usuariodevdd)
+	c.JSON(http.StatusCreated, usuario)
 }

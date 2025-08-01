@@ -8,22 +8,33 @@ import (
 	"gorm.io/gorm"
 )
 
-type UsuarioService struct {
-	UsuarioRepository *repository.UsuarioRepository
+type UsuarioService interface {
+	CriarUsuario(usuario *model.Usuario) error
 }
 
-func (s *UsuarioService) CriarUsuario(usuario *model.Usuario) error {
-	_, err := s.UsuarioRepository.FindByEmail(usuario.Email)
+type usuarioService struct {
+	usuarioRepo repository.UsuarioRepository
+}
+
+func NewUsuarioService(repo repository.UsuarioRepository) UsuarioService {
+	return &usuarioService{
+		usuarioRepo: repo,
+	}
+}
+
+func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {
+	_, err := s.usuarioRepo.FindByEmail(usuario.Email)
 	if err == nil {
-		return errors.New("Tem email cadastrado ja chefe")
+		// Se err é nulo, o usuário foi encontrado, então o e-mail já existe.
+		return errors.New("e-mail já cadastrado")
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
+		return err // Retorna o erro original do banco.
 	}
 	SenhaHash, err := password.CriptografaSenha(usuario.Senha)
 	if err != nil {
 		return err
 	}
 	usuario.Senha = SenhaHash
-	return s.UsuarioRepository.Save(usuario)
+	return s.usuarioRepo.Save(usuario)
 }

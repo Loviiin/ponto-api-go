@@ -9,10 +9,7 @@ func CriptografaSenha(senha string) (string, error) {
 	return string(senhaCripto), err
 }
 
-func VerificaHashSenha(senha string, hash string) (bool, error) {
+func VerificaHashSenha(senha string, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(senha))
-	if err != nil {
-		return false, err
-	}
-	return true, nil
+	return err == nil
 }

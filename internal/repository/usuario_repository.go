@@ -5,21 +5,30 @@ import (
 	"gorm.io/gorm"
 )
 
-type UsuarioRepository struct {
+type UsuarioRepository interface {
+	Save(usuario *model.Usuario) error
+	FindByEmail(email string) (*model.Usuario, error)
+	FindByID(id uint) (*model.Usuario, error)
+}
+
+type usuarioRepository struct {
 	Db *gorm.DB
 }
 
-func (r *UsuarioRepository) Save(usuario *model.Usuario) error {
-	return r.Db.Create(usuario).Error
+func NewUsuarioRepository(db *gorm.DB) UsuarioRepository {
+	return &usuarioRepository{Db: db}
 }
 
-func (r *UsuarioRepository) FindByEmail(email string) (*model.Usuario, error) {
+func (r *usuarioRepository) Save(usuario *model.Usuario) error {
+	return r.Db.Create(usuario).Error
+}
+func (r *usuarioRepository) FindByEmail(email string) (*model.Usuario, error) {
 	var usuario model.Usuario
 	err := r.Db.Where("email = ?", email).First(&usuario).Error
 	return &usuario, err
 }
 
-func (r *UsuarioRepository) FindByID(id uint) (*model.Usuario, error) {
+func (r *usuarioRepository) FindByID(id uint) (*model.Usuario, error) {
 	var usuario model.Usuario
 	err := r.Db.First(&usuario, id).Error
 	return &usuario, err
