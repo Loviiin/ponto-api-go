@@ -1,15 +1,14 @@
-package handler
+package auth
 
 import (
-	"github.com/Loviiin/ponto-api-go/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
-	authService service.AuthService
+	authService AuthService
 }
 
-func NewAuthHandler(service service.AuthService) *AuthHandler {
+func NewAuthHandler(service AuthService) *AuthHandler {
 	return &AuthHandler{
 		authService: service,
 	}

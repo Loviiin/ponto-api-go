@@ -2,16 +2,14 @@ package main
 
 import (
 	"fmt"
+	"github.com/Loviiin/ponto-api-go/internal/auth"
+	"github.com/Loviiin/ponto-api-go/internal/usuario"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
 	"log"
 
 	// Nossos pacotes internos que criamos
 	"github.com/Loviiin/ponto-api-go/internal/config"
-	"github.com/Loviiin/ponto-api-go/internal/handler"
 	"github.com/Loviiin/ponto-api-go/internal/model"
-	"github.com/Loviiin/ponto-api-go/internal/repository"
-	"github.com/Loviiin/ponto-api-go/internal/service"
-
 	// Pacotes externos (nossas dependências)
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
@@ -41,13 +39,13 @@ func main() {
 	log.Println("Migração do banco de dados executada com sucesso.")
 
 	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
-	usuarioRepo := repository.NewUsuarioRepository(db)
+	usuarioRepo := usuario.NewUsuarioRepository(db)
 
-	usuarioService := service.NewUsuarioService(usuarioRepo)
-	authService := service.NewAuthService(usuarioRepo, jwtService)
+	usuarioService := usuario.NewUsuarioService(usuarioRepo)
+	authService := auth.NewAuthService(usuarioRepo, jwtService)
 
-	usuarioHandler := handler.NewUsuarioHandler(usuarioService)
-	authHandler := handler.NewAuthHandler(authService)
+	usuarioHandler := usuario.NewUsuarioHandler(usuarioService)
+	authHandler := auth.NewAuthHandler(authService)
 
 	router := gin.Default()
 
