@@ -1,8 +1,8 @@
-package service
+package auth
 
 import (
 	"errors"
-	"github.com/Loviiin/ponto-api-go/internal/repository"
+	"github.com/Loviiin/ponto-api-go/internal/usuario"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
 	password2 "github.com/Loviiin/ponto-api-go/pkg/password"
 	"gorm.io/gorm"
@@ -13,11 +13,11 @@ type AuthService interface {
 }
 
 type authService struct {
-	usuarioRepo repository.UsuarioRepository
+	usuarioRepo usuario.UsuarioRepository
 	jwtService  *jwt.JWTService
 }
 
-func NewAuthService(usuarioRepo repository.UsuarioRepository, jwtService *jwt.JWTService) AuthService {
+func NewAuthService(usuarioRepo usuario.UsuarioRepository, jwtService *jwt.JWTService) AuthService {
 	return &authService{
 		usuarioRepo: usuarioRepo,
 		jwtService:  jwtService,

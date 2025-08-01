@@ -1,4 +1,4 @@
-package repository
+package usuario
 
 import (
 	"github.com/Loviiin/ponto-api-go/internal/model"

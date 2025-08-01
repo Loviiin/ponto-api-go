@@ -1,9 +1,8 @@
-package service
+package usuario
 
 import (
 	"errors"
 	"github.com/Loviiin/ponto-api-go/internal/model"
-	"github.com/Loviiin/ponto-api-go/internal/repository"
 	"github.com/Loviiin/ponto-api-go/pkg/password"
 	"gorm.io/gorm"
 )
@@ -13,10 +12,10 @@ type UsuarioService interface {
 }
 
 type usuarioService struct {
-	usuarioRepo repository.UsuarioRepository
+	usuarioRepo UsuarioRepository
 }
 
-func NewUsuarioService(repo repository.UsuarioRepository) UsuarioService {
+func NewUsuarioService(repo UsuarioRepository) UsuarioService {
 	return &usuarioService{
 		usuarioRepo: repo,
 	}

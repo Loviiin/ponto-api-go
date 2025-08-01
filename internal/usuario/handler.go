@@ -1,17 +1,16 @@
-package handler
+package usuario
 
 import (
 	"github.com/Loviiin/ponto-api-go/internal/model"
-	"github.com/Loviiin/ponto-api-go/internal/service"
 	"net/http"
 )
 import "github.com/gin-gonic/gin"
 
 type UsuarioHandler struct {
-	service service.UsuarioService
+	service UsuarioService
 }
 
-func NewUsuarioHandler(s service.UsuarioService) *UsuarioHandler {
+func NewUsuarioHandler(s UsuarioService) *UsuarioHandler {
 	return &UsuarioHandler{
 		service: s,
 	}
