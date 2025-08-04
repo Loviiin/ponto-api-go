@@ -10,6 +10,7 @@ type UsuarioRepository interface {
 	FindByEmail(email string) (*model.Usuario, error)
 	FindByID(id uint) (*model.Usuario, error)
 	GetAll() ([]model.Usuario, error)
+	Update(id uint, dados map[string]interface{}) error
 }
 
 type usuarioRepository struct {
@@ -40,4 +41,9 @@ func (r *usuarioRepository) GetAll() ([]model.Usuario, error) {
 	var usuarios []model.Usuario
 	err := r.Db.Find(&usuarios).Error
 	return usuarios, err
+}
+
+func (r *usuarioRepository) Update(id uint, dados map[string]interface{}) error {
+	err := r.Db.Model(&model.Usuario{}).Where("id = ?", id).Updates(dados).Error
+	return err
 }

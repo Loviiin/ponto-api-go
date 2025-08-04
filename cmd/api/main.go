@@ -57,6 +57,7 @@ func main() {
 		apiV1.POST("/auth/login", authHandler.Login)
 		apiV1.GET("/usuarios", usuarioHandler.GetAllUsuariosHandler)
 		apiV1.GET("/usuarios/:id", usuarioHandler.GetByIdHandler)
+		apiV1.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler)
 
 		// ... AQUI É ONDE VOCÊ ADICIONARÁ AS OUTRAS ROTAS NO FUTURO ...
 		// Ex: apiV1.POST("/login", authHandler.Login)
