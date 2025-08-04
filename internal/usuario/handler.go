@@ -1,7 +1,9 @@
 package usuario
 
 import (
+	"errors"
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 )
@@ -42,6 +44,34 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, usuarios)
 
+}
+
+func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
+	idStr := c.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário deve ser um número"})
+		return
+	}
+
+	var dadosParaAtualizar map[string]interface{}
+	if err := c.ShouldBindJSON(&dadosParaAtualizar); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Corpo da requisição (JSON) inválido"})
+		return
+	}
+
+	err = h.service.Update(uint(id), dadosParaAtualizar)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao atualizar o usuário"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {

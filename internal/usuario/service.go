@@ -11,6 +11,7 @@ type UsuarioService interface {
 	CriarUsuario(usuario *model.Usuario) error
 	GetAll() ([]model.Usuario, error)
 	FindByID(id uint) (*model.Usuario, error)
+	Update(id uint, dados map[string]interface{}) error
 }
 
 type usuarioService struct {
@@ -46,4 +47,12 @@ func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {
 	}
 	usuario.Senha = SenhaHash
 	return s.usuarioRepo.Save(usuario)
+}
+
+func (s *usuarioService) Update(id uint, dados map[string]interface{}) error {
+	_, err := s.usuarioRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	return s.usuarioRepo.Update(id, dados)
 }
