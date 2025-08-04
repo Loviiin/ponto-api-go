@@ -9,6 +9,8 @@ import (
 
 type UsuarioService interface {
 	CriarUsuario(usuario *model.Usuario) error
+	GetAll() ([]model.Usuario, error)
+	FindByID(id uint) (*model.Usuario, error)
 }
 
 type usuarioService struct {
@@ -19,6 +21,14 @@ func NewUsuarioService(repo UsuarioRepository) UsuarioService {
 	return &usuarioService{
 		usuarioRepo: repo,
 	}
+}
+
+func (s *usuarioService) GetAll() ([]model.Usuario, error) {
+	return s.usuarioRepo.GetAll()
+}
+
+func (s *usuarioService) FindByID(id uint) (*model.Usuario, error) {
+	return s.usuarioRepo.FindByID(id)
 }
 
 func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {

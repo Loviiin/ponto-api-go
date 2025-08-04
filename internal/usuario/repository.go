@@ -9,6 +9,7 @@ type UsuarioRepository interface {
 	Save(usuario *model.Usuario) error
 	FindByEmail(email string) (*model.Usuario, error)
 	FindByID(id uint) (*model.Usuario, error)
+	GetAll() ([]model.Usuario, error)
 }
 
 type usuarioRepository struct {
@@ -22,6 +23,7 @@ func NewUsuarioRepository(db *gorm.DB) UsuarioRepository {
 func (r *usuarioRepository) Save(usuario *model.Usuario) error {
 	return r.Db.Create(usuario).Error
 }
+
 func (r *usuarioRepository) FindByEmail(email string) (*model.Usuario, error) {
 	var usuario model.Usuario
 	err := r.Db.Where("email = ?", email).First(&usuario).Error
@@ -32,4 +34,10 @@ func (r *usuarioRepository) FindByID(id uint) (*model.Usuario, error) {
 	var usuario model.Usuario
 	err := r.Db.First(&usuario, id).Error
 	return &usuario, err
+}
+
+func (r *usuarioRepository) GetAll() ([]model.Usuario, error) {
+	var usuarios []model.Usuario
+	err := r.Db.Find(&usuarios).Error
+	return usuarios, err
 }

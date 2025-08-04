@@ -3,6 +3,7 @@ package usuario
 import (
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"net/http"
+	"strconv"
 )
 import "github.com/gin-gonic/gin"
 
@@ -14,6 +15,33 @@ func NewUsuarioHandler(s UsuarioService) *UsuarioHandler {
 	return &UsuarioHandler{
 		service: s,
 	}
+}
+
+func (h *UsuarioHandler) GetByIdHandler(c *gin.Context) {
+	id := c.Param("id")
+
+	convert, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário deve ser um número"})
+		return
+	}
+
+	usuario, err := h.service.FindByID(uint(convert))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"erro dnv chefe": "a porra do id não existe"})
+		return
+	}
+	c.JSON(http.StatusOK, usuario)
+}
+
+func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
+	usuarios, err := h.service.GetAll()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"erro nessa porra": "erro na logica nessa porra chefe"})
+		return
+	}
+	c.JSON(http.StatusOK, usuarios)
+
 }
 
 func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
