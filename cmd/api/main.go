@@ -47,21 +47,24 @@ func main() {
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService)
 	authHandler := auth.NewAuthHandler(authService)
 
+	authMiddleware := auth.AuthMiddleware(jwtService)
+
 	router := gin.Default()
 
 	// Agrupamos as rotas da nossa API sob o prefixo /api/v1 para organização.
 	apiV1 := router.Group("/api/v1")
 	{
-
-		apiV1.POST("/usuarios", usuarioHandler.CriarUsuarioHandler)
 		apiV1.POST("/auth/login", authHandler.Login)
-		apiV1.GET("/usuarios", usuarioHandler.GetAllUsuariosHandler)
-		apiV1.GET("/usuarios/:id", usuarioHandler.GetByIdHandler)
-		apiV1.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler)
+		apiV1.POST("/usuarios", usuarioHandler.CriarUsuarioHandler)
 
-		// ... AQUI É ONDE VOCÊ ADICIONARÁ AS OUTRAS ROTAS NO FUTURO ...
-		// Ex: apiV1.POST("/login", authHandler.Login)
-		// Ex: apiV1.GET("/usuarios/:id", usuarioHandler.BuscarUsuarioPorIDHandler)
+		rotasProtegidas := apiV1.Group("")
+		rotasProtegidas.Use(authMiddleware)
+		{
+			// Agora, mova as rotas que você quer proteger para dentro deste bloco.
+			rotasProtegidas.GET("/usuarios", usuarioHandler.GetAllUsuariosHandler)
+			rotasProtegidas.GET("/usuarios/:id", usuarioHandler.GetByIdHandler)
+			rotasProtegidas.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler)
+		}
 	}
 
 	// --- PASSO 6: Ligar o Servidor ---
