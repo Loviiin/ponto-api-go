@@ -101,3 +101,31 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusCreated, usuario)
 }
+
+func (h *UsuarioHandler) GetMeuPerfil(c *gin.Context) {
+	valorID, existe := c.Get("userID")
+	if !existe {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID do usuário não encontrado no contexto"})
+		return
+	}
+
+	idString, ok := valorID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID do usuário no contexto está em formato inválido"})
+		return
+	}
+
+	convertido, err := strconv.ParseUint(idString, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID do usuário no token é inválido"})
+		return
+	}
+
+	usuario, err := h.service.FindByID(uint(convertido))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
+		return
+	}
+
+	c.JSON(http.StatusOK, usuario)
+}

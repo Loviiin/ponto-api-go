@@ -64,6 +64,7 @@ func main() {
 			rotasProtegidas.GET("/usuarios", usuarioHandler.GetAllUsuariosHandler)
 			rotasProtegidas.GET("/usuarios/:id", usuarioHandler.GetByIdHandler)
 			rotasProtegidas.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler)
+			rotasProtegidas.GET("/usuarios/me", usuarioHandler.GetMeuPerfil)
 		}
 	}
 
