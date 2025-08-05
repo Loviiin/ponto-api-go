@@ -47,7 +47,25 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 }
 
 func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
+
+	idToken, existe := c.Get("userID")
+	if !existe {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID do usuário não encontrado no contexto"})
+		return
+	}
+	idTokenStr, ok := idToken.(string)
+
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID do usuário no contexto está em formato inválido"})
+		return
+	}
+
 	idStr := c.Param("id")
+
+	if idStr != idTokenStr {
+		c.JSON(http.StatusForbidden, gin.H{"error": "você não tem permissão para editar este usuário"})
+		return
+	}
 
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
