@@ -11,6 +11,7 @@ type UsuarioRepository interface {
 	FindByID(id uint) (*model.Usuario, error)
 	GetAll() ([]model.Usuario, error)
 	Update(id uint, dados map[string]interface{}) error
+	Delete(id uint) error
 }
 
 type usuarioRepository struct {
@@ -45,5 +46,10 @@ func (r *usuarioRepository) GetAll() ([]model.Usuario, error) {
 
 func (r *usuarioRepository) Update(id uint, dados map[string]interface{}) error {
 	err := r.Db.Model(&model.Usuario{}).Where("id = ?", id).Updates(dados).Error
+	return err
+}
+
+func (r *usuarioRepository) Delete(id uint) error {
+	err := r.Db.Delete(&model.Usuario{}, id).Error
 	return err
 }

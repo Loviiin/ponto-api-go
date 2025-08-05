@@ -12,6 +12,7 @@ type UsuarioService interface {
 	GetAll() ([]model.Usuario, error)
 	FindByID(id uint) (*model.Usuario, error)
 	Update(id uint, dados map[string]interface{}) error
+	Delete(id uint) error
 }
 
 type usuarioService struct {
@@ -55,4 +56,12 @@ func (s *usuarioService) Update(id uint, dados map[string]interface{}) error {
 		return err
 	}
 	return s.usuarioRepo.Update(id, dados)
+}
+
+func (s *usuarioService) Delete(id uint) error {
+	_, err := s.usuarioRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+	return s.usuarioRepo.Delete(id)
 }

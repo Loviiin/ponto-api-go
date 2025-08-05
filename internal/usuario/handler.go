@@ -46,6 +46,45 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 
 }
 
+func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
+	idUrl := c.Param("id")
+	idToken, existe := c.Get("userID")
+
+	if !existe {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID do usuário não encontrado no contexto"})
+		return
+	}
+
+	idTokenStr, ok := idToken.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID do usuário no contexto está em formato inválido"})
+		return
+	}
+	if idUrl != idTokenStr {
+		c.JSON(http.StatusForbidden, gin.H{"error": "você não tem permissão para deletar este usuário"})
+		return
+	}
+
+	id, err := strconv.ParseUint(idUrl, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário deve ser um número"})
+		return
+	}
+
+	err = h.service.Delete(uint(id))
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao deletar o usuário"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 
 	idToken, existe := c.Get("userID")
