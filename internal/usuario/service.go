@@ -15,6 +15,8 @@ type UsuarioService interface {
 	Delete(id uint) error
 }
 
+var criptografaSenha = password.CriptografaSenha
+
 type usuarioService struct {
 	usuarioRepo UsuarioRepository
 }
@@ -42,7 +44,7 @@ func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err // Retorna o erro original do banco.
 	}
-	SenhaHash, err := password.CriptografaSenha(usuario.Senha)
+	SenhaHash, err := criptografaSenha(usuario.Senha)
 	if err != nil {
 		return err
 	}
