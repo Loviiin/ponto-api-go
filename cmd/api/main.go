@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Loviiin/ponto-api-go/internal/auth"
+	"github.com/Loviiin/ponto-api-go/internal/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/usuario"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
 	"log"
@@ -32,7 +33,7 @@ func main() {
 	}
 	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
 
-	err = db.AutoMigrate(&model.Usuario{})
+	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{})
 	if err != nil {
 		log.Fatal("Falha ao rodar a migração: ", err)
 	}
@@ -40,12 +41,15 @@ func main() {
 
 	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
 	usuarioRepo := usuario.NewUsuarioRepository(db)
+	pontoRepo := ponto.NewPontoRepository(db)
 
 	usuarioService := usuario.NewUsuarioService(usuarioRepo)
 	authService := auth.NewAuthService(usuarioRepo, jwtService)
+	pontoService := ponto.NewPontoService(pontoRepo)
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService)
 	authHandler := auth.NewAuthHandler(authService)
+	pontoHandler := ponto.NewPontoHandler(pontoService)
 
 	authMiddleware := auth.AuthMiddleware(jwtService)
 
@@ -66,6 +70,7 @@ func main() {
 			rotasProtegidas.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler)
 			rotasProtegidas.GET("/usuarios/me", usuarioHandler.GetMeuPerfil)
 			rotasProtegidas.DELETE("/usuarios/:id", usuarioHandler.DeleteHandler)
+			rotasProtegidas.POST("/pontos", pontoHandler.BaterPonto)
 		}
 	}
 
