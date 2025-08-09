@@ -1,12 +1,12 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/Loviiin/ponto-api-go/pkg/jwt"
+	"github.com/Loviiin/ponto-api-go/pkg/jwt" // Importa o nosso serviço de JWT
 	"github.com/gin-gonic/gin"
-	jwtv5 "github.com/golang-jwt/jwt/v5"
 )
 
 func AuthMiddleware(jwtService *jwt.JWTService) gin.HandlerFunc {
@@ -30,18 +30,18 @@ func AuthMiddleware(jwtService *jwt.JWTService) gin.HandlerFunc {
 			return
 		}
 
-		claims, ok := token.Claims.(jwtv5.MapClaims)
+		claims, ok := token.Claims.(*jwt.PontoClaims)
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Não foi possível processar as claims do token"})
 			return
 		}
-		userID, err := claims.GetSubject()
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "ID do usuário não encontrado no token"})
-			return
-		}
+
+		userID := claims.Subject
+
+		empresaID := fmt.Sprintf("%d", claims.EmpresaID)
 
 		c.Set("userID", userID)
+		c.Set("empresaID", empresaID)
 
 		c.Next()
 	}

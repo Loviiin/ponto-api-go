@@ -1,9 +1,10 @@
 package ponto
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 type PontoHandler struct {
@@ -33,6 +34,21 @@ func (h *PontoHandler) BaterPonto(c *gin.Context) {
 		return
 	}
 
+	valorEmpresaID, existe := c.Get("empresaID")
+	if !existe {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID da empresa não encontrado no contexto"})
+		return
+	}
+	idEmpresaString, ok := valorEmpresaID.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID da empresa no contexto está em formato inválido"})
+		return
+	}
+	empresaID, err := strconv.ParseUint(idEmpresaString, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID da empresa no token é inválido"})
+		return
+	}
 	type BaterPontoRequest struct {
 		Latitude  float64 `json:"latitude"`
 		Longitude float64 `json:"longitude"`
@@ -43,7 +59,7 @@ func (h *PontoHandler) BaterPonto(c *gin.Context) {
 		return
 	}
 
-	pontoRegistrado, err := h.service.BaterPonto(uint(usuarioID), requisicao.Latitude, requisicao.Longitude)
+	pontoRegistrado, err := h.service.BaterPonto(uint(usuarioID), uint(empresaID), requisicao.Latitude, requisicao.Longitude)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao registrar o ponto"})
 		return

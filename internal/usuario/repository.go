@@ -8,10 +8,10 @@ import (
 type UsuarioRepository interface {
 	Save(usuario *model.Usuario) error
 	FindByEmail(email string) (*model.Usuario, error)
-	FindByID(id uint) (*model.Usuario, error)
-	GetAll() ([]model.Usuario, error)
-	Update(id uint, dados map[string]interface{}) error
-	Delete(id uint) error
+	FindByID(id uint, empresaID uint) (*model.Usuario, error)
+	GetAll(empresaID uint) ([]model.Usuario, error)
+	Update(id uint, empresaID uint, dados map[string]interface{}) error
+	Delete(id uint, empresaID uint) error
 }
 
 type usuarioRepository struct {
@@ -32,24 +32,24 @@ func (r *usuarioRepository) FindByEmail(email string) (*model.Usuario, error) {
 	return &usuario, err
 }
 
-func (r *usuarioRepository) FindByID(id uint) (*model.Usuario, error) {
+func (r *usuarioRepository) FindByID(id uint, empresaID uint) (*model.Usuario, error) {
 	var usuario model.Usuario
-	err := r.Db.First(&usuario, id).Error
+	err := r.Db.Where("id = ? AND empresa_id = ?", id, empresaID).First(&usuario).Error
 	return &usuario, err
 }
 
-func (r *usuarioRepository) GetAll() ([]model.Usuario, error) {
+func (r *usuarioRepository) GetAll(empresaID uint) ([]model.Usuario, error) {
 	var usuarios []model.Usuario
-	err := r.Db.Order("id asc").Find(&usuarios).Error
+	err := r.Db.Where("empresa_id = ?", empresaID).Order("id asc").Find(&usuarios).Error
 	return usuarios, err
 }
 
-func (r *usuarioRepository) Update(id uint, dados map[string]interface{}) error {
-	err := r.Db.Model(&model.Usuario{}).Where("id = ?", id).Updates(dados).Error
+func (r *usuarioRepository) Update(id uint, empresaID uint, dados map[string]interface{}) error {
+	err := r.Db.Model(&model.Usuario{}).Where("id = ? AND empresa_id = ?", id, empresaID).Updates(dados).Error
 	return err
 }
 
-func (r *usuarioRepository) Delete(id uint) error {
-	err := r.Db.Delete(&model.Usuario{}, id).Error
+func (r *usuarioRepository) Delete(id uint, empresaID uint) error {
+	err := r.Db.Delete(&model.Usuario{}, "id = ? AND empresa_id = ?", id, empresaID).Error
 	return err
 }
