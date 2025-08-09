@@ -9,10 +9,10 @@ import (
 
 type UsuarioService interface {
 	CriarUsuario(usuario *model.Usuario) error
-	GetAll() ([]model.Usuario, error)
-	FindByID(id uint) (*model.Usuario, error)
-	Update(id uint, dados map[string]interface{}) error
-	Delete(id uint) error
+	GetAll(empresaID uint) ([]model.Usuario, error)
+	FindByID(id uint, empresaID uint) (*model.Usuario, error)
+	Update(id uint, empresaID uint, dados map[string]interface{}) error
+	Delete(id uint, empresaID uint) error
 }
 
 var criptografaSenha = password.CriptografaSenha
@@ -27,22 +27,21 @@ func NewUsuarioService(repo UsuarioRepository) UsuarioService {
 	}
 }
 
-func (s *usuarioService) GetAll() ([]model.Usuario, error) {
-	return s.usuarioRepo.GetAll()
+func (s *usuarioService) GetAll(empresaID uint) ([]model.Usuario, error) {
+	return s.usuarioRepo.GetAll(empresaID)
 }
 
-func (s *usuarioService) FindByID(id uint) (*model.Usuario, error) {
-	return s.usuarioRepo.FindByID(id)
+func (s *usuarioService) FindByID(id uint, empresaID uint) (*model.Usuario, error) {
+	return s.usuarioRepo.FindByID(id, empresaID)
 }
 
 func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {
 	_, err := s.usuarioRepo.FindByEmail(usuario.Email)
 	if err == nil {
-		// Se err é nulo, o usuário foi encontrado, então o e-mail já existe.
-		return errors.New("e-mail já cadastrado")
+		return errors.New("e-mail já cadastrado nesta empresa")
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err // Retorna o erro original do banco.
+		return err
 	}
 	SenhaHash, err := criptografaSenha(usuario.Senha)
 	if err != nil {
@@ -52,18 +51,18 @@ func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {
 	return s.usuarioRepo.Save(usuario)
 }
 
-func (s *usuarioService) Update(id uint, dados map[string]interface{}) error {
-	_, err := s.usuarioRepo.FindByID(id)
+func (s *usuarioService) Update(id uint, empresaID uint, dados map[string]interface{}) error {
+	_, err := s.usuarioRepo.FindByID(id, empresaID)
 	if err != nil {
 		return err
 	}
-	return s.usuarioRepo.Update(id, dados)
+	return s.usuarioRepo.Update(id, empresaID, dados)
 }
 
-func (s *usuarioService) Delete(id uint) error {
-	_, err := s.usuarioRepo.FindByID(id)
+func (s *usuarioService) Delete(id uint, empresaID uint) error {
+	_, err := s.usuarioRepo.FindByID(id, empresaID)
 	if err != nil {
 		return err
 	}
-	return s.usuarioRepo.Delete(id)
+	return s.usuarioRepo.Delete(id, empresaID)
 }

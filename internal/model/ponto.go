@@ -11,8 +11,9 @@ type RegistroPonto struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 
+	Tipo      string  `json:"tipo"`
 	UsuarioID uint    `gorm:"not null" json:"usuario_id"`
 	Usuario   Usuario `json:"-"`
-
-	EmpresaID uint `gorm:"not null" json:"empresa_id"`
+	EmpresaID uint    `gorm:"not null" json:"empresa_id"`
+	Empresa   Empresa `json:"-"`
 }

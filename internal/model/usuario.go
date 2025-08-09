@@ -7,7 +7,10 @@ type Usuario struct {
 	Nome      string    `gorm:"not null"   json:"nome"`
 	Email     string    `gorm:"unique;not null" json:"email"`
 	Senha     string    `gorm:"not null" json:"-"`
-	Cargo     string    `gorm:"not null" json:"cargo"`
+	EmpresaID uint      `gorm:"not null" json:"empresa_id"`
+	Empresa   Empresa   `json:"-"`
+	CargoID   uint      `gorm:"not null" json:"cargo_id"`
+	Cargo     Cargo     `json:"-"`
 	CreatedAt time.Time `gorm:"column:data_criacao" json:"data_criacao"`
 	UpdatedAt time.Time `gorm:"column:data_atualizacao" json:"data_atualizacao"`
 }

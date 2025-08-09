@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Loviiin/ponto-api-go/internal/auth"
+	"github.com/Loviiin/ponto-api-go/internal/empresa"
 	"github.com/Loviiin/ponto-api-go/internal/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/usuario"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
@@ -33,7 +34,7 @@ func main() {
 	}
 	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
 
-	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{})
+	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{})
 	if err != nil {
 		log.Fatal("Falha ao rodar a migração: ", err)
 	}
@@ -42,10 +43,11 @@ func main() {
 	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
 	usuarioRepo := usuario.NewUsuarioRepository(db)
 	pontoRepo := ponto.NewPontoRepository(db)
+	empresaRepo := empresa.NewEmpresaRepository(db)
 
 	usuarioService := usuario.NewUsuarioService(usuarioRepo)
 	authService := auth.NewAuthService(usuarioRepo, jwtService)
-	pontoService := ponto.NewPontoService(pontoRepo)
+	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo)
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService)
 	authHandler := auth.NewAuthHandler(authService)
