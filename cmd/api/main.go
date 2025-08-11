@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	auth2 "github.com/Loviiin/ponto-api-go/internal/domain/auth"
+	"github.com/Loviiin/ponto-api-go/internal/domain/cargo"
 	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
 	ponto2 "github.com/Loviiin/ponto-api-go/internal/domain/ponto"
 	usuario2 "github.com/Loviiin/ponto-api-go/internal/domain/usuario"
@@ -42,23 +43,27 @@ func main() {
 	log.Println("Migração do banco de dados executada com sucesso.")
 
 	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
+	funcoesService := funcoes.NewFuncoes()
+
 	usuarioRepo := usuario2.NewUsuarioRepository(db)
 	pontoRepo := ponto2.NewPontoRepository(db)
 	empresaRepo := empresa.NewEmpresaRepository(db)
-	funcoesService := funcoes.NewFuncoes()
+	cargoRepo := cargo.NewCargoRepository(db)
 
 	usuarioService := usuario2.NewUsuarioService(usuarioRepo)
 	authService := auth2.NewAuthService(usuarioRepo, jwtService)
 	pontoService := ponto2.NewPontoService(pontoRepo, usuarioRepo, empresaRepo)
 	empresaService := empresa.NewEmpresaService(empresaRepo)
+	cargoService := cargo.NewCargoService(cargoRepo)
 
 	usuarioHandler := usuario2.NewUsuarioHandler(usuarioService, funcoesService)
 	authHandler := auth2.NewAuthHandler(authService)
 	pontoHandler := ponto2.NewPontoHandler(pontoService)
 	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, usuarioService)
+	cargoHandler := cargo.NewCargoHandler(cargoService, funcoesService)
 
 	authMiddleware := auth2.AuthMiddleware(jwtService)
-	//adminAuthMiddleware: = auth2.RoleAuthMiddleware(usuarioService, funcoesService, "ADMIN")
+	adminAuthMiddleware := auth2.RoleAuthMiddleware(usuarioService, funcoesService, "ADMIN")
 
 	router := gin.Default()
 
@@ -74,18 +79,25 @@ func main() {
 		rotasProtegidas := apiV1.Group("")
 		rotasProtegidas.Use(authMiddleware)
 		{
-			// Agora, mova as rotas que você quer proteger para dentro deste bloco.
+			// Rotas de Usuário
 			rotasProtegidas.GET("/usuarios", usuarioHandler.GetAllUsuariosHandler)
 			rotasProtegidas.GET("/usuarios/:id", usuarioHandler.GetByIdHandler)
 			rotasProtegidas.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler)
 			rotasProtegidas.GET("/usuarios/me", usuarioHandler.GetMeuPerfil)
 			rotasProtegidas.DELETE("/usuarios/:id", usuarioHandler.DeleteHandler)
+
+			// Rota de Ponto
 			rotasProtegidas.POST("/pontos", pontoHandler.BaterPonto)
-			rotasProtegidas.PUT("/empresas/:id", empresaHandler.UpdateEmpresaHandler)
-			rotasProtegidas.DELETE("/empresas/:id", empresaHandler.DeleteEmpresaHandler)
-			//		rotasProtegidas.PUT("/empresas/:id", adminAuthMiddleware, empresaHandler.UpdateEmpresaHandler)
-			//		rotasProtegidas.DELETE("/empresas/:id", adminAuthMiddleware, empresaHandler.DeleteEmpresaHandler)
-			//adicionar para quando tiver a verificação de cargos
+
+			// Rotas de Cargo (requerem login)
+			rotasProtegidas.POST("/cargos", cargoHandler.CreateCargo)
+			rotasProtegidas.GET("/cargos", cargoHandler.GetAllCargos)
+			rotasProtegidas.PUT("/cargos/:id", cargoHandler.UpdateCargo)
+			rotasProtegidas.DELETE("/cargos/:id", cargoHandler.DeleteCargo)
+
+			// Rotas de Empresa (requerem login E cargo de ADMIN)
+			rotasProtegidas.PUT("/empresas/:id", adminAuthMiddleware, empresaHandler.UpdateEmpresaHandler)
+			rotasProtegidas.DELETE("/empresas/:id", adminAuthMiddleware, empresaHandler.DeleteEmpresaHandler)
 		}
 	}
 
