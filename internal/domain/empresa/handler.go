@@ -86,32 +86,9 @@ func (h *EmpresaHandler) GetEmpresaByIDHandler(c *gin.Context) {
 }
 
 func (h *EmpresaHandler) UpdateEmpresaHandler(c *gin.Context) {
-	idEmpresaURL := c.Param("id")
-
-	idEmpresaToken, _ := c.Get("empresaID")
-	idUsuarioToken, _ := c.Get("userID")
-
-	if idEmpresaURL != idEmpresaToken.(string) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado. Você não tem permissão para editar esta empresa."})
-		return
-	}
-
-	idEmpresa, err := h.converter.StrParaUint(idEmpresaURL)
+	idEmpresa, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID da empresa na URL é inválido."})
-		return
-	}
-	idUsuario, _ := h.converter.StrParaUint(idUsuarioToken.(string))
-
-	usuario, err := h.usuario.FindByID(idUsuario, idEmpresa)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Usuário de autenticação não encontrado."})
-		return
-	}
-
-	// TODO: Refatorar esta lógica para usar o motor de RBAC (Issue #29)
-	if usuario.Cargo.Nome == "ADMIN" { // <<<<<< SUA LÓGICA DE CARGO AQUI
-		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado. Seu cargo não tem permissão para executar esta ação."})
 		return
 	}
 
@@ -130,33 +107,9 @@ func (h *EmpresaHandler) UpdateEmpresaHandler(c *gin.Context) {
 }
 
 func (h *EmpresaHandler) DeleteEmpresaHandler(c *gin.Context) {
-
-	idEmpresaURL := c.Param("id")
-
-	idEmpresaToken, _ := c.Get("empresaID")
-	idUsuarioToken, _ := c.Get("userID")
-
-	if idEmpresaURL != idEmpresaToken.(string) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado. Você não tem permissão para deletar esta empresa."})
-		return
-	}
-
-	idEmpresa, err := h.converter.StrParaUint(idEmpresaURL)
+	idEmpresa, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID da empresa na URL é inválido."})
-		return
-	}
-	idUsuario, _ := h.converter.StrParaUint(idUsuarioToken.(string))
-
-	usuario, err := h.usuario.FindByID(idUsuario, idEmpresa)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Usuário de autenticação não encontrado."})
-		return
-	}
-
-	// TODO: Refatorar esta lógica para usar o motor de RBAC (Issue #29)
-	if usuario.Cargo.Nome != "ADMIN" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado. Seu cargo não tem permissão para executar esta ação."})
 		return
 	}
 

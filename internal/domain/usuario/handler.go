@@ -2,57 +2,38 @@ package usuario
 
 import (
 	"errors"
-	"net/http"
-	"strconv"
-
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"net/http"
 )
 
 type UsuarioHandler struct {
-	service UsuarioService
+	service   UsuarioService
+	converter funcoes.FuncoesInterface
 }
 
-func NewUsuarioHandler(s UsuarioService) *UsuarioHandler {
+func NewUsuarioHandler(s UsuarioService, f funcoes.FuncoesInterface) *UsuarioHandler {
 	return &UsuarioHandler{
-		service: s,
+		service:   s,
+		converter: f,
 	}
-}
-
-func getEmpresaIDFromContext(c *gin.Context) (uint, error) {
-	valorEmpresaID, existe := c.Get("empresaID")
-	if !existe {
-		return 0, errors.New("ID da empresa não encontrado no contexto")
-	}
-
-	empresaIDStr, ok := valorEmpresaID.(string)
-	if !ok {
-		return 0, errors.New("ID da empresa no contexto está em formato inválido")
-	}
-
-	empresaID, err := strconv.ParseUint(empresaIDStr, 10, 64)
-	if err != nil {
-		return 0, errors.New("ID da empresa no token é inválido")
-	}
-
-	return uint(empresaID), nil
 }
 
 func (h *UsuarioHandler) GetByIdHandler(c *gin.Context) {
-	empresaID, err := getEmpresaIDFromContext(c)
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	id, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário deve ser um número"})
 		return
 	}
-	usuario, err := h.service.FindByID(uint(id), empresaID)
+	usuario, err := h.service.FindByID(id, empresaID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
 		return
@@ -61,7 +42,7 @@ func (h *UsuarioHandler) GetByIdHandler(c *gin.Context) {
 }
 
 func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
-	empresaID, err := getEmpresaIDFromContext(c)
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -75,24 +56,29 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 }
 
 func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
-	empresaID, err := getEmpresaIDFromContext(c)
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	idUrl := c.Param("id")
-	idToken, _ := c.Get("userID")
-	if idUrl != idToken.(string) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Você não tem permissão para deletar este usuário"})
+
+	idToken, err := h.converter.GetUintIDFromContext(c, "userID")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	id, err := strconv.ParseUint(idUrl, 10, 64)
+
+	idUrl, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário deve ser um número"})
 		return
 	}
 
-	err = h.service.Delete(uint(id), empresaID)
+	if idUrl != idToken {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Você não tem permissão para deletar este usuário"})
+		return
+	}
+	err = h.service.Delete(idUrl, empresaID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
@@ -106,22 +92,26 @@ func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
 }
 
 func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
-	empresaID, err := getEmpresaIDFromContext(c)
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	idToken, _ := c.Get("userID")
-	idStr := c.Param("id")
-	if idStr != idToken.(string) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Você não tem permissão para editar este usuário"})
+	idToken, err := h.converter.GetUintIDFromContext(c, "userID")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	idUrl, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário deve ser um número"})
+		return
+	}
+
+	if idUrl != idToken {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Você não tem permissão para editar este usuário"})
 		return
 	}
 
@@ -131,7 +121,7 @@ func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 		return
 	}
 
-	err = h.service.Update(uint(id), empresaID, dadosParaAtualizar)
+	err = h.service.Update(idUrl, empresaID, dadosParaAtualizar)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
@@ -174,17 +164,19 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 }
 
 func (h *UsuarioHandler) GetMeuPerfil(c *gin.Context) {
-	empresaID, err := getEmpresaIDFromContext(c)
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	valorID, _ := c.Get("userID")
-	idString, _ := valorID.(string)
-	id, _ := strconv.ParseUint(idString, 10, 64)
+	id, err := h.converter.GetUintIDFromContext(c, "userID")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-	usuario, err := h.service.FindByID(uint(id), empresaID)
+	usuario, err := h.service.FindByID(id, empresaID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
 		return

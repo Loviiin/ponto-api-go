@@ -52,12 +52,13 @@ func main() {
 	pontoService := ponto2.NewPontoService(pontoRepo, usuarioRepo, empresaRepo)
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 
-	usuarioHandler := usuario2.NewUsuarioHandler(usuarioService)
+	usuarioHandler := usuario2.NewUsuarioHandler(usuarioService, funcoesService)
 	authHandler := auth2.NewAuthHandler(authService)
 	pontoHandler := ponto2.NewPontoHandler(pontoService)
 	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, usuarioService)
 
 	authMiddleware := auth2.AuthMiddleware(jwtService)
+	//adminAuthMiddleware: = auth2.RoleAuthMiddleware(usuarioService, funcoesService, "ADMIN")
 
 	router := gin.Default()
 
@@ -82,6 +83,9 @@ func main() {
 			rotasProtegidas.POST("/pontos", pontoHandler.BaterPonto)
 			rotasProtegidas.PUT("/empresas/:id", empresaHandler.UpdateEmpresaHandler)
 			rotasProtegidas.DELETE("/empresas/:id", empresaHandler.DeleteEmpresaHandler)
+			//		rotasProtegidas.PUT("/empresas/:id", adminAuthMiddleware, empresaHandler.UpdateEmpresaHandler)
+			//		rotasProtegidas.DELETE("/empresas/:id", adminAuthMiddleware, empresaHandler.DeleteEmpresaHandler)
+			//adicionar para quando tiver a verificação de cargos
 		}
 	}
 
