@@ -1,9 +1,9 @@
 package ponto
 
 import (
-	"github.com/Loviiin/ponto-api-go/internal/empresa"
+	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
+	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 	"github.com/Loviiin/ponto-api-go/internal/model"
-	"github.com/Loviiin/ponto-api-go/internal/usuario"
 	"github.com/umahmood/haversine"
 	"time"
 )

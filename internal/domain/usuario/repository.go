@@ -34,7 +34,7 @@ func (r *usuarioRepository) FindByEmail(email string) (*model.Usuario, error) {
 
 func (r *usuarioRepository) FindByID(id uint, empresaID uint) (*model.Usuario, error) {
 	var usuario model.Usuario
-	err := r.Db.Where("id = ? AND empresa_id = ?", id, empresaID).First(&usuario).Error
+	err := r.Db.Where("id = ? AND empresa_id = ?", id, empresaID).Preload("Cargo").First(&usuario).Error
 	return &usuario, err
 }
 
