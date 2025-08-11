@@ -20,8 +20,6 @@ func NewUsuarioHandler(s UsuarioService) *UsuarioHandler {
 	}
 }
 
-// getEmpresaIDFromContext é uma função helper privada para evitar repetição de código.
-// Ela extrai o empresaID do contexto do Gin de forma segura.
 func getEmpresaIDFromContext(c *gin.Context) (uint, error) {
 	valorEmpresaID, existe := c.Get("empresaID")
 	if !existe {

@@ -2,7 +2,7 @@ package auth
 
 import (
 	"errors"
-	"github.com/Loviiin/ponto-api-go/internal/usuario"
+	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
 	"github.com/Loviiin/ponto-api-go/pkg/password"
 	"gorm.io/gorm"

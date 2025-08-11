@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/Loviiin/ponto-api-go/internal/auth"
-	"github.com/Loviiin/ponto-api-go/internal/empresa"
-	"github.com/Loviiin/ponto-api-go/internal/ponto"
-	"github.com/Loviiin/ponto-api-go/internal/usuario"
+	auth2 "github.com/Loviiin/ponto-api-go/internal/domain/auth"
+	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
+	ponto2 "github.com/Loviiin/ponto-api-go/internal/domain/ponto"
+	usuario2 "github.com/Loviiin/ponto-api-go/internal/domain/usuario"
+	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
 	"log"
 
@@ -41,19 +42,22 @@ func main() {
 	log.Println("Migração do banco de dados executada com sucesso.")
 
 	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
-	usuarioRepo := usuario.NewUsuarioRepository(db)
-	pontoRepo := ponto.NewPontoRepository(db)
+	usuarioRepo := usuario2.NewUsuarioRepository(db)
+	pontoRepo := ponto2.NewPontoRepository(db)
 	empresaRepo := empresa.NewEmpresaRepository(db)
+	funcoesService := funcoes.NewFuncoes()
 
-	usuarioService := usuario.NewUsuarioService(usuarioRepo)
-	authService := auth.NewAuthService(usuarioRepo, jwtService)
-	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo)
+	usuarioService := usuario2.NewUsuarioService(usuarioRepo)
+	authService := auth2.NewAuthService(usuarioRepo, jwtService)
+	pontoService := ponto2.NewPontoService(pontoRepo, usuarioRepo, empresaRepo)
+	empresaService := empresa.NewEmpresaService(empresaRepo)
 
-	usuarioHandler := usuario.NewUsuarioHandler(usuarioService)
-	authHandler := auth.NewAuthHandler(authService)
-	pontoHandler := ponto.NewPontoHandler(pontoService)
+	usuarioHandler := usuario2.NewUsuarioHandler(usuarioService)
+	authHandler := auth2.NewAuthHandler(authService)
+	pontoHandler := ponto2.NewPontoHandler(pontoService)
+	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, usuarioService)
 
-	authMiddleware := auth.AuthMiddleware(jwtService)
+	authMiddleware := auth2.AuthMiddleware(jwtService)
 
 	router := gin.Default()
 
@@ -62,6 +66,9 @@ func main() {
 	{
 		apiV1.POST("/auth/login", authHandler.Login)
 		apiV1.POST("/usuarios", usuarioHandler.CriarUsuarioHandler)
+		apiV1.POST("/empresas", empresaHandler.CriarEmpresaHandler)
+		apiV1.GET("/empresas", empresaHandler.GetAllEmpresasHandler)
+		apiV1.GET("/empresas/:id", empresaHandler.GetEmpresaByIDHandler)
 
 		rotasProtegidas := apiV1.Group("")
 		rotasProtegidas.Use(authMiddleware)
@@ -73,6 +80,8 @@ func main() {
 			rotasProtegidas.GET("/usuarios/me", usuarioHandler.GetMeuPerfil)
 			rotasProtegidas.DELETE("/usuarios/:id", usuarioHandler.DeleteHandler)
 			rotasProtegidas.POST("/pontos", pontoHandler.BaterPonto)
+			rotasProtegidas.PUT("/empresas/:id", empresaHandler.UpdateEmpresaHandler)
+			rotasProtegidas.DELETE("/empresas/:id", empresaHandler.DeleteEmpresaHandler)
 		}
 	}
 
