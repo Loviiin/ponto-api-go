@@ -157,7 +157,7 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 
 	err := h.service.CriarUsuario(&usuario)
 	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, usuario)

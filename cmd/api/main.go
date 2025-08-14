@@ -50,7 +50,7 @@ func main() {
 	empresaRepo := empresa.NewEmpresaRepository(db)
 	cargoRepo := cargo.NewCargoRepository(db)
 
-	usuarioService := usuario2.NewUsuarioService(usuarioRepo)
+	usuarioService := usuario2.NewUsuarioService(usuarioRepo, cargoRepo, empresaRepo)
 	authService := auth2.NewAuthService(usuarioRepo, jwtService)
 	pontoService := ponto2.NewPontoService(pontoRepo, usuarioRepo, empresaRepo)
 	empresaService := empresa.NewEmpresaService(empresaRepo)
@@ -59,11 +59,11 @@ func main() {
 	usuarioHandler := usuario2.NewUsuarioHandler(usuarioService, funcoesService)
 	authHandler := auth2.NewAuthHandler(authService)
 	pontoHandler := ponto2.NewPontoHandler(pontoService)
-	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, usuarioService)
+	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService)
 	cargoHandler := cargo.NewCargoHandler(cargoService, funcoesService)
 
 	authMiddleware := auth2.AuthMiddleware(jwtService)
-	adminAuthMiddleware := auth2.RoleAuthMiddleware(usuarioService, funcoesService, "ADMIN")
+	adminAuthMiddleware := auth2.RoleAuthMiddleware(usuarioRepo, funcoesService, "ADMIN")
 
 	router := gin.Default()
 

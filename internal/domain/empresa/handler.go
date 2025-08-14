@@ -2,28 +2,29 @@ package empresa
 
 import (
 	"errors"
-	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
+	"net/http"
+
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"net/http"
 )
 
+// A struct agora é mais simples, sem a dependência do serviço de usuário.
 type EmpresaHandler struct {
 	service   EmpresaService
 	converter funcoes.FuncoesInterface
-	usuario   usuario.UsuarioService
 }
 
-func NewEmpresaHandler(s EmpresaService, f funcoes.FuncoesInterface, u usuario.UsuarioService) *EmpresaHandler {
+// O construtor também foi simplificado.
+func NewEmpresaHandler(s EmpresaService, f funcoes.FuncoesInterface) *EmpresaHandler {
 	return &EmpresaHandler{
 		service:   s,
 		converter: f,
-		usuario:   u,
 	}
 }
 
+// CriarEmpresaHandler não precisa de alterações.
 func (h *EmpresaHandler) CriarEmpresaHandler(c *gin.Context) {
 	type criaEmpresaRequest struct {
 		Nome               string  `json:"nome" binding:"required"`
@@ -52,21 +53,19 @@ func (h *EmpresaHandler) CriarEmpresaHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, empresa)
 }
 
+// GetAllEmpresasHandler não precisa de alterações.
 func (h *EmpresaHandler) GetAllEmpresasHandler(c *gin.Context) {
-
 	empresas, err := h.service.GetAllEmpresasSer()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar empresas"})
 		return
 	}
 	c.JSON(http.StatusOK, empresas)
-
 }
 
+// GetEmpresaByIDHandler não precisa de alterações.
 func (h *EmpresaHandler) GetEmpresaByIDHandler(c *gin.Context) {
-	idEmpresaStr := c.Param("id")
-
-	id, err := h.converter.StrParaUint(idEmpresaStr)
+	id, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID da empresa deve ser um número válido"})
 		return
@@ -81,10 +80,10 @@ func (h *EmpresaHandler) GetEmpresaByIDHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar empresa"})
 		return
 	}
-
 	c.JSON(http.StatusOK, empresa)
 }
 
+// UpdateEmpresaHandler não precisa de alterações.
 func (h *EmpresaHandler) UpdateEmpresaHandler(c *gin.Context) {
 	idEmpresa, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
@@ -106,6 +105,7 @@ func (h *EmpresaHandler) UpdateEmpresaHandler(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// DeleteEmpresaHandler não precisa de alterações.
 func (h *EmpresaHandler) DeleteEmpresaHandler(c *gin.Context) {
 	idEmpresa, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
