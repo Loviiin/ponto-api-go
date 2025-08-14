@@ -6,11 +6,12 @@ import (
 
 // CargoService define a interface para os serviços de Cargo.
 type CargoService interface {
-	Create(cargo *model.Cargo, empresaID uint) error
+	Create(cargo *model.Cargo) error
 	FindByID(id uint, empresaID uint) (*model.Cargo, error)
 	GetAllByEmpresaID(empresaID uint) ([]model.Cargo, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
 	Delete(id uint, empresaID uint) error
+	AddPermissionToCargo(cargoID uint, permissaoID uint, empresaID uint) error
 }
 
 type cargoService struct {
@@ -21,8 +22,7 @@ func NewCargoService(repo CargoRepository) CargoService {
 	return &cargoService{repo: repo}
 }
 
-func (s *cargoService) Create(cargo *model.Cargo, empresaID uint) error {
-	cargo.EmpresaID = empresaID
+func (s *cargoService) Create(cargo *model.Cargo) error {
 	return s.repo.Create(cargo)
 }
 
@@ -48,4 +48,13 @@ func (s *cargoService) Delete(id uint, empresaID uint) error {
 		return err
 	}
 	return s.repo.Delete(id, empresaID)
+}
+
+func (s *cargoService) AddPermissionToCargo(cargoID uint, permissaoID uint, empresaID uint) error {
+
+	_, err := s.repo.FindByID(cargoID, empresaID)
+	if err != nil {
+		return err
+	}
+	return s.repo.AddPermissionToCargo(cargoID, permissaoID)
 }

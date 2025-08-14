@@ -68,29 +68,19 @@ func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
 		return
 	}
 
-	idToken, err := h.converter.GetUintIDFromContext(c, "userID")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	idUrl, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário deve ser um número"})
 		return
 	}
 
-	if idUrl != idToken {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Você não tem permissão para deletar este usuário"})
-		return
-	}
 	err = h.service.Delete(idUrl, empresaID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado para ser deletado."})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao deletar o usuário"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao deletar o usuário."})
 		return
 	}
 

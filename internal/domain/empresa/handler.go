@@ -2,6 +2,7 @@ package empresa
 
 import (
 	"errors"
+	"github.com/Loviiin/ponto-api-go/internal/config"
 	"net/http"
 
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -14,13 +15,14 @@ import (
 type EmpresaHandler struct {
 	service   EmpresaService
 	converter funcoes.FuncoesInterface
+	Db        *gorm.DB // NOVA LINHA
 }
 
-// O construtor também foi simplificado.
-func NewEmpresaHandler(s EmpresaService, f funcoes.FuncoesInterface) *EmpresaHandler {
+func NewEmpresaHandler(s EmpresaService, f funcoes.FuncoesInterface, db *gorm.DB) *EmpresaHandler { // NOVO PARÂMETRO
 	return &EmpresaHandler{
 		service:   s,
 		converter: f,
+		Db:        db, // NOVA LINHA
 	}
 }
 
@@ -50,6 +52,9 @@ func (h *EmpresaHandler) CriarEmpresaHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	permissoes := config.SeedPermissions(h.Db)
+	config.SetupDefaultRolesAndPermissions(h.Db, empresa.ID, permissoes)
 	c.JSON(http.StatusCreated, empresa)
 }
 

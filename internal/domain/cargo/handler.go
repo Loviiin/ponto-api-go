@@ -23,24 +23,22 @@ func NewCargoHandler(s CargoService, f funcoes.FuncoesInterface) *CargoHandler {
 }
 
 func (h *CargoHandler) CreateCargo(c *gin.Context) {
-	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-
 	type createRequest struct {
-		Nome string `json:"nome" binding:"required"`
+		Nome      string `json:"nome" binding:"required"`
+		EmpresaID uint   `json:"empresa_id" binding:"required"`
 	}
 	var req createRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "O campo 'nome' é obrigatório."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "O corpo da requisição é inválido. 'nome' e 'empresa_id' são obrigatórios."})
 		return
 	}
 
-	cargo := model.Cargo{Nome: req.Nome}
+	cargo := model.Cargo{
+		Nome:      req.Nome,
+		EmpresaID: req.EmpresaID,
+	}
 
-	if err := h.service.Create(&cargo, empresaID); err != nil {
+	if err := h.service.Create(&cargo); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao criar o cargo."})
 		return
 	}
@@ -116,6 +114,40 @@ func (h *CargoHandler) DeleteCargo(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao deletar o cargo."})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (h *CargoHandler) AddPermissionToCargo(c *gin.Context) {
+	// Precisamos de obter a empresaID do token para garantir a segurança.
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	cargoID, err := h.converter.StrParaUint(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID do cargo inválido."})
+		return
+	}
+
+	permissaoID, err := h.converter.StrParaUint(c.Param("permissaoId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID da permissão inválido."})
+		return
+	}
+
+	// AQUI ESTÁ A CORREÇÃO: Enviamos os 3 argumentos que o serviço espera.
+	err = h.service.AddPermissionToCargo(cargoID, permissaoID, empresaID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Cargo ou Permissão não encontrado."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao adicionar permissão ao cargo."})
 		return
 	}
 
