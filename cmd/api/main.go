@@ -50,13 +50,13 @@ func main() {
 	empresaRepo := empresa.NewEmpresaRepository(db)
 	cargoRepo := cargo.NewCargoRepository(db)
 
-	usuarioService := usuario2.NewUsuarioService(usuarioRepo, cargoRepo, empresaRepo)
+	usuarioService := usuario2.NewUsuarioService(usuarioRepo)
 	authService := auth2.NewAuthService(usuarioRepo, jwtService)
 	pontoService := ponto2.NewPontoService(pontoRepo, usuarioRepo, empresaRepo)
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
 
-	usuarioHandler := usuario2.NewUsuarioHandler(usuarioService, funcoesService)
+	usuarioHandler := usuario2.NewUsuarioHandler(usuarioService, empresaService, cargoService, funcoesService)
 	authHandler := auth2.NewAuthHandler(authService)
 	pontoHandler := ponto2.NewPontoHandler(pontoService)
 	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService)
