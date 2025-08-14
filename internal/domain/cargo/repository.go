@@ -5,13 +5,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// CargoRepository define a interface para as operações de dados de Cargo.
 type CargoRepository interface {
 	Create(cargo *model.Cargo) error
 	FindByID(id uint, empresaID uint) (*model.Cargo, error)
 	GetAllByEmpresaID(empresaID uint) ([]model.Cargo, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
 	Delete(id uint, empresaID uint) error
+	AddPermissionToCargo(cargoID uint, permissaoID uint) error
 }
 
 type cargoRepository struct {
@@ -29,7 +29,7 @@ func (r *cargoRepository) Create(cargo *model.Cargo) error {
 
 func (r *cargoRepository) FindByID(id uint, empresaID uint) (*model.Cargo, error) {
 	var cargo model.Cargo
-	err := r.Db.Where("id = ? AND empresa_id = ?", id, empresaID).First(&cargo).Error
+	err := r.Db.Preload("Permissoes").Where("id = ? AND empresa_id = ?", id, empresaID).First(&cargo).Error
 	return &cargo, err
 }
 
@@ -45,4 +45,17 @@ func (r *cargoRepository) Update(id uint, empresaID uint, dados map[string]inter
 
 func (r *cargoRepository) Delete(id uint, empresaID uint) error {
 	return r.Db.Unscoped().Delete(&model.Cargo{}, "id = ? AND empresa_id = ?", id, empresaID).Error
+}
+
+func (r *cargoRepository) AddPermissionToCargo(cargoID uint, permissaoID uint) error {
+	var cargo model.Cargo
+	var permissao model.Permissao
+
+	if err := r.Db.First(&cargo, cargoID).Error; err != nil {
+		return err
+	}
+	if err := r.Db.First(&permissao, permissaoID).Error; err != nil {
+		return err
+	}
+	return r.Db.Model(&cargo).Association("Permissoes").Append(&permissao)
 }
