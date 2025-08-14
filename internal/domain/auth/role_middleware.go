@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RoleAuthMiddleware(usuarioService usuario.UsuarioService, funcoesService funcoes.FuncoesInterface, requiredRole string) gin.HandlerFunc {
+func RoleAuthMiddleware(usuarioRepo usuario.UsuarioRepository, funcoesService funcoes.FuncoesInterface, requiredRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		idEmpresaToken, err := funcoesService.GetUintIDFromContext(c, "empresaID")
@@ -23,7 +23,7 @@ func RoleAuthMiddleware(usuarioService usuario.UsuarioService, funcoesService fu
 			return
 		}
 
-		usuario, err := usuarioService.FindByID(idUsuario, idEmpresaToken)
+		usuario, err := usuarioRepo.FindByID(idUsuario, idEmpresaToken)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Acesso negado."})
 			return
