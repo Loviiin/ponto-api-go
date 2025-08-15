@@ -6,6 +6,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
+	"github.com/Loviiin/ponto-api-go/pkg/permissions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
@@ -62,15 +63,36 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 }
 
 func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
-	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+
+	empresaID, _ := h.converter.GetUintIDFromContext(c, "empresaID")
+	idToken, _ := h.converter.GetUintIDFromContext(c, "userID")
+	idUrl, _ := h.converter.StrParaUint(c.Param("id"))
+
+	requester, err := h.service.FindByID(idToken, empresaID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado."})
 		return
 	}
 
-	idUrl, err := h.converter.StrParaUint(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário deve ser um número"})
+	podeDeletar := false
+	if idUrl == idToken {
+		for _, p := range requester.Cargo.Permissoes {
+			if p.Nome == permissions.DELETAR_PROPRIA_CONTA {
+				podeDeletar = true
+				break
+			}
+		}
+	} else {
+		for _, p := range requester.Cargo.Permissoes {
+			if p.Nome == permissions.DELETAR_USUARIO {
+				podeDeletar = true
+				break
+			}
+		}
+	}
+
+	if !podeDeletar {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado. Você não tem permissão para realizar esta ação."})
 		return
 	}
 
@@ -88,26 +110,36 @@ func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
 }
 
 func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
-	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+
+	empresaID, _ := h.converter.GetUintIDFromContext(c, "empresaID")
+	idToken, _ := h.converter.GetUintIDFromContext(c, "userID")
+	idUrl, _ := h.converter.StrParaUint(c.Param("id"))
+
+	requester, err := h.service.FindByID(idToken, empresaID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado."})
 		return
 	}
 
-	idToken, err := h.converter.GetUintIDFromContext(c, "userID")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	podeEditar := false
+	if idUrl == idToken {
+		for _, p := range requester.Cargo.Permissoes {
+			if p.Nome == permissions.EDITAR_PROPRIA_CONTA {
+				podeEditar = true
+				break
+			}
+		}
+	} else {
+		for _, p := range requester.Cargo.Permissoes {
+			if p.Nome == permissions.EDITAR_USUARIO {
+				podeEditar = true
+				break
+			}
+		}
 	}
 
-	idUrl, err := h.converter.StrParaUint(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário deve ser um número"})
-		return
-	}
-
-	if idUrl != idToken {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Você não tem permissão para editar este usuário"})
+	if !podeEditar {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Você não tem permissão para editar este usuário."})
 		return
 	}
 
@@ -117,13 +149,18 @@ func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 		return
 	}
 
+	if idUrl == idToken {
+		delete(dadosParaAtualizar, "cargo_id")
+	}
+	delete(dadosParaAtualizar, "empresa_id")
+
 	err = h.service.Update(idUrl, empresaID, dadosParaAtualizar)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado."})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao atualizar o usuário"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao atualizar o usuário."})
 		return
 	}
 
