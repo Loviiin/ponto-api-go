@@ -30,8 +30,16 @@ func (s *bancoHorasService) CalcularSaldoParaUsuario(usuarioID uint, empresaID u
 	if err != nil {
 		return 0, err
 	}
+	pontos, err := s.pontoRepo.FindPontosByUserIDAndDate(user.ID, dia)
+	if err != nil {
+		return 0, err
+	}
+	doDia, err := CalcularSaldoDoDia(pontos, user.Cargo)
+	if err != nil {
+		return 0, err
+	}
 
-	return 0, nil
+	return doDia, err
 }
 
 func CalcularSaldoDoDia(pontosDoDia []model.RegistroPonto, cargoDoUsuario model.Cargo) (saldoEmMinutos int, err error) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"log"
 
 	"github.com/Loviiin/ponto-api-go/internal/config"
@@ -47,6 +48,7 @@ func main() {
 	log.Println("Migração do banco de dados executada com sucesso.")
 	log.Println("Migração do banco de dados executada com sucesso.")
 	config.SeedPermissions(db)
+	config.SeedSuperAdmin(db)
 
 	// --- Inicialização de Serviços e Repositórios ---
 	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
@@ -64,6 +66,7 @@ func main() {
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
 	permissaoService := permissao.NewService(permissaoRepo)
+	bancoHorasService := bancohoras.NewBancoHorasService(pontoRepo, usuarioRepo)
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, empresaService, cargoService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
@@ -71,6 +74,7 @@ func main() {
 	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, db)
 	cargoHandler := cargo.NewCargoHandler(cargoService, funcoesService)
 	permissaoHandler := permissao.NewHandler(permissaoService)
+	bancoHorasHandler := bancohoras.NewBancoHorasHandler(bancoHorasService, usuarioService, funcoesService)
 
 	// --- Middlewares ---
 	authMiddleware := auth.AuthMiddleware(jwtService)
@@ -126,6 +130,8 @@ func main() {
 			rotasProtegidas.GET("/cargos", cargoHandler.GetAllCargos)
 			rotasProtegidas.PUT("/cargos/:id", canManageCargos, cargoHandler.UpdateCargo)
 			rotasProtegidas.DELETE("/cargos/:id", canManageCargos, cargoHandler.DeleteCargo)
+
+			rotasProtegidas.GET("/bancohoras/saldo/usuario/:id", bancoHorasHandler.GetSaldoDoDia)
 		}
 	}
 

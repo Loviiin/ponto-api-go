@@ -12,6 +12,7 @@ type CargoRepository interface {
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
 	Delete(id uint, empresaID uint) error
 	AddPermissionToCargo(cargoID uint, permissaoID uint) error
+	FindByName(nome string, empresaID uint) (*model.Cargo, error)
 }
 
 type cargoRepository struct {
@@ -58,4 +59,10 @@ func (r *cargoRepository) AddPermissionToCargo(cargoID uint, permissaoID uint) e
 		return err
 	}
 	return r.Db.Model(&cargo).Association("Permissoes").Append(&permissao)
+}
+
+func (r *cargoRepository) FindByName(nome string, empresaID uint) (*model.Cargo, error) {
+	var cargo model.Cargo
+	err := r.Db.Where("nome = ? AND empresa_id = ?", nome, empresaID).First(&cargo).Error
+	return &cargo, err
 }
