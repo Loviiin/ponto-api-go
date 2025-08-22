@@ -13,6 +13,7 @@ type UsuarioService interface {
 	FindByID(id uint, empresaID uint) (*model.Usuario, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
 	Delete(id uint, empresaID uint) error
+	FindAll() ([]model.Usuario, error)
 }
 
 var criptografaSenha = password.CriptografaSenha
@@ -65,4 +66,8 @@ func (s *usuarioService) Delete(id uint, empresaID uint) error {
 		return err
 	}
 	return s.usuarioRepo.Delete(id, empresaID)
+}
+
+func (s *usuarioService) FindAll() ([]model.Usuario, error) {
+	return s.usuarioRepo.FindAll()
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
+	"github.com/Loviiin/ponto-api-go/pkg/scheduler"
 	"log"
 
 	"github.com/Loviiin/ponto-api-go/internal/config"
@@ -85,6 +86,10 @@ func main() {
 	canDeleteEmpresa := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.DELETAR_EMPRESA)
 	canDeleteUsuario := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.DELETAR_USUARIO)
 	canManageCargos := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_CARGOS)
+	canEditSaldo := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_SALDO_FUNCIONARIOS)
+
+	scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
+	scheduler.Start()
 
 	// --- Rotas da API ---
 	router := gin.Default()
@@ -132,6 +137,7 @@ func main() {
 			rotasProtegidas.DELETE("/cargos/:id", canManageCargos, cargoHandler.DeleteCargo)
 
 			rotasProtegidas.GET("/bancohoras/saldo/usuario/:id", bancoHorasHandler.GetSaldoDoDia)
+			rotasProtegidas.POST("/bancohoras/fechamento/usuario/:id", canEditSaldo, bancoHorasHandler.FecharDia)
 		}
 	}
 

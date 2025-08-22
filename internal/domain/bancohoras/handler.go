@@ -79,3 +79,34 @@ func (h *Handler) GetSaldoDoDia(c *gin.Context) {
 		"saldo_em_minutos": saldoEmMinutos,
 	})
 }
+
+func (h *Handler) FecharDia(c *gin.Context) {
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID da empresa inválido no token"})
+		return
+	}
+	idUsuarioAlvo, err := h.converter.StrParaUint(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do usuário na URL deve ser um número"})
+		return
+	}
+	diaString := c.Query("dia")
+	if diaString == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "O parâmetro 'dia' é obrigatório. Use o formato AAAA-MM-DD."})
+		return
+	}
+	diaTime, err := time.Parse("2006-01-02", diaString)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data inválido. Use AAAA-MM-DD."})
+		return
+	}
+
+	usuarioAtualizado, err := h.service.FecharDiaParaUsuario(idUsuarioAlvo, empresaID, diaTime)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao processar o fechamento do dia: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, usuarioAtualizado)
+}

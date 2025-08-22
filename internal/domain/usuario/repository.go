@@ -12,6 +12,7 @@ type UsuarioRepository interface {
 	GetAll(empresaID uint) ([]model.Usuario, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
 	Delete(id uint, empresaID uint) error
+	FindAll() ([]model.Usuario, error)
 }
 
 type usuarioRepository struct {
@@ -52,4 +53,10 @@ func (r *usuarioRepository) Update(id uint, empresaID uint, dados map[string]int
 func (r *usuarioRepository) Delete(id uint, empresaID uint) error {
 	err := r.Db.Delete(&model.Usuario{}, "id = ? AND empresa_id = ?", id, empresaID).Error
 	return err
+}
+
+func (r *usuarioRepository) FindAll() ([]model.Usuario, error) {
+	var usuarios []model.Usuario
+	err := r.Db.Find(&usuarios).Error
+	return usuarios, err
 }

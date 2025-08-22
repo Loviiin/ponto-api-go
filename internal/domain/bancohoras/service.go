@@ -11,6 +11,7 @@ import (
 
 type BancoHorasService interface {
 	CalcularSaldoParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (int, error)
+	FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Usuario, error)
 }
 
 type bancoHorasService struct {
@@ -59,4 +60,30 @@ func CalcularSaldoDoDia(pontosDoDia []model.RegistroPonto, cargoDoUsuario model.
 	saldo := totalTrabalhadoEmMinutos - float64(cargoDoUsuario.CargaHorariaDiariaMinutos)
 
 	return int(saldo), nil
+}
+
+func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Usuario, error) {
+	saldoDoDia, err := s.CalcularSaldoParaUsuario(usuarioID, empresaID, dia)
+	if err != nil {
+		return nil, err
+	}
+
+	usuarioAtual, err := s.usuarioRepo.FindByID(usuarioID, empresaID)
+	if err != nil {
+		return nil, err
+	}
+
+	novoSaldoTotal := usuarioAtual.SaldoBancoHorasMinutos + saldoDoDia
+
+	dadosParaAtualizar := map[string]interface{}{
+		"saldo_banco_horas_minutos": novoSaldoTotal,
+	}
+
+	err = s.usuarioRepo.Update(usuarioID, empresaID, dadosParaAtualizar)
+	if err != nil {
+		return nil, err
+	}
+
+	usuarioAtual.SaldoBancoHorasMinutos = novoSaldoTotal
+	return usuarioAtual, nil
 }
