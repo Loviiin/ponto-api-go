@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # --- Serviço do Banco de Dados (já existia) ---
   ponto-db:
     image: postgres:15
     container_name: ponto-eletronico-postgres
@@ -9,15 +10,26 @@ services:
       POSTGRES_PASSWORD: senha_super_secreta_123
       POSTGRES_DB: ponto_api_db
       TZ: America/Sao_Paulo
-      # A linha abaixo foi modificada para apontar para o diretório de dados
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      # A linha abaixo foi alterada para usar um volume nomeado
       - ponto-postgres-data:/var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
     restart: unless-stopped
 
-# Esta seção foi adicionada para declarar o volume
+  ponto-api:
+    # Em vez de uma 'image' pronta, dizemos para 'build' a partir do nosso Dockerfile.
+    # O '.' significa que o Dockerfile está na mesma pasta que este docker-compose.yml.
+    build: .
+    container_name: ponto-eletronico-api
+    ports:
+      # Mapeamos a porta 8083 da nossa máquina para a porta 8083 do container.
+      - "8083:8083"
+    # A linha MAIS IMPORTANTE! Isto garante que o container do banco de dados
+    # estará pronto e a funcionar ANTES de tentar iniciar a nossa API.
+    depends_on:
+      - ponto-db
+    restart: unless-stopped
+
 volumes:
   ponto-postgres-data:
