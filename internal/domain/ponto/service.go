@@ -10,6 +10,7 @@ import (
 
 type PontoService interface {
 	BaterPonto(usuarioID uint, empresaID uint, latitude, longitude float64) (*model.RegistroPonto, error)
+	GetPontosDoDia(usuarioID uint, dia time.Time) ([]model.RegistroPonto, error)
 }
 
 type pontoService struct {
@@ -70,4 +71,8 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 	}
 
 	return registroPonto, nil
+}
+
+func (s *pontoService) GetPontosDoDia(usuarioID uint, dia time.Time) ([]model.RegistroPonto, error) {
+	return s.pontoRepo.FindPontosByUserIDAndDate(usuarioID, dia)
 }

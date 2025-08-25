@@ -3,6 +3,7 @@ package ponto
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -66,4 +67,35 @@ func (h *PontoHandler) BaterPonto(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, pontoRegistrado)
+}
+
+func (h *PontoHandler) GetMeusRegistos(c *gin.Context) {
+	valorIDToken, _ := c.Get("userID")
+	idTokenString, _ := valorIDToken.(string)
+	usuarioID, err := strconv.ParseUint(idTokenString, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID do utilizador no token é inválido"})
+		return
+	}
+
+	diaQuery := c.Query("dia")
+	var dia time.Time
+
+	if diaQuery == "" {
+		dia = time.Now()
+	} else {
+		dia, err = time.Parse("2006-01-02", diaQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data inválido. Use AAAA-MM-DD."})
+			return
+		}
+	}
+
+	registos, err := h.service.GetPontosDoDia(uint(usuarioID), dia)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar os registos de ponto"})
+		return
+	}
+
+	c.JSON(http.StatusOK, registos)
 }

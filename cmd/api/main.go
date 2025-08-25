@@ -123,6 +123,7 @@ func main() {
 
 			// Rota de Ponto
 			rotasProtegidas.POST("/pontos", pontoHandler.BaterPonto)
+			rotasProtegidas.GET("/pontos/meus-registros", pontoHandler.GetMeusRegistos)
 
 			// Rotas de Empresa (Ações gerais)
 			rotasProtegidas.GET("/empresas", empresaHandler.GetAllEmpresasHandler)
