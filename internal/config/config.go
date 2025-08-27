@@ -1,8 +1,11 @@
+// Em internal/config/config.go
+
 package config
 
 import (
 	// Viper é a biblioteca que vamos usar para ler o arquivo .env
 	"github.com/spf13/viper"
+	"strings" // <-- NOVO IMPORT
 )
 
 // Config é a struct que vai armazenar todas as configurações da nossa aplicação.
@@ -23,31 +26,53 @@ type Config struct {
 	JWTSecretKey string `mapstructure:"JWT_SECRET_KEY"`
 }
 
-// LoadConfig é a função que lê as configurações do arquivo .env no caminho especificado.
+// --- FUNÇÃO LoadConfig COMPLETAMENTE NOVA ---
+// LoadConfig lê as configurações. É flexível para ambientes locais e de produção.
 func LoadConfig(path string) (config Config, err error) {
-	// Diz ao Viper para procurar por arquivos de configuração no caminho fornecido.
-	// O "." significa o diretório atual.
-	viper.AddConfigPath(path)
-
-	// Define o nome do arquivo de configuração (sem a extensão).
-	viper.SetConfigName(".env")
-
-	// Define o tipo do arquivo de configuração.
-	viper.SetConfigType("env")
-
-	// viper.AutomaticEnv() permite que o Viper também leia variáveis
-	// do ambiente do sistema, que podem sobrescrever as do arquivo .env.
+	// --- INÍCIO DA CORREÇÃO ---
+	// Configura o Viper para ler variáveis de ambiente (ex: API_PORT)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
-	// Tenta ler o arquivo de configuração.
-	// --- INÍCIO DA CORREÇÃO ---
-	// Nós ignoramos o erro se o ficheiro não for encontrado,
-	// porque em produção, as variáveis virão do ambiente.
-	if err = viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			// O erro é algo diferente de "ficheiro não encontrado", então devemos falhar.
-			return
-		}
+	// Define os valores padrão (opcional, mas boa prática)
+	viper.SetDefault("API_PORT", "8083")
+
+	// Tenta ler o ficheiro .env (para desenvolvimento local)
+	// Se não encontrar, não há problema, continuará com as variáveis de ambiente.
+	viper.AddConfigPath(path)
+	viper.SetConfigName(".env")
+	viper.SetConfigType("env")
+	_ = viper.ReadInConfig() // Ignora o erro se o ficheiro não for encontrado
+
+	// Faz o "bind" explícito de cada variável. ISTO É O MAIS IMPORTANTE.
+	// Isto garante que viper.Unmarshal encontrará os valores.
+	err = viper.BindEnv("API_PORT")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("DB_HOST")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("DB_PORT")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("DB_USER")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("DB_PASSWORD")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("DB_NAME")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("JWT_SECRET_KEY")
+	if err != nil {
+		return
 	}
 	// --- FIM DA CORREÇÃO ---
 
