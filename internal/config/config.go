@@ -40,13 +40,18 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.AutomaticEnv()
 
 	// Tenta ler o arquivo de configuração.
-	err = viper.ReadInConfig()
-	if err != nil {
-		// Se houver um erro na leitura (ex: arquivo não encontrado), a função retorna o erro.
-		return
+	// --- INÍCIO DA CORREÇÃO ---
+	// Nós ignoramos o erro se o ficheiro não for encontrado,
+	// porque em produção, as variáveis virão do ambiente.
+	if err = viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			// O erro é algo diferente de "ficheiro não encontrado", então devemos falhar.
+			return
+		}
 	}
+	// --- FIM DA CORREÇÃO ---
 
-	// "Deserializa" os valores lidos do arquivo para dentro da nossa struct 'config'.
+	// "Deserializa" os valores lidos para dentro da nossa struct 'config'.
 	err = viper.Unmarshal(&config)
 
 	// Retorna a struct preenchida e um erro (que será 'nil' se tudo deu certo).
