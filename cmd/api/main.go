@@ -134,6 +134,10 @@ func main() {
 
 	docs.SwaggerInfo.BasePath = "/api/v1"
 
+	if os.Getenv("PORT") != "" {
+		docs.SwaggerInfo.Host = ""
+	}
+
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	apiV1 := router.Group("/api/v1")
 	{
