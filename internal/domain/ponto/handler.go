@@ -18,6 +18,22 @@ func NewPontoHandler(service PontoService) *PontoHandler {
 	}
 }
 
+type BaterPontoRequest struct {
+	Latitude  float64 `json:"latitude"  example:"-15.799879"`
+	Longitude float64 `json:"longitude" example:"-47.864162"`
+}
+
+// @Summary      Registra uma batida de ponto
+// @Description  Registra um evento de ponto (entrada/saída) para o usuário logado.
+// @Tags         Ponto
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        ponto  body      BaterPontoRequest  true  "Coordenadas da Batida de Ponto"
+// @Success      201    {object}  model.RegistroPonto
+// @Failure      400    {object}  map[string]string
+// @Failure      500    {object}  map[string]string
+// @Router       /pontos [post]
 func (h *PontoHandler) BaterPonto(c *gin.Context) {
 	valorIDToken, existe := c.Get("userID")
 	if !existe {
@@ -50,10 +66,6 @@ func (h *PontoHandler) BaterPonto(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID da empresa no token é inválido"})
 		return
 	}
-	type BaterPontoRequest struct {
-		Latitude  float64 `json:"latitude"`
-		Longitude float64 `json:"longitude"`
-	}
 	var requisicao BaterPontoRequest
 	if err := c.ShouldBindJSON(&requisicao); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Corpo da requisição (JSON) inválido"})
@@ -69,6 +81,16 @@ func (h *PontoHandler) BaterPonto(c *gin.Context) {
 	c.JSON(http.StatusCreated, pontoRegistrado)
 }
 
+// @Summary      Lista os registros de ponto do usuário
+// @Description  Retorna uma lista das batidas de ponto do usuário logado para um dia específico. Se o dia não for fornecido, retorna os do dia atual.
+// @Tags         Ponto
+// @Produce      json
+// @Security     BearerAuth
+// @Param        dia  query     string  false  "Dia para consulta (formato: AAAA-MM-DD)"  example("2025-08-26")
+// @Success      200  {array}   model.RegistroPonto
+// @Failure      400  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /pontos/meus-registros [get]
 func (h *PontoHandler) GetMeusRegistos(c *gin.Context) {
 	valorIDToken, _ := c.Get("userID")
 	idTokenString, _ := valorIDToken.(string)

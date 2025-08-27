@@ -22,11 +22,25 @@ func NewCargoHandler(s CargoService, f funcoes.FuncoesInterface) *CargoHandler {
 	}
 }
 
+type createRequest struct {
+	Nome      string `json:"nome" binding:"required"`
+	EmpresaID uint   `json:"empresa_id" binding:"required"`
+}
+
+// @Summary      Cria um novo cargo
+// @Description  Cria um novo cargo para a empresa do usuário logado. Requer permissão 'GERENCIAR_CARGOS'.
+// @Tags         Cargos
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        cargo  body      createRequest  true  "Dados do novo cargo"
+// @Success      201    {object}  model.Cargo
+// @Failure      400    {object}  map[string]string
+// @Failure      403    {object}  map[string]string
+// @Failure      500    {object}  map[string]string
+// @Router       /cargos [post]
 func (h *CargoHandler) CreateCargo(c *gin.Context) {
-	type createRequest struct {
-		Nome      string `json:"nome" binding:"required"`
-		EmpresaID uint   `json:"empresa_id" binding:"required"`
-	}
+
 	var req createRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "O corpo da requisição é inválido. 'nome' e 'empresa_id' são obrigatórios."})
@@ -46,6 +60,15 @@ func (h *CargoHandler) CreateCargo(c *gin.Context) {
 	c.JSON(http.StatusCreated, cargo)
 }
 
+// @Summary      Lista os cargos da empresa
+// @Description  Retorna uma lista de todos os cargos da empresa do usuário logado.
+// @Tags         Cargos
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   model.Cargo
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /cargos [get]
 func (h *CargoHandler) GetAllCargos(c *gin.Context) {
 	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
@@ -62,6 +85,19 @@ func (h *CargoHandler) GetAllCargos(c *gin.Context) {
 	c.JSON(http.StatusOK, cargos)
 }
 
+// @Summary      Atualiza um cargo
+// @Description  Atualiza os dados de um cargo. Requer permissão 'GERENCIAR_CARGOS'.
+// @Tags         Cargos
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id     path      int                     true  "ID do Cargo"
+// @Param        dados  body      map[string]interface{}  true  "Dados para atualização"
+// @Success      204    "No Content"
+// @Failure      400    {object}  map[string]string
+// @Failure      403    {object}  map[string]string
+// @Failure      404    {object}  map[string]string
+// @Router       /cargos/{id} [put]
 func (h *CargoHandler) UpdateCargo(c *gin.Context) {
 	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
@@ -94,6 +130,17 @@ func (h *CargoHandler) UpdateCargo(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary      Deleta um cargo
+// @Description  Deleta um cargo da empresa. Requer permissão 'GERENCIAR_CARGOS'.
+// @Tags         Cargos
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "ID do Cargo"
+// @Success      204 "No Content"
+// @Failure      400 {object} map[string]string
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /cargos/{id} [delete]
 func (h *CargoHandler) DeleteCargo(c *gin.Context) {
 	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
@@ -120,6 +167,18 @@ func (h *CargoHandler) DeleteCargo(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary      Adiciona permissão a um cargo
+// @Description  Associa uma permissão existente a um cargo. Requer permissão 'GERENCIAR_CARGOS'.
+// @Tags         Cargos
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id           path  int  true  "ID do Cargo"
+// @Param        permissaoId  path  int  true  "ID da Permissão"
+// @Success      204          "No Content"
+// @Failure      400          {object}  map[string]string
+// @Failure      403          {object}  map[string]string
+// @Failure      404          {object}  map[string]string
+// @Router       /cargos/{id}/permissoes/{permissaoId} [post]
 func (h *CargoHandler) AddPermissionToCargo(c *gin.Context) {
 	// Precisamos de obter a empresaID do token para garantir a segurança.
 	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")

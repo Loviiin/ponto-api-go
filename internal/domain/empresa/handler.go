@@ -26,14 +26,24 @@ func NewEmpresaHandler(s EmpresaService, f funcoes.FuncoesInterface, db *gorm.DB
 	}
 }
 
-// CriarEmpresaHandler não precisa de alterações.
+type criaEmpresaRequest struct {
+	Nome               string  `json:"nome" binding:"required"`
+	SedeLatitude       float64 `json:"sedeLatitude" binding:"required"`
+	SedeLongitude      float64 `json:"sedeLongitude" binding:"required"`
+	RaioGeofenceMetros float64 `json:"raioGeofenceMetros" binding:"required"`
+}
+
+// @Summary      Cria uma nova empresa
+// @Description  Registra uma nova empresa no sistema e configura cargos e permissões padrão para ela.
+// @Tags         Empresas
+// @Accept       json
+// @Produce      json
+// @Param        empresa  body      criaEmpresaRequest  true  "Dados da nova empresa"
+// @Success      201      {object}  model.Empresa
+// @Failure      400      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /empresas [post]
 func (h *EmpresaHandler) CriarEmpresaHandler(c *gin.Context) {
-	type criaEmpresaRequest struct {
-		Nome               string  `json:"nome" binding:"required"`
-		SedeLatitude       float64 `json:"sedeLatitude" binding:"required"`
-		SedeLongitude      float64 `json:"sedeLongitude" binding:"required"`
-		RaioGeofenceMetros float64 `json:"raioGeofenceMetros" binding:"required"`
-	}
 
 	var request criaEmpresaRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
@@ -58,7 +68,14 @@ func (h *EmpresaHandler) CriarEmpresaHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, empresa)
 }
 
-// GetAllEmpresasHandler não precisa de alterações.
+// @Summary      Lista todas as empresas
+// @Description  Retorna uma lista de todas as empresas cadastradas. Requer autenticação.
+// @Tags         Empresas
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   model.Empresa
+// @Failure      500  {object}  map[string]string
+// @Router       /empresas [get]
 func (h *EmpresaHandler) GetAllEmpresasHandler(c *gin.Context) {
 	empresas, err := h.service.GetAllEmpresasSer()
 	if err != nil {
@@ -68,7 +85,15 @@ func (h *EmpresaHandler) GetAllEmpresasHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, empresas)
 }
 
-// GetEmpresaByIDHandler não precisa de alterações.
+// @Summary      Busca uma empresa por ID
+// @Description  Retorna os dados de uma empresa específica pelo seu ID.
+// @Tags         Empresas
+// @Produce      json
+// @Param        id   path      int  true  "ID da Empresa"
+// @Success      200  {object}  model.Empresa
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /empresas/{id} [get]
 func (h *EmpresaHandler) GetEmpresaByIDHandler(c *gin.Context) {
 	id, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
@@ -88,7 +113,19 @@ func (h *EmpresaHandler) GetEmpresaByIDHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, empresa)
 }
 
-// UpdateEmpresaHandler não precisa de alterações.
+// @Summary      Atualiza uma empresa
+// @Description  Atualiza os dados de uma empresa. Requer permissão 'EDITAR_EMPRESA'.
+// @Tags         Empresas
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id     path      int                  true  "ID da Empresa"
+// @Param        dados  body      map[string]interface{}  true  "Dados para atualização"
+// @Success      204    "No Content"
+// @Failure      400    {object}  map[string]string
+// @Failure      403    {object}  map[string]string
+// @Failure      500    {object}  map[string]string
+// @Router       /empresas/{id} [put]
 func (h *EmpresaHandler) UpdateEmpresaHandler(c *gin.Context) {
 	idEmpresa, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {
@@ -110,7 +147,17 @@ func (h *EmpresaHandler) UpdateEmpresaHandler(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// DeleteEmpresaHandler não precisa de alterações.
+// @Summary      Deleta uma empresa
+// @Description  Deleta uma empresa permanentemente. Requer permissão 'DELETAR_EMPRESA'.
+// @Tags         Empresas
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "ID da Empresa"
+// @Success      204 "No Content"
+// @Failure      403 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Failure      500 {object} map[string]string
+// @Router       /empresas/{id} [delete]
 func (h *EmpresaHandler) DeleteEmpresaHandler(c *gin.Context) {
 	idEmpresa, err := h.converter.StrParaUint(c.Param("id"))
 	if err != nil {

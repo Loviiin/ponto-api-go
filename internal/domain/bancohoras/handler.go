@@ -23,7 +23,18 @@ func NewBancoHorasHandler(s BancoHorasService, u usuario.UsuarioService, f funco
 	}
 }
 
-// GetSaldoDoDia é a função que vai lidar com a requisição da API.
+// @Summary      Consulta saldo de horas do dia
+// @Description  Retorna o saldo de horas (positivo ou negativo) de um usuário para um dia específico. Requer permissão 'VER_SALDO_FUNCIONARIOS' se o ID consultado não for o do próprio usuário.
+// @Tags         Banco de Horas
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int     true  "ID do Usuário"
+// @Param        dia  query     string  true  "Dia para consulta (formato: AAAA-MM-DD)"  example("2025-08-26")
+// @Success      200  {object}  map[string]int
+// @Failure      400  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /bancohoras/saldo/usuario/{id} [get]
 func (h *Handler) GetSaldoDoDia(c *gin.Context) {
 	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
@@ -80,6 +91,18 @@ func (h *Handler) GetSaldoDoDia(c *gin.Context) {
 	})
 }
 
+// @Summary      Realiza o fechamento manual de um dia
+// @Description  Calcula o saldo de horas de um dia para um usuário e o adiciona ao saldo total do banco de horas. Requer permissão 'EDITAR_SALDO_FUNCIONARIOS'.
+// @Tags         Banco de Horas
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int     true  "ID do Usuário"
+// @Param        dia  query     string  true  "Dia para fechar (formato: AAAA-MM-DD)"  example("2025-08-26")
+// @Success      200  {object}  model.Usuario
+// @Failure      400  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /bancohoras/fechamento/usuario/{id} [post]
 func (h *Handler) FecharDia(c *gin.Context) {
 	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {

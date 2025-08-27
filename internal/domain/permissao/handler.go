@@ -14,6 +14,16 @@ func NewHandler(s Service) *Handler {
 	return &Handler{service: s}
 }
 
+// @Summary      Cria uma nova permissão
+// @Description  (Admin) Cria uma nova permissão global no sistema.
+// @Tags         Permissões
+// @Accept       json
+// @Produce      json
+// @Param        permissao  body      model.Permissao  true  "Dados da nova permissão"
+// @Success      201        {object}  model.Permissao
+// @Failure      400        {object}  map[string]string
+// @Failure      500        {object}  map[string]string
+// @Router       /permissoes [post]
 func (h *Handler) Create(c *gin.Context) {
 	var permissao model.Permissao
 	if err := c.ShouldBindJSON(&permissao); err != nil {
@@ -28,6 +38,13 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, permissao)
 }
 
+// @Summary      Lista todas as permissões
+// @Description  (Admin) Retorna uma lista de todas as permissões disponíveis no sistema.
+// @Tags         Permissões
+// @Produce      json
+// @Success      200  {array}   model.Permissao
+// @Failure      500  {object}  map[string]string
+// @Router       /permissoes [get]
 func (h *Handler) FindAll(c *gin.Context) {
 	permissoes, err := h.service.FindAll()
 	if err != nil {
