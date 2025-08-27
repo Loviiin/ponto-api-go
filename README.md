@@ -1,174 +1,150 @@
-# API de Ponto Eletrônico (Versão em Go)
+# Ponto API em Go
 
-![Versão da Linguagem](https://img.shields.io/badge/go-1.21+-blue.svg) ![Framework](https://img.shields.io/badge/Gin-v1.9-cyan.svg) ![Licença](https://img.shields.io/badge/license-MIT-green.svg)
+<p align="center">
+  <img src="https://img.shields.io/badge/go-1.24+-00ADD8?style=for-the-badge&logo=go" alt="Go Version"/>
+  <img src="https://img.shields.io/badge/Gin-v1.10-007CDA?style=for-the-badge&logo=gin" alt="Gin Framework"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge&logo=postgresql" alt="PostgreSQL"/>
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker" alt="Docker Ready"/>
+  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License MIT"/>
+</p>
 
 ## 📖 Sobre o Projeto
 
-A **API de Ponto Eletrônico (Go)** é um sistema backend de alta performance, projetado para gerenciar o registro de jornada de trabalho de funcionários. Este projeto foi desenvolvido como uma peça central de portfólio, demonstrando a aplicação de uma arquitetura limpa, boas práticas e segurança em um ambiente **Go (Golang)**.
+A **Ponto API** é um backend de alta performance para um sistema de Ponto Eletrônico, construído em **Go (Golang)**. Este projeto foi desenhado não apenas para ser funcional, mas também para servir como um exemplo prático de aplicação de arquitetura limpa, boas práticas de desenvolvimento e segurança em um ambiente moderno.
 
-Este projeto é a contraparte do [ponto-api (versão em Java/Spring)](<URL_PARA_SEU_REPO_JAVA_AQUI>), demonstrando a capacidade de resolver o mesmo problema com diferentes stacks de tecnologia, com foco em performance e eficiência de recursos, características marcantes do Go.
+O sistema foi projetado desde o início com uma **arquitetura multi-tenant**, permitindo que múltiplas empresas utilizem a mesma instância da aplicação de forma segura e isolada.
 
-## ✨ Features Implementadas
+---
 
-* ✅ **Módulo de Usuário:** Cadastro de novos funcionários com senha criptografada (bcrypt).
-* ✅ **Autenticação Segura:** Fluxo de login que valida as credenciais e retorna um **JSON Web Token (JWT)**.
-* ✅ **Autorização via Middleware:** Endpoints protegidos que só podem ser acessados com um token JWT válido, verificado por um middleware customizado.
-* ✅ **Estrutura Profissional:** Organização de projeto seguindo os padrões da comunidade Go para APIs escaláveis.
-* ✅ **Containerização:** Configuração pronta para rodar o banco de dados PostgreSQL com Docker.
+## 🏛️ Conceitos Chave da Arquitetura
 
-## 🏛️ Arquitetura
+Este projeto não é apenas um CRUD. Ele foi construído sobre uma fundação de princípios de software robustos:
 
-O projeto segue um padrão de **Arquitetura em Camadas** comum em aplicações Go, separando claramente as responsabilidades:
+* **Arquitetura Orientada a Domínios:** Inspirado no (DDD), o código é organizado por áreas de negócio (`usuario`, `empresa`, `cargo`, `ponto`). Isso resulta em um sistema modular, com alta coesão e baixo acoplamento, facilitando a manutenção e a escalabilidade.
+* **Multi-Tenancy:** O sistema utiliza um modelo de banco de dados compartilhado com `empresa_id` em todas as entidades relevantes, garantindo que os dados de uma empresa sejam completamente isolados dos de outra.
+* **Segurança em Camadas:** A segurança é aplicada em múltiplos níveis:
+    1.  **Autenticação via JWT:** Garante que apenas usuários logados acessem a maioria dos recursos.
+    2.  **Isolamento de Tenant:** A lógica em `repositories` e `services` garante que um usuário só possa ver e modificar dados da sua própria empresa.
+    3.  **Autorização Baseada em Cargos (RBAC):** Um `RoleAuthMiddleware` protege endpoints críticos, garantindo que apenas usuários com cargos específicos (ex: `ADMIN`) possam realizar operações sensíveis, como editar dados da empresa.
+* **Injeção de Dependência:** As dependências (como repositórios e serviços) são injetadas via construtores, facilitando os testes unitários e o desacoplamento entre as camadas.
 
-* **/cmd/api:** Ponto de entrada da aplicação, responsável por iniciar o servidor web e carregar as configurações.
-* **/config:** Lógica para carregar as variáveis de ambiente (usando Viper).
-* **/internal:** Contém o núcleo da lógica da aplicação, inacessível para outros projetos Go (boa prática).
-    * **handler:** Camada de apresentação, lida com as requisições HTTP (similar aos Controllers).
-    * **service:** Camada de serviço, onde reside a lógica de negócio.
-    * **repository:** Camada de acesso a dados, responsável pela comunicação com o banco.
-    * **model:** Onde as estruturas (`structs`) de dados do domínio são definidas.
-* **/pkg:** Pacotes auxiliares e reutilizáveis, como os serviços de JWT e criptografia de senhas.
+---
 
 ## 🚀 Tecnologias Utilizadas
 
-* **Linguagem:** [Go](https://go.dev/)
-* **Framework Web / Router:** [Gin](https://github.com/gin-gonic/gin)
-* **Banco de Dados:** [PostgreSQL](https://www.postgresql.org/)
-* **ORM:** [GORM](https://gorm.io/)
-* **Autenticação:** [JWT (golang-jwt)](https://github.com/golang-jwt/jwt)
-* **Configuração:** [Viper](https://github.com/spf13/viper) (lendo de arquivos `.env`)
-* **Criptografia de Senha:** `bcrypt` (Pacote padrão do Go)
-* **Containerização:** [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
+| Categoria         | Tecnologia                                                                                             |
+| :---------------- | :----------------------------------------------------------------------------------------------------- |
+| **Linguagem** | Go (Golang)                                                                                            |
+| **Framework Web** | [Gin](https://github.com/gin-gonic/gin)                                                                |
+| **Banco de Dados** | [PostgreSQL](https://www.postgresql.org/)                                                              |
+| **ORM** | [GORM](https://gorm.io/)                                                                               |
+| **Autenticação** | [JWT (golang-jwt)](https://github.com/golang-jwt/jwt)                                                    |
+| **Configuração** | [Viper](https://github.com/spf13/viper)                                                                |
+| **Containerização** | [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)                 |
 
-## ⚙️ Como Executar o Projeto
+---
 
-Siga os passos abaixo para configurar e executar a aplicação em seu ambiente local.
+## ⚙️ Guia de Instalação e Execução
+
+Siga os passos abaixo para ter o ambiente completo rodando localmente.
 
 ### Pré-requisitos
 
-* [Go](https://go.dev/dl/) (versão 1.21 ou superior)
-* [Docker](https://www.docker.com/products/docker-desktop/) e Docker Compose
+* Go (versão 1.24 ou superior)
+* Docker e Docker Compose
 * Um cliente de API como [Postman](https://www.postman.com/) ou [Insomnia](https://insomnia.rest/)
 
-### Passos para Instalação
+### Passos
 
-1.  **Clone o repositório:**
+1.  **Clone o Repositório**
     ```bash
-    git clone [https://github.com/](https://github.com/)<SEU_USUARIO>/ponto-api-go.git
+    git clone https://github.com/Loviiin/ponto-api-go
     cd ponto-api-go
     ```
 
-2.  **Configure as variáveis de ambiente:**
-    Crie um arquivo chamado `.env` na raiz do projeto, copiando o conteúdo do arquivo `.env.example` (que você deve criar), e preencha com suas configurações.
-    ```env
-    # Porta da API
-    API_PORT=8082
-
-    # Configurações do Banco de Dados
-    DB_HOST=localhost
-    DB_USER=pontouser
-    DB_PASSWORD=senha_super_secreta_123
-    DB_NAME=ponto_api_db
-    DB_PORT=5432
-
-    # Configurações do JWT
-    JWT_SECRET_KEY=sua_chave_secreta_super_longa_e_segura_aqui
-    JWT_EXPIRATION_IN_HOURS=24
+2.  **Configure as Variáveis de Ambiente**
+    Copie o arquivo de exemplo e, se necessário, ajuste as variáveis.
+    ```bash
+    cp .env.example .env
     ```
+    *É crucial definir uma `JWT_SECRET_KEY` forte e segura.*
 
-3.  **Inicie o banco de dados:**
-    Com o Docker em execução, inicie o container do PostgreSQL:
+3.  **Inicie o Banco de Dados com Docker**
+    Este comando irá baixar a imagem do PostgreSQL e iniciar o contêiner em segundo plano.
     ```bash
     docker-compose up -d
     ```
 
-4.  **Instale as dependências:**
-    O Go Modules cuidará disso automaticamente no próximo passo, mas você pode baixar manualmente com:
+4.  **Instale as Dependências do Go**
     ```bash
     go mod tidy
     ```
 
-5.  **Execute a API:**
+5.  **Execute a API**
     ```bash
-    go run ./cmd/api/
+    go run ./cmd/api/main.go
     ```
-    O servidor estará rodando em `http://localhost:8082` (ou na porta que você configurar no `.env`).
-
-## Endpoints da API
-
-A interface da API é a mesma da versão Java.
+    O servidor estará rodando em `http://localhost:8083` (ou na porta configurada no seu `.env`).
 
 ---
 
-### Módulo de Usuários e Autenticação
+## API Endpoints
 
-#### `POST /api/v1/usuarios`
-Cria um novo usuário (funcionário). Rota pública.
+O prefixo base para todos os endpoints é `/api/v1`.
 
-* **Body (Exemplo):**
-    ```json
-    {
-        "nome": "Usuário Go",
-        "email": "teste.go@email.com",
-        "cargo": "Gopher",
-        "senha": "senha123"
-    }
-    ```
-* **Resposta de Sucesso (201 Created):**
-    ```json
-    {
-        "id": 1,
-        "nome": "Usuário Go",
-        "email": "teste.go@email.com",
-        "cargo": "Gopher",
-        "dataCriacao": "2025-07-31T12:22:03.123Z"
-    }
-    ```
+### 🔑 Autenticação
 
-#### `POST /api/v1/auth/login`
-Autentica um usuário e retorna um token JWT. Rota pública.
+| Verbo  | Endpoint       | Descrição                                    | Protegido |
+| :----- | :------------- | :------------------------------------------- | :-------- |
+| `POST` | `/auth/login`  | Autentica um usuário e retorna um token JWT. | Não       |
 
-* **Body (Exemplo):**
-    ```json
-    {
-        "email": "teste.go@email.com",
-        "senha": "senha123"
-    }
-    ```
-* **Resposta de Sucesso (200 OK):**
-    ```json
-    {
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0ZS5nb..."
-    }
-    ```
+### 🏢 Empresas
 
-#### `GET /api/v1/usuarios/me`
-Retorna as informações do usuário autenticado. **Rota Protegida.**
+| Verbo    | Endpoint         | Descrição                                 | Protegido | Permissão Extra |
+| :------- | :--------------- | :---------------------------------------- |:----------| :-------------- |
+| `POST`   | `/empresas`      | Cria uma nova empresa.                    | Sim       |                 |
+| `GET`    | `/empresas`      | Lista todas as empresas.                  | Sim       |                 |
+| `GET`    | `/empresas/{id}` | Busca uma empresa por ID.                 | Não       |                 |
+| `PUT`    | `/empresas/{id}` | Atualiza os dados da própria empresa.     | Sim       | Cargo: `ADMIN`  |
+| `DELETE` | `/empresas/{id}` | Deleta a própria empresa.                 | Sim       | Cargo: `ADMIN`  |
 
-* **Authorization Header:**
-    * `Authorization: Bearer <SEU_TOKEN_JWT>`
-* **Resposta de Sucesso (200 OK):**
-    ```json
-    {
-        "id": 1,
-        "nome": "Usuário Go",
-        "email": "teste.go@email.com",
-        "cargo": "Gopher",
-        "dataCriacao": "2025-07-31T12:22:03.123Z"
-    }
-    ```
+### 👤 Usuários
+
+| Verbo    | Endpoint         | Descrição                                     | Protegido |
+| :------- | :--------------- | :-------------------------------------------- | :-------- |
+| `POST`   | `/usuarios`      | Cria um novo usuário (funcionário).           | Não       |
+| `GET`    | `/usuarios`      | Lista os usuários da empresa do requisitante. | Sim       |
+| `GET`    | `/usuarios/me`   | Retorna os dados do próprio usuário logado.   | Sim       |
+| `PUT`    | `/usuarios/{id}` | Atualiza os dados do próprio usuário.         | Sim       |
+| `DELETE` | `/usuarios/{id}` | Deleta o próprio usuário.                     | Sim       |
+
+### 🗂️ Cargos
+
+| Verbo    | Endpoint       | Descrição                                 | Protegido |
+| :------- | :------------- | :---------------------------------------- | :-------- |
+| `POST`   | `/cargos`      | Cria um novo cargo para a empresa.        | Sim       |
+| `GET`    | `/cargos`      | Lista os cargos da empresa.               | Sim       |
+| `PUT`    | `/cargos/{id}` | Atualiza um cargo da empresa.             | Sim       |
+| `DELETE` | `/cargos/{id}` | Deleta um cargo da empresa.               | Sim       |
+
+### 🕒 Ponto
+
+| Verbo  | Endpoint  | Descrição                                     | Protegido |
+| :----- | :-------- | :-------------------------------------------- | :-------- |
+| `POST` | `/pontos` | Registra uma batida de ponto (entrada/saída). | Sim       |
 
 ---
 
-## 🗺️ Roadmap do Projeto
+## 🗺️ Próximos Passos (Roadmap)
 
-* [x] Estrutura do projeto em Go.
-* [x] Módulo de Usuários (Cadastro).
-* [x] Autenticação e Autorização com JWT.
-* [ ] Módulo de Ponto (bater o ponto).
-* [ ] Consulta de histórico de pontos.
-* [ ] Geração de relatórios mensais.
-* [ ] Implementar suíte de testes.
+A fundação está sólida, mas o caminho a seguir é empolgante. As próximas grandes features planejadas são:
+
+-   [ ] **Épico: Motor de Políticas (RBAC):** Transformar a verificação de cargos em um sistema de permissões configurável por empresa.
+-   [ ] **Banco de Horas:** Implementar a lógica de cálculo de saldo de horas.
+-   [ ] **Gestão de Ponto:** Permitir que administradores editem e adicionem registros de ponto.
+-   [ ] **Testes:** Aumentar a cobertura de testes unitários e de integração.
+-   [ ] **Documentação Interativa:** Adicionar Swagger para documentar a API.
+-   [ ] **Containerização da API:** Criar um `Dockerfile` para a aplicação Go.
 
 ## 📄 Licença
 
