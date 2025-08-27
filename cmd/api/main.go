@@ -8,6 +8,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"log"
+	"os"
 
 	"github.com/Loviiin/ponto-api-go/internal/config"
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -173,8 +174,12 @@ func main() {
 		}
 	}
 
-	log.Printf("Servidor iniciado e ouvindo na porta %s", cfg.APIPort)
-	err = router.Run(":" + cfg.APIPort)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = cfg.APIPort
+	}
+	log.Printf("Servidor iniciado e ouvindo na porta %s", port)
+	err = router.Run(":" + port)
 	if err != nil {
 		log.Fatal("Falha ao iniciar o servidor: ", err)
 	}
