@@ -8,6 +8,8 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/Loviiin/ponto-api-go/internal/config"
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -55,9 +57,18 @@ func main() {
 		log.Fatal("Não foi possível carregar as configurações: ", err)
 	}
 
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=America/Sao_Paulo",
-		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort)
-
+	// --- INÍCIO DA CORREÇÃO ---
+	var dsn string
+	// Verifica se estamos a usar a conexão segura do Cloud SQL (via socket Unix)
+	if strings.HasPrefix(cfg.DBHost, "/") {
+		// DSN para socket Unix (usado no Cloud Run) - não precisa de porta
+		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable TimeZone=America/Sao_Paulo",
+			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName)
+	} else {
+		// DSN para conexão TCP/IP (usado localmente com Docker) - precisa de porta
+		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=America/Sao_Paulo",
+			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort)
+	}
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Falha ao conectar ao banco de dados: ", err)
@@ -123,6 +134,10 @@ func main() {
 
 	docs.SwaggerInfo.BasePath = "/api/v1"
 
+	if os.Getenv("PORT") != "" {
+		docs.SwaggerInfo.Host = ""
+	}
+
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	apiV1 := router.Group("/api/v1")
 	{
@@ -173,8 +188,12 @@ func main() {
 		}
 	}
 
-	log.Printf("Servidor iniciado e ouvindo na porta %s", cfg.APIPort)
-	err = router.Run(":" + cfg.APIPort)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = cfg.APIPort
+	}
+	log.Printf("Servidor iniciado e ouvindo na porta %s", port)
+	err = router.Run(":" + port)
 	if err != nil {
 		log.Fatal("Falha ao iniciar o servidor: ", err)
 	}
