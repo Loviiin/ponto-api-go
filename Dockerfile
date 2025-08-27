@@ -35,8 +35,6 @@ COPY docs ./docs
 
 # Também precisamos do nosso ficheiro de configuração .env para a aplicação saber
 # como se conectar ao banco de dados, em que porta rodar, etc.
-COPY .env .
-
 # Expomos a porta 8083, que é a que a sua API usa (de acordo com o README).
 # Isto diz ao Docker que o container vai "ouvir" nesta porta.
 EXPOSE 8083
