@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"github.com/Loviiin/ponto-api-go/pkg/scheduler"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"log"
 
 	"github.com/Loviiin/ponto-api-go/internal/config"
@@ -26,6 +29,26 @@ import (
 	"gorm.io/gorm"
 )
 
+// @title           Ponto API em Go
+// @version         1.0
+// @description     API de alta performance para um sistema de Ponto Eletrônico.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @license.name  MIT
+// @license.url   https://github.com/Loviiin/ponto-api-go/blob/main/LICENSE
+
+// @host      localhost:8083
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description "Digite 'Bearer' seguido de um espaço e o seu token."
+// @type apiKey
 func main() {
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
@@ -93,6 +116,10 @@ func main() {
 
 	// --- Rotas da API ---
 	router := gin.Default()
+
+	docs.SwaggerInfo.BasePath = "/api/v1"
+
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	apiV1 := router.Group("/api/v1")
 	{
 		// Rotas Públicas

@@ -31,6 +31,8 @@ WORKDIR /app
 # A parte mais importante: copiamos APENAS o binário compilado do estágio 'builder'.
 COPY --from=builder /app/out/ponto-api .
 
+COPY docs ./docs
+
 # Também precisamos do nosso ficheiro de configuração .env para a aplicação saber
 # como se conectar ao banco de dados, em que porta rodar, etc.
 COPY .env .

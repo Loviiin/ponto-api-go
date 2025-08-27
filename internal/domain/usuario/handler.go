@@ -28,6 +28,31 @@ func NewUsuarioHandler(s UsuarioService, e empresa.EmpresaService, ca cargo.Carg
 	}
 }
 
+type CriarUsuarioRequest struct {
+	Nome      string `json:"nome" binding:"required" example:"João Silva"`
+	Email     string `json:"email" binding:"required,email" example:"joao.silva@empresa.com"`
+	Senha     string `json:"senha" binding:"required,min=6" example:"senha123"`
+	EmpresaID uint   `json:"empresa_id" binding:"required" example:"1"`
+	CargoID   uint   `json:"cargo_id" binding:"required" example:"2"`
+}
+
+// UpdateUsuarioRequest define o corpo do pedido para atualizar um usuário.
+type UpdateUsuarioRequest struct {
+	Nome  string `json:"nome" example:"João da Silva"`
+	Email string `json:"email" example:"joao.dasilva@empresa.com"`
+	Senha string `json:"senha" example:"novaSenha456"`
+}
+
+// @Summary      Busca um usuário por ID
+// @Description  Retorna os dados de um usuário específico da mesma empresa.
+// @Tags         Usuários
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int  true  "ID do Usuário"
+// @Success      200  {object}  model.Usuario
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /usuarios/{id} [get]
 func (h *UsuarioHandler) GetByIdHandler(c *gin.Context) {
 	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
@@ -48,6 +73,14 @@ func (h *UsuarioHandler) GetByIdHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, usuario)
 }
 
+// @Summary      Lista todos os usuários da empresa
+// @Description  Retorna uma lista de todos os usuários pertencentes à empresa do requisitante.
+// @Tags         Usuários
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   model.Usuario
+// @Failure      500  {object}  map[string]string
+// @Router       /usuarios [get]
 func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {
@@ -62,6 +95,16 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, usuarios)
 }
 
+// @Summary      Deleta um usuário
+// @Description  Deleta um usuário. Requer permissão de 'DELETAR_USUARIO' ou 'DELETAR_PROPRIA_CONTA'.
+// @Tags         Usuários
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int  true  "ID do Usuário a ser deletado"
+// @Success      204  "No Content"
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /usuarios/{id} [delete]
 func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
 
 	empresaID, _ := h.converter.GetUintIDFromContext(c, "empresaID")
@@ -109,6 +152,19 @@ func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary      Atualiza um usuário
+// @Description  Atualiza os dados de um usuário. O corpo do pedido pode conter qualquer um dos campos definidos no modelo.
+// @Tags         Usuários
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      int                  true  "ID do Usuário a ser atualizado"
+// @Param        dados    body      UpdateUsuarioRequest true  "Dados para atualização" // <-- Usamos a struct aqui para o Swagger
+// @Success      204      "No Content"
+// @Failure      400      {object}  map[string]string
+// @Failure      403      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Router       /usuarios/{id} [put]
 func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 
 	empresaID, _ := h.converter.GetUintIDFromContext(c, "empresaID")
@@ -167,15 +223,18 @@ func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary      Cria um novo usuário
+// @Description  Cria um novo usuário (funcionário) no sistema.
+// @Tags         Usuários
+// @Accept       json
+// @Produce      json
+// @Param        usuario  body      CriarUsuarioRequest  true  "Dados do Novo Usuário"
+// @Success      201      {object}  model.Usuario
+// @Failure      400      {object}  map[string]string
+// @Router       /usuarios [post]
 func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
-	type criarUsuarioRequest struct {
-		Nome      string `json:"nome" binding:"required"`
-		Email     string `json:"email" binding:"required,email"`
-		Senha     string `json:"senha" binding:"required,min=6"`
-		EmpresaID uint   `json:"empresa_id" binding:"required"`
-		CargoID   uint   `json:"cargo_id" binding:"required"`
-	}
-	var request criarUsuarioRequest
+
+	var request CriarUsuarioRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -207,6 +266,15 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, usuario)
 }
 
+// @Summary      Obtém os dados do usuário logado
+// @Description  Retorna as informações detalhadas do usuário que está a fazer o pedido.
+// @Tags         Usuários
+// @Produce      json
+// @Success      200  {object}  model.Usuario
+// @Failure      401  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Security     BearerAuth
+// @Router       /usuarios/me [get]
 func (h *UsuarioHandler) GetMeuPerfil(c *gin.Context) {
 	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
 	if err != nil {

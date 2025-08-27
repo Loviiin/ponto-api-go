@@ -14,12 +14,22 @@ func NewAuthHandler(service AuthService) *AuthHandler {
 	}
 }
 
-func (h *AuthHandler) Login(c *gin.Context) {
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required" example:"superadmin@ponto.com"`
+	Password string `json:"password" binding:"required" example:"superadmin"`
+}
 
-	type LoginRequest struct {
-		Email    string `json:"email" binding:"required"`
-		Password string `json:"password" binding:"required"`
-	}
+// @Summary      Realiza o login do usuário
+// @Description  Autentica um usuário com email e senha e retorna um token JWT.
+// @Tags         Autenticação
+// @Accept       json
+// @Produce      json
+// @Param        loginRequest  body      LoginRequest  true  "Credenciais de Login"
+// @Success      200           {object}  map[string]string
+// @Failure      400           {object}  map[string]string
+// @Failure      401           {object}  map[string]string
+// @Router       /auth/login [post]
+func (h *AuthHandler) Login(c *gin.Context) {
 
 	var request LoginRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
