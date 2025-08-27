@@ -117,6 +117,10 @@ func main() {
 	// --- Rotas da API ---
 	router := gin.Default()
 
+	// Garante que a aplicação confia apenas nos proxies do Google Cloud.
+	// nil significa que ele vai usar os padrões recomendados para nuvem.
+	router.SetTrustedProxies(nil)
+
 	docs.SwaggerInfo.BasePath = "/api/v1"
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
