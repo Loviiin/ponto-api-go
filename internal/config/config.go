@@ -21,6 +21,8 @@ type Config struct {
 	DBUser     string `mapstructure:"DB_USER"`
 	DBPassword string `mapstructure:"DB_PASSWORD"`
 	DBName     string `mapstructure:"DB_NAME"`
+	// NOVO CAMPO para o modo SSL
+	DBSSLMode string `mapstructure:"DB_SSLMODE"`
 
 	// Chave secreta para assinar os tokens JWT (usaremos mais tarde)
 	JWTSecretKey string `mapstructure:"JWT_SECRET_KEY"`
@@ -36,6 +38,9 @@ func LoadConfig(path string) (config Config, err error) {
 
 	// Define os valores padrão (opcional, mas boa prática)
 	viper.SetDefault("API_PORT", "8083")
+	// Definimos 'require' como padrão para o SSL, que é o mais seguro e exigido pelo Neon
+	viper.SetDefault("DB_SSLMODE", "require")
+
 
 	// Tenta ler o ficheiro .env (para desenvolvimento local)
 	// Se não encontrar, não há problema, continuará com as variáveis de ambiente.
@@ -70,15 +75,15 @@ func LoadConfig(path string) (config Config, err error) {
 	if err != nil {
 		return
 	}
+	err = viper.BindEnv("DB_SSLMODE")
+	if err != nil {
+		return
+	}
 	err = viper.BindEnv("JWT_SECRET_KEY")
 	if err != nil {
 		return
 	}
-	// --- FIM DA CORREÇÃO ---
-
-	// "Deserializa" os valores lidos para dentro da nossa struct 'config'.
 	err = viper.Unmarshal(&config)
-
-	// Retorna a struct preenchida e um erro (que será 'nil' se tudo deu certo).
+	.
 	return
 }
