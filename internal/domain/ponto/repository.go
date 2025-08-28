@@ -9,6 +9,7 @@ import (
 type RegistroPontoRepository interface {
 	SavePonto(ponto *model.RegistroPonto) error
 	FindPontosByUserIDAndDate(userID uint, dia time.Time) ([]model.RegistroPonto, error)
+	WithTransaction(tx *gorm.DB) RegistroPontoRepository
 }
 
 type pontoRepository struct {
@@ -33,4 +34,8 @@ func (r *pontoRepository) FindPontosByUserIDAndDate(userID uint, dia time.Time) 
 		Where("timestamp BETWEEN ? AND ?", inicioDoDia, fimDoDia).
 		Find(&pontos).Error
 	return pontos, err
+}
+
+func (r *pontoRepository) WithTransaction(tx *gorm.DB) RegistroPontoRepository {
+	return &pontoRepository{Db: tx}
 }

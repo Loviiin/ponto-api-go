@@ -11,9 +11,13 @@ type RegistroPonto struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 
-	Tipo      string  `json:"tipo"`
-	UsuarioID uint    `gorm:"not null" json:"usuario_id"`
-	Usuario   Usuario `json:"-"`
-	EmpresaID uint    `gorm:"not null" json:"empresa_id"`
-	Empresa   Empresa `json:"-"`
+	Localizacao string `json:"localizacao"`
+	Metodo      string `gorm:"not null" json:"metodo"`
+
+	JustificativaID *uint          `json:"justificativa_id,omitempty"`
+	Justificativa   *Justificativa `json:"justificativa,omitempty"` // Opcional, para carregar os dados se necessário
+	UsuarioID       uint           `gorm:"not null" json:"usuario_id"`
+	Usuario         Usuario        `json:"-"`
+	EmpresaID       uint           `gorm:"not null" json:"empresa_id"`
+	Empresa         Empresa        `json:"-"`
 }

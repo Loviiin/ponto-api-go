@@ -1,33 +1,43 @@
 package ponto
 
 import (
+	"errors"
 	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
+	"github.com/Loviiin/ponto-api-go/internal/domain/justificativa"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/umahmood/haversine"
+	"gorm.io/gorm"
 	"time"
 )
 
 type PontoService interface {
 	BaterPonto(usuarioID uint, empresaID uint, latitude, longitude float64) (*model.RegistroPonto, error)
 	GetPontosDoDia(usuarioID uint, dia time.Time) ([]model.RegistroPonto, error)
+	AjustarPonto(usuarioID, empresaID, adminID uint, timestamp time.Time, justificativaDescricao string) (*model.RegistroPonto, error)
 }
 
 type pontoService struct {
-	pontoRepo   RegistroPontoRepository
-	empresaRepo empresa.EmpresaRepository
-	userRepo    usuario.UsuarioRepository
+	pontoRepo         RegistroPontoRepository
+	empresaRepo       empresa.EmpresaRepository
+	userRepo          usuario.UsuarioRepository
+	justificativaRepo justificativa.Repository
+	db                *gorm.DB
 }
 
 func NewPontoService(
 	pontoRepo RegistroPontoRepository,
 	userRepo usuario.UsuarioRepository,
 	empresaRepo empresa.EmpresaRepository,
+	justificativaRepo justificativa.Repository,
+	db *gorm.DB,
 ) PontoService {
 	return &pontoService{
-		pontoRepo:   pontoRepo,
-		userRepo:    userRepo,
-		empresaRepo: empresaRepo,
+		pontoRepo:         pontoRepo,
+		userRepo:          userRepo,
+		empresaRepo:       empresaRepo,
+		justificativaRepo: justificativaRepo,
+		db:                db,
 	}
 }
 
@@ -62,7 +72,7 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 		Longitude: longitude,
 		Timestamp: time.Now(),
 		EmpresaID: empresaID,
-		Tipo:      tipoBatida,
+		Metodo:    tipoBatida,
 	}
 
 	err = s.pontoRepo.SavePonto(registroPonto)
@@ -75,4 +85,55 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 
 func (s *pontoService) GetPontosDoDia(usuarioID uint, dia time.Time) ([]model.RegistroPonto, error) {
 	return s.pontoRepo.FindPontosByUserIDAndDate(usuarioID, dia)
+}
+
+func (s *pontoService) AjustarPonto(usuarioID, empresaID, adminID uint, timestamp time.Time, justificativaDescricao string) (*model.RegistroPonto, error) {
+	_, err := s.userRepo.FindByID(usuarioID, empresaID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("usuário alvo não encontrado ou não pertence a esta empresa")
+		}
+		return nil, err
+	}
+
+	var pontoRegistrado *model.RegistroPonto
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		justificativaRepoTx := s.justificativaRepo.WithTransaction(tx)
+		pontoRepoTx := s.pontoRepo.WithTransaction(tx)
+
+		// 3. Criar a Justificativa
+		novaJustificativa := &model.Justificativa{
+			DataOcorrencia: timestamp,
+			Tipo:           "AJUSTE_PONTO",
+			Descricao:      justificativaDescricao,
+			Status:         "APROVADO",
+			UsuarioID:      usuarioID,
+			AprovadorID:    &adminID,
+			EmpresaID:      empresaID,
+		}
+		if err := justificativaRepoTx.Create(novaJustificativa); err != nil {
+			return err
+		}
+
+		pontoRegistrado = &model.RegistroPonto{
+			UsuarioID:       usuarioID,
+			EmpresaID:       empresaID,
+			Timestamp:       timestamp,
+			Metodo:          "AJUSTE_MANUAL_ADMIN",
+			Localizacao:     "N/A",
+			JustificativaID: &novaJustificativa.ID,
+		}
+		if err := pontoRepoTx.SavePonto(pontoRegistrado); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return pontoRegistrado, nil
 }

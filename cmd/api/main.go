@@ -5,6 +5,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/config"
 	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
+	"github.com/Loviiin/ponto-api-go/internal/domain/justificativa"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/scheduler"
 	swaggerFiles "github.com/swaggo/files"
@@ -73,7 +74,7 @@ func main() {
 	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
 
 	// Adicionámos o &model.Permissao{} para a migração automática
-	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{})
+	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{})
 	if err != nil {
 		log.Fatal("Falha ao rodar a migração: ", err)
 	}
@@ -91,10 +92,11 @@ func main() {
 	empresaRepo := empresa.NewEmpresaRepository(db)
 	cargoRepo := cargo.NewCargoRepository(db)
 	permissaoRepo := permissao.NewRepository(db)
+	justificativaRepo := justificativa.NewRepository(db)
 
 	usuarioService := usuario.NewUsuarioService(usuarioRepo)
 	authService := auth.NewAuthService(usuarioRepo, jwtService)
-	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo)
+	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, justificativaRepo, db)
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
 	permissaoService := permissao.NewService(permissaoRepo)
@@ -102,7 +104,7 @@ func main() {
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, empresaService, cargoService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
-	pontoHandler := ponto.NewPontoHandler(pontoService)
+	pontoHandler := ponto.NewPontoHandler(pontoService, funcoesService)
 	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, db)
 	cargoHandler := cargo.NewCargoHandler(cargoService, funcoesService)
 	permissaoHandler := permissao.NewHandler(permissaoService)
@@ -118,6 +120,8 @@ func main() {
 	canDeleteUsuario := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.DELETAR_USUARIO)
 	canManageCargos := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_CARGOS)
 	canEditSaldo := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_SALDO_FUNCIONARIOS)
+	canViewPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VISUALIZAR_PONTO_FUNCIONARIOS)
+	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS) // Novo
 
 	scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
 	scheduler.Start()
@@ -167,6 +171,8 @@ func main() {
 			// Rota de Ponto
 			rotasProtegidas.POST("/pontos", pontoHandler.BaterPonto)
 			rotasProtegidas.GET("/pontos/meus-registros", pontoHandler.GetMeusRegistos)
+			rotasProtegidas.GET("/pontos/usuario/:id", canViewPonto, pontoHandler.GetRegistosPorUsuarioID)
+			rotasProtegidas.POST("/pontos/ajuste", canAdjustPonto, pontoHandler.AjustarPonto)
 
 			// Rotas de Empresa (Ações gerais)
 			rotasProtegidas.GET("/empresas", empresaHandler.GetAllEmpresasHandler)
