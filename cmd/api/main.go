@@ -7,7 +7,6 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/justificativa"
 	"github.com/Loviiin/ponto-api-go/internal/model"
-	"github.com/Loviiin/ponto-api-go/pkg/scheduler"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"log"
@@ -123,8 +122,8 @@ func main() {
 	canViewPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VISUALIZAR_PONTO_FUNCIONARIOS)
 	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS) // Novo
 
-	scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
-	scheduler.Start()
+	//	scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
+	//	scheduler.Start()
 
 	// --- Rotas da API ---
 	router := gin.Default()
@@ -155,6 +154,9 @@ func main() {
 		apiV1.POST("/cargos", cargoHandler.CreateCargo)
 		apiV1.POST("/cargos/:id/permissoes/:permissaoId", cargoHandler.AddPermissionToCargo)
 
+		// Rota para tarefas internas, a ser chamada pelo Cloud Scheduler
+		apiV1.POST("/tasks/fechamento-diario", bancoHorasHandler.ExecutarFechamentoDiario)
+
 		// Rotas Protegidas (requerem login básico)
 		rotasProtegidas := apiV1.Group("")
 		rotasProtegidas.Use(authMiddleware)
@@ -173,6 +175,7 @@ func main() {
 			rotasProtegidas.GET("/pontos/meus-registros", pontoHandler.GetMeusRegistos)
 			rotasProtegidas.GET("/pontos/usuario/:id", canViewPonto, pontoHandler.GetRegistosPorUsuarioID)
 			rotasProtegidas.POST("/pontos/ajuste", canAdjustPonto, pontoHandler.AjustarPonto)
+			rotasProtegidas.PUT("/pontos/:pontoId", canAdjustPonto, pontoHandler.EditarPonto)
 
 			// Rotas de Empresa (Ações gerais)
 			rotasProtegidas.GET("/empresas", empresaHandler.GetAllEmpresasHandler)

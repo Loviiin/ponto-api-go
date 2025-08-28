@@ -10,6 +10,8 @@ type RegistroPontoRepository interface {
 	SavePonto(ponto *model.RegistroPonto) error
 	FindPontosByUserIDAndDate(userID uint, dia time.Time) ([]model.RegistroPonto, error)
 	WithTransaction(tx *gorm.DB) RegistroPontoRepository
+	FindPontoByID(pontoID uint, empresaID uint) (*model.RegistroPonto, error)
+	UpdatePonto(ponto *model.RegistroPonto) error
 }
 
 type pontoRepository struct {
@@ -38,4 +40,14 @@ func (r *pontoRepository) FindPontosByUserIDAndDate(userID uint, dia time.Time) 
 
 func (r *pontoRepository) WithTransaction(tx *gorm.DB) RegistroPontoRepository {
 	return &pontoRepository{Db: tx}
+}
+
+func (r *pontoRepository) FindPontoByID(pontoID uint, empresaID uint) (*model.RegistroPonto, error) {
+	var ponto model.RegistroPonto
+	err := r.Db.Where("id = ? AND empresa_id = ?", pontoID, empresaID).First(&ponto).Error
+	return &ponto, err
+}
+
+func (r *pontoRepository) UpdatePonto(ponto *model.RegistroPonto) error {
+	return r.Db.Save(ponto).Error
 }

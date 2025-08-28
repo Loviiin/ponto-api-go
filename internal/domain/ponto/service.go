@@ -15,6 +15,7 @@ type PontoService interface {
 	BaterPonto(usuarioID uint, empresaID uint, latitude, longitude float64) (*model.RegistroPonto, error)
 	GetPontosDoDia(usuarioID uint, dia time.Time) ([]model.RegistroPonto, error)
 	AjustarPonto(usuarioID, empresaID, adminID uint, timestamp time.Time, justificativaDescricao string) (*model.RegistroPonto, error)
+	EditarPonto(pontoID, empresaID, adminID uint, novoTimestamp time.Time, justificativaDescricao string) (*model.RegistroPonto, error)
 }
 
 type pontoService struct {
@@ -136,4 +137,51 @@ func (s *pontoService) AjustarPonto(usuarioID, empresaID, adminID uint, timestam
 	}
 
 	return pontoRegistrado, nil
+}
+
+func (s *pontoService) EditarPonto(pontoID, empresaID, adminID uint, novoTimestamp time.Time, justificativaDescricao string) (*model.RegistroPonto, error) {
+	var pontoAtualizado *model.RegistroPonto
+	
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		pontoRepoTx := s.pontoRepo.WithTransaction(tx)
+		justificativaRepoTx := s.justificativaRepo.WithTransaction(tx)
+
+		pontoParaEditar, err := pontoRepoTx.FindPontoByID(pontoID, empresaID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("registro de ponto não encontrado ou não pertence a esta empresa")
+			}
+			return err
+		}
+
+		novaJustificativa := &model.Justificativa{
+			DataOcorrencia: novoTimestamp,
+			Tipo:           "EDICAO_PONTO",
+			Descricao:      justificativaDescricao,
+			Status:         "APROVADO",
+			UsuarioID:      pontoParaEditar.UsuarioID,
+			AprovadorID:    &adminID,
+			EmpresaID:      empresaID,
+		}
+		if err := justificativaRepoTx.Create(novaJustificativa); err != nil {
+			return err
+		}
+
+		pontoParaEditar.Timestamp = novoTimestamp
+		pontoParaEditar.Metodo = "AJUSTE_MANUAL_ADMIN"
+		pontoParaEditar.JustificativaID = &novaJustificativa.ID
+
+		if err := pontoRepoTx.UpdatePonto(pontoParaEditar); err != nil {
+			return err
+		}
+
+		pontoAtualizado = pontoParaEditar
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return pontoAtualizado, nil
 }

@@ -32,6 +32,11 @@ type AjustePontoRequest struct {
 	Justificativa string    `json:"justificativa" binding:"required"`
 }
 
+type EditarPontoRequest struct {
+	Timestamp     time.Time `json:"timestamp" binding:"required"`
+	Justificativa string    `json:"justificativa" binding:"required"`
+}
+
 // @Summary      Registra uma batida de ponto
 // @Description  Registra um evento de ponto (entrada/saída) para o usuário logado.
 // @Tags         Ponto
@@ -206,4 +211,55 @@ func (h *PontoHandler) AjustarPonto(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, novoPonto)
+}
+
+// @Summary      (Admin) Edita um registro de ponto existente
+// @Description  Altera o timestamp de um registro de ponto existente, criando uma justificativa para a auditoria. Requer permissão 'AJUSTAR_PONTO_FUNCIONARIOS'.
+// @Tags         Ponto
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        pontoId  path      int                 true  "ID do Registro de Ponto a ser editado"
+// @Param        edicao   body      EditarPontoRequest  true  "Novos dados para o registro de ponto"
+// @Success      200      {object}  model.RegistroPonto
+// @Failure      400      {object}  map[string]string
+// @Failure      403      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      500      {object}  map[string]string
+// @Router       /pontos/{pontoId} [put]
+func (h *PontoHandler) EditarPonto(c *gin.Context) {
+	idAdmin, err := h.converter.GetUintIDFromContext(c, "userID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "ID do administrador inválido no token."})
+		return
+	}
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "ID da empresa inválido no token."})
+		return
+	}
+
+	pontoID, err := h.converter.StrParaUint(c.Param("pontoId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "O ID do registro de ponto na URL é inválido."})
+		return
+	}
+
+	var req EditarPontoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Corpo da requisição inválido: " + err.Error()})
+		return
+	}
+
+	pontoAtualizado, err := h.service.EditarPonto(pontoID, empresaID, idAdmin, req.Timestamp, req.Justificativa)
+	if err != nil {
+		if err.Error() == "registro de ponto não encontrado ou não pertence a esta empresa" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao editar o ponto: " + err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, pontoAtualizado)
 }
