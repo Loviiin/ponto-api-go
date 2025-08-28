@@ -11,6 +11,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/auth"
 	"github.com/Loviiin/ponto-api-go/internal/domain/cargo"
@@ -55,8 +56,15 @@ func main() {
 		log.Fatal("Não foi possível carregar as configurações: ", err)
 	}
 
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s connect_timeout=10",
-		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode)
+	var dsn string
+	if strings.HasPrefix(cfg.DBHost, "/") {
+		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=America/Sao_Paulo",
+			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode)
+	} else {
+
+		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=America/Sao_Paulo",
+			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode)
+	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
