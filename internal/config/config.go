@@ -41,6 +41,7 @@ func LoadConfig(path string) (config Config, err error) {
 	// Definimos 'require' como padrão para o SSL, que é o mais seguro e exigido pelo Neon
 	viper.SetDefault("DB_SSLMODE", "require")
 
+
 	// Tenta ler o ficheiro .env (para desenvolvimento local)
 	// Se não encontrar, não há problema, continuará com as variáveis de ambiente.
 	viper.AddConfigPath(path)
@@ -82,6 +83,11 @@ func LoadConfig(path string) (config Config, err error) {
 	if err != nil {
 		return
 	}
+	// --- FIM DA CORREÇÃO ---
+
+	// "Deserializa" os valores lidos para dentro da nossa struct 'config'.
 	err = viper.Unmarshal(&config)
+
+	// Retorna a struct preenchida e um erro (que será 'nil' se tudo deu certo).
 	return
 }
