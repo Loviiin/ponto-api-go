@@ -5,7 +5,10 @@ import (
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/permissions"
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -132,4 +135,45 @@ func (h *Handler) FecharDia(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, usuarioAtualizado)
+}
+
+func (h *Handler) ExecutarFechamentoDiario(c *gin.Context) {
+	schedulerSecret := os.Getenv("SCHEDULER_SECRET")
+	if schedulerSecret == "" {
+		log.Println("ERRO CRÍTICO DE SEGURANÇA: A variável SCHEDULER_SECRET não está configurada.")
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Serviço mal configurado"})
+		return
+	}
+
+	authHeader := c.GetHeader("Authorization")
+	splitToken := strings.Split(authHeader, " ")
+	if len(splitToken) != 2 || splitToken[0] != "Bearer" || splitToken[1] != schedulerSecret {
+		log.Printf("AVISO DE SEGURANÇA: Tentativa de acesso não autorizada ao endpoint de fechamento. IP: %s", c.ClientIP())
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Acesso não permitido"})
+		return
+	}
+
+	log.Println("Iniciando tarefa agendada via HTTP: Fechamento diário do banco de horas...")
+	diaAnterior := time.Now().AddDate(0, 0, -1)
+
+	usuarios, err := h.usuarioService.FindAll()
+	if err != nil {
+		log.Printf("SCHEDULER_HTTP: Erro ao buscar usuários: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar usuários"})
+		return
+	}
+
+	log.Printf("SCHEDULER_HTTP: Encontrados %d usuários para processar.", len(usuarios))
+
+	for _, usr := range usuarios {
+		_, err := h.service.FecharDiaParaUsuario(usr.ID, usr.EmpresaID, diaAnterior)
+		if err != nil {
+			log.Printf("SCHEDULER_HTTP: Erro ao fechar o dia para o usuário ID %d: %v", usr.ID, err)
+		} else {
+			log.Printf("SCHEDULER_HTTP: Fechamento do dia %s concluído para o usuário ID %d.", diaAnterior.Format("2006-01-02"), usr.ID)
+		}
+	}
+
+	log.Println("Tarefa agendada via HTTP: Fechamento diário concluído.")
+	c.JSON(http.StatusOK, gin.H{"status": "Fechamento diário concluído com sucesso"})
 }

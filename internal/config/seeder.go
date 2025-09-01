@@ -21,6 +21,8 @@ func SeedPermissions(db *gorm.DB) map[string]model.Permissao {
 		{Nome: permissions.EDITAR_PROPRIA_CONTA, Descricao: "Permite que um usuário edite seus próprios dados."},
 		{Nome: permissions.VER_SALDO_FUNCIONARIOS, Descricao: "Permite ver saldo de horas de um funcionário"},
 		{Nome: permissions.EDITAR_SALDO_FUNCIONARIOS, Descricao: "Pemite a edição de pontos de um funcionário caso necessário"},
+		{Nome: permissions.VISUALIZAR_PONTO_FUNCIONARIOS, Descricao: "Permite visualizar os registros de ponto de outros funcionários."},
+		{Nome: permissions.AJUSTAR_PONTO_FUNCIONARIOS, Descricao: "Permite adicionar, editar ou remover registros de ponto de outros funcionários."},
 	}
 
 	for i := range permissoes {
@@ -52,6 +54,8 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.EDITAR_PROPRIA_CONTA],
 		mapaPermissoes[permissions.EDITAR_SALDO_FUNCIONARIOS],
 		mapaPermissoes[permissions.VER_SALDO_FUNCIONARIOS],
+		mapaPermissoes[permissions.VISUALIZAR_PONTO_FUNCIONARIOS],
+		mapaPermissoes[permissions.AJUSTAR_PONTO_FUNCIONARIOS],
 	}
 
 	funcPermissions := []model.Permissao{
