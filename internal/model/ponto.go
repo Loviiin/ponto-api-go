@@ -12,7 +12,7 @@ type RegistroPonto struct {
 	Longitude float64 `json:"longitude"`
 
 	Localizacao string `json:"localizacao"`
-	Metodo      string `gorm:"not null" json:"metodo"`
+	Metodo      string `json:"metodo"`
 
 	JustificativaID *uint          `json:"justificativa_id,omitempty"`
 	Justificativa   *Justificativa `json:"justificativa,omitempty"` // Opcional, para carregar os dados se necessário
