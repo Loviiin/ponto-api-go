@@ -920,6 +920,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/pontos/ajuste": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Adiciona um novo registro de ponto para um funcionário com uma justificativa. Requer permissão 'AJUSTAR_PONTO_FUNCIONARIOS'.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ponto"
+                ],
+                "summary": "(Admin) Adiciona um registro de ponto manual",
+                "parameters": [
+                    {
+                        "description": "Dados do ajuste de ponto",
+                        "name": "ajuste",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ponto.AjustePontoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.RegistroPonto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/pontos/meus-registros": {
             "get": {
                 "security": [
@@ -956,6 +1022,77 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/pontos/usuario/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna uma lista das batidas de ponto de um usuário específico para um determinado dia. Requer permissão 'VISUALIZAR_PONTO_FUNCIONARIOS'.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ponto"
+                ],
+                "summary": "(Admin) Lista os registros de ponto de um usuário",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do Usuário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"2025-08-26\"",
+                        "description": "Dia para consulta (formato: AAAA-MM-DD)",
+                        "name": "dia",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.RegistroPonto"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1372,6 +1509,39 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Justificativa": {
+            "type": "object",
+            "properties": {
+                "aprovador_id": {
+                    "description": "Quem aprovou/reprovou (pode ser nulo)",
+                    "type": "integer"
+                },
+                "data_ocorrencia": {
+                    "type": "string"
+                },
+                "descricao": {
+                    "type": "string"
+                },
+                "empresa_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "PENDENTE, APROVADO, REPROVADO",
+                    "type": "string"
+                },
+                "tipo": {
+                    "description": "Ex: 'AJUSTE_PONTO', 'ATESTADO_MEDICO'",
+                    "type": "string"
+                },
+                "usuario_id": {
+                    "description": "Quem está a justificar",
+                    "type": "integer"
+                }
+            }
+        },
         "model.Permissao": {
             "type": "object",
             "properties": {
@@ -1398,16 +1568,30 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "justificativa": {
+                    "description": "Opcional, para carregar os dados se necessário",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Justificativa"
+                        }
+                    ]
+                },
+                "justificativa_id": {
+                    "type": "integer"
+                },
                 "latitude": {
                     "type": "number"
+                },
+                "localizacao": {
+                    "type": "string"
                 },
                 "longitude": {
                     "type": "number"
                 },
-                "timestamp": {
+                "metodo": {
                     "type": "string"
                 },
-                "tipo": {
+                "timestamp": {
                     "type": "string"
                 },
                 "usuario_id": {
@@ -1440,6 +1624,25 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "saldo_banco_horas_minutos": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ponto.AjustePontoRequest": {
+            "type": "object",
+            "required": [
+                "justificativa",
+                "timestamp",
+                "usuario_id"
+            ],
+            "properties": {
+                "justificativa": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "usuario_id": {
                     "type": "integer"
                 }
             }
