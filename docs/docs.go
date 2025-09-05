@@ -781,6 +781,155 @@ const docTemplate = `{
                 }
             }
         },
+        "/justificativas": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Um funcionário cria uma solicitação para adicionar ou corrigir um registro de ponto.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Justificativas"
+                ],
+                "summary": "Solicita um ajuste de ponto",
+                "parameters": [
+                    {
+                        "description": "Dados da solicitação de ajuste",
+                        "name": "solicitacao",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/justificativa.solicitarAjusteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Justificativa"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/justificativas/pendentes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna uma lista de todas as solicitações de ajuste de ponto que estão pendentes de aprovação. Requer permissão.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Justificativas"
+                ],
+                "summary": "(Admin) Lista justificativas pendentes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Justificativa"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/justificativas/{id}/processar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Processa uma solicitação de ajuste, aprovando-a (o que cria o registro de ponto) ou reprovando-a. Requer permissão.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Justificativas"
+                ],
+                "summary": "(Admin) Aprova ou reprova uma justificativa",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Justificativa",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Ação de Aprovação/Reprovação",
+                        "name": "acao",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/justificativa.aprovarReprovarRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Justificativa"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/permissoes": {
             "get": {
                 "description": "(Admin) Retorna uma lista de todas as permissões disponíveis no sistema.",
@@ -1093,6 +1242,88 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/pontos/{pontoId}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Altera o timestamp de um registro de ponto existente, criando uma justificativa para a auditoria. Requer permissão 'AJUSTAR_PONTO_FUNCIONARIOS'.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ponto"
+                ],
+                "summary": "(Admin) Edita um registro de ponto existente",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do Registro de Ponto a ser editado",
+                        "name": "pontoId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Novos dados para o registro de ponto",
+                        "name": "edicao",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ponto.EditarPontoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.RegistroPonto"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1457,6 +1688,36 @@ const docTemplate = `{
                 }
             }
         },
+        "justificativa.aprovarReprovarRequest": {
+            "type": "object",
+            "properties": {
+                "aprovado": {
+                    "type": "boolean"
+                },
+                "motivo_reprovacao": {
+                    "type": "string"
+                }
+            }
+        },
+        "justificativa.solicitarAjusteRequest": {
+            "type": "object",
+            "required": [
+                "data_ocorrencia",
+                "descricao",
+                "tipo"
+            ],
+            "properties": {
+                "data_ocorrencia": {
+                    "type": "string"
+                },
+                "descricao": {
+                    "type": "string"
+                },
+                "tipo": {
+                    "type": "string"
+                }
+            }
+        },
         "model.Cargo": {
             "type": "object",
             "properties": {
@@ -1657,6 +1918,21 @@ const docTemplate = `{
                 "longitude": {
                     "type": "number",
                     "example": -47.864162
+                }
+            }
+        },
+        "ponto.EditarPontoRequest": {
+            "type": "object",
+            "required": [
+                "justificativa",
+                "timestamp"
+            ],
+            "properties": {
+                "justificativa": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
                 }
             }
         },
