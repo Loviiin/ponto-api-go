@@ -1,6 +1,8 @@
 package bancohoras
 
 import (
+	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
+	"gorm.io/gorm"
 	"sort"
 	"time"
 
@@ -17,12 +19,21 @@ type BancoHorasService interface {
 type bancoHorasService struct {
 	pontoRepo   ponto.RegistroPontoRepository
 	usuarioRepo usuario.UsuarioRepository
+	logRepo     logbancohoras.Repository // <-- ADICIONE O NOVO REPOSITÓRIO
+	db          *gorm.DB
 }
 
-func NewBancoHorasService(pontoRepo ponto.RegistroPontoRepository, userRepo usuario.UsuarioRepository) BancoHorasService {
+func NewBancoHorasService(
+	pontoRepo ponto.RegistroPontoRepository,
+	userRepo usuario.UsuarioRepository,
+	logRepo logbancohoras.Repository,
+	db *gorm.DB,
+) BancoHorasService {
 	return &bancoHorasService{
 		pontoRepo:   pontoRepo,
 		usuarioRepo: userRepo,
+		logRepo:     logRepo,
+		db:          db,
 	}
 }
 
@@ -75,11 +86,30 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 
 	novoSaldoTotal := usuarioAtual.SaldoBancoHorasMinutos + saldoDoDia
 
-	dadosParaAtualizar := map[string]interface{}{
-		"saldo_banco_horas_minutos": novoSaldoTotal,
-	}
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		dadosParaAtualizar := map[string]interface{}{
+			"saldo_banco_horas_minutos": novoSaldoTotal,
+		}
+		if err := s.usuarioRepo.Update(usuarioID, empresaID, dadosParaAtualizar); err != nil {
+			return err
+		}
 
-	err = s.usuarioRepo.Update(usuarioID, empresaID, dadosParaAtualizar)
+		log := &model.LogBancoHoras{
+			UsuarioID:            usuarioID,
+			AutorID:              nil,
+			EmpresaID:            empresaID,
+			Data:                 time.Now(),
+			ValorAlteradoMinutos: saldoDoDia,
+			SaldoAnteriorMinutos: usuarioAtual.SaldoBancoHorasMinutos,
+			SaldoNovoMinutos:     novoSaldoTotal,
+			Motivo:               "Fechamento automático do dia " + dia.Format("2006-01-02"),
+		}
+		if err := s.logRepo.Create(log); err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
