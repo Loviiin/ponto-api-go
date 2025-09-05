@@ -97,11 +97,12 @@ func main() {
 
 	usuarioService := usuario.NewUsuarioService(usuarioRepo)
 	authService := auth.NewAuthService(usuarioRepo, jwtService)
-	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, justificativaRepo, db)
+	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, db)
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
 	permissaoService := permissao.NewService(permissaoRepo)
 	bancoHorasService := bancohoras.NewBancoHorasService(pontoRepo, usuarioRepo, logBancoHorasRepo, db)
+	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, db)
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, empresaService, cargoService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
@@ -110,6 +111,7 @@ func main() {
 	cargoHandler := cargo.NewCargoHandler(cargoService, funcoesService)
 	permissaoHandler := permissao.NewHandler(permissaoService)
 	bancoHorasHandler := bancohoras.NewBancoHorasHandler(bancoHorasService, usuarioService, funcoesService)
+	justificativaHandler := justificativa.NewHandler(justificativaService, funcoesService)
 
 	// --- Middlewares ---
 	authMiddleware := auth.AuthMiddleware(jwtService)
@@ -122,7 +124,8 @@ func main() {
 	canManageCargos := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_CARGOS)
 	canEditSaldo := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_SALDO_FUNCIONARIOS)
 	canViewPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VISUALIZAR_PONTO_FUNCIONARIOS)
-	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS) // Novo
+	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS)
+	canManageJustificativas := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_JUSTIFICATIVAS)
 
 	//	scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
 	//	scheduler.Start()
@@ -193,6 +196,15 @@ func main() {
 
 			rotasProtegidas.GET("/bancohoras/saldo/usuario/:id", bancoHorasHandler.GetSaldoDoDia)
 			rotasProtegidas.POST("/bancohoras/fechamento/usuario/:id", canEditSaldo, bancoHorasHandler.FecharDia)
+
+			// --- NOVAS ROTAS DE JUSTIFICATIVAS ---
+			// Rota para o funcionário criar uma solicitação
+			rotasProtegidas.POST("/justificativas", justificativaHandler.SolicitarAjuste)
+
+			// Rotas para o admin/gestor gerir as solicitações
+			rotasProtegidas.GET("/justificativas/pendentes", canManageJustificativas, justificativaHandler.ListarPendentes)
+			rotasProtegidas.POST("/justificativas/:id/processar", canManageJustificativas, justificativaHandler.AprovarReprovar)
+
 		}
 	}
 
