@@ -56,6 +56,7 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.VER_SALDO_FUNCIONARIOS],
 		mapaPermissoes[permissions.VISUALIZAR_PONTO_FUNCIONARIOS],
 		mapaPermissoes[permissions.AJUSTAR_PONTO_FUNCIONARIOS],
+		mapaPermissoes[permissions.GERENCIAR_JUSTIFICATIVAS],
 	}
 
 	funcPermissions := []model.Permissao{
