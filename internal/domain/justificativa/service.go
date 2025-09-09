@@ -2,10 +2,12 @@ package justificativa
 
 import (
 	"errors"
+
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"gorm.io/gorm"
 )
+
 
 type Service interface {
 	SolicitarAjuste(solicitacao *model.Justificativa) error
@@ -19,7 +21,6 @@ type service struct {
 	pontoRepo ponto.RegistroPontoRepository
 	db        *gorm.DB
 }
-
 func NewService(repo Repository, pontoRepo ponto.RegistroPontoRepository, db *gorm.DB) Service {
 	return &service{
 		justificativaRepo: repo,
@@ -37,10 +38,8 @@ func (s *service) ListarPendentes(empresaID uint) ([]model.Justificativa, error)
 	return s.justificativaRepo.FindByStatus(empresaID, "PENDENTE")
 }
 
-// MUDANÇA: A lógica de aprovação agora é totalmente transacional aqui
 func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, aprovado bool, motivoReprovacao string) (*model.Justificativa, error) {
 	// Usamos uma transação para garantir que a atualização da justificativa e a criação do ponto
-	// aconteçam juntas, ou nenhuma delas acontece.
 	var justificativaProcessada *model.Justificativa
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -89,9 +88,5 @@ func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, 
 		return nil
 	})
 
-	if err != nil {
-		return nil, err
-	}
-
-	return justificativaProcessada, nil
+	return justificativaProcessada, err
 }
