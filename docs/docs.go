@@ -1774,7 +1774,6 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "aprovador_id": {
-                    "description": "Quem aprovou/reprovou (pode ser nulo)",
                     "type": "integer"
                 },
                 "data_ocorrencia": {
@@ -1789,16 +1788,17 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "observacao_aprovador": {
+                    "description": "Para feedback ou motivo da reprovação",
+                    "type": "string"
+                },
                 "status": {
-                    "description": "PENDENTE, APROVADO, REPROVADO",
                     "type": "string"
                 },
                 "tipo": {
-                    "description": "Ex: 'AJUSTE_PONTO', 'ATESTADO_MEDICO'",
                     "type": "string"
                 },
                 "usuario_id": {
-                    "description": "Quem está a justificar",
                     "type": "integer"
                 }
             }

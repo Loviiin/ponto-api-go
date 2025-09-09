@@ -1,6 +1,7 @@
 package ponto
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type PontoHandler struct {
@@ -104,7 +106,6 @@ func (h *PontoHandler) BaterPonto(c *gin.Context) {
 	c.JSON(http.StatusCreated, pontoRegistrado)
 }
 
-// --- INÍCIO DA NOVA FUNÇÃO ---
 
 // @Summary      (Admin) Lista os registros de ponto de um usuário
 // @Description  Retorna uma lista das batidas de ponto de um usuário específico para um determinado dia. Requer permissão 'VISUALIZAR_PONTO_FUNCIONARIOS'.
@@ -276,11 +277,24 @@ func (h *PontoHandler) EditarPonto(c *gin.Context) {
 		return
 	}
 
-	// LÓGICA DE ORQUESTRAÇÃO:
-	// 1. Criar a justificativa.
-	// (Nota: Para associar ao usuário correto, o ideal seria buscar o ponto primeiro,
-	// mas para simplificar a correção, vamos criar a justificativa sem o UsuarioID por enquanto)
+	
+	pontoOriginal, err := h.service.FindPontoByID(pontoID, empresaID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Registro de ponto não encontrado ou não pertence a esta empresa."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar o registro de ponto original: " + err.Error()})
+		return
+	}
+
+	if pontoOriginal == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Ocorreu um erro inesperado ao buscar o registro de ponto."})
+		return
+	}
+
 	justificativa := &model.Justificativa{
+		UsuarioID:      pontoOriginal.UsuarioID,
 		EmpresaID:      empresaID,
 		AprovadorID:    &idAdmin,
 		DataOcorrencia: req.Timestamp,
@@ -293,14 +307,9 @@ func (h *PontoHandler) EditarPonto(c *gin.Context) {
 		return
 	}
 
-	// 2. Chamar o serviço de ponto com o ID da justificativa.
 	pontoAtualizado, err := h.service.EditarPonto(pontoID, empresaID, req.Timestamp, &justificativa.ID)
 	if err != nil {
-		if err.Error() == "registro de ponto não encontrado ou não pertence a esta empresa" {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao editar o ponto: " + err.Error()})
-		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao editar o ponto: " + err.Error()})
 		return
 	}
 
