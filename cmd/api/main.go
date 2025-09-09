@@ -98,6 +98,8 @@ func main() {
 	usuarioService := usuario.NewUsuarioService(usuarioRepo)
 	authService := auth.NewAuthService(usuarioRepo, jwtService)
 	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, db)
+	
+
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
 	permissaoService := permissao.NewService(permissaoRepo)
@@ -106,7 +108,8 @@ func main() {
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, empresaService, cargoService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
-	pontoHandler := ponto.NewPontoHandler(pontoService, funcoesService)
+	pontoHandler := ponto.NewPontoHandler(pontoService, justificativaService, funcoesService)
+
 	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, db)
 	cargoHandler := cargo.NewCargoHandler(cargoService, funcoesService)
 	permissaoHandler := permissao.NewHandler(permissaoService)

@@ -17,6 +17,7 @@ type PontoService interface {
 	EditarPonto(pontoID, empresaID uint, novoTimestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error)
 }
 
+// A struct volta a ser simples, sem o repo de justificativa
 type pontoService struct {
 	pontoRepo   RegistroPontoRepository
 	empresaRepo empresa.EmpresaRepository
@@ -24,6 +25,7 @@ type pontoService struct {
 	db          *gorm.DB
 }
 
+// O construtor volta ao normal
 func NewPontoService(
 	pontoRepo RegistroPontoRepository,
 	userRepo usuario.UsuarioRepository,
@@ -108,6 +110,7 @@ func (s *pontoService) AjustarPonto(usuarioID, empresaID, adminID uint, timestam
 
 	return pontoRegistrado, nil
 }
+
 func (s *pontoService) EditarPonto(pontoID, empresaID uint, novoTimestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error) {
 	pontoParaEditar, err := s.pontoRepo.FindPontoByID(pontoID, empresaID)
 	if err != nil {
