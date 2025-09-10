@@ -2,8 +2,6 @@ package usuario
 
 import (
 	"errors"
-	"github.com/Loviiin/ponto-api-go/internal/domain/cargo"
-	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/permissions"
@@ -14,16 +12,12 @@ import (
 
 type UsuarioHandler struct {
 	service        UsuarioService
-	empresaService empresa.EmpresaService
-	cargoService   cargo.CargoService
 	converter      funcoes.FuncoesInterface
 }
 
-func NewUsuarioHandler(s UsuarioService, e empresa.EmpresaService, ca cargo.CargoService, f funcoes.FuncoesInterface) *UsuarioHandler {
+func NewUsuarioHandler(s UsuarioService, f funcoes.FuncoesInterface) *UsuarioHandler {
 	return &UsuarioHandler{
 		service:        s,
-		empresaService: e,
-		cargoService:   ca,
 		converter:      f,
 	}
 }
@@ -239,17 +233,7 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	_, err := h.empresaService.GetEmpresaByIDSer(request.EmpresaID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "A empresa especificada não existe."})
-		return
-	}
 
-	_, err = h.cargoService.FindByID(request.CargoID, request.EmpresaID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "O cargo especificado não existe ou não pertence a esta empresa."})
-		return
-	}
 	usuario := model.Usuario{
 		Nome:      request.Nome,
 		Email:     request.Email,
@@ -258,14 +242,14 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 		CargoID:   request.CargoID,
 	}
 
-	err = h.service.CriarUsuario(&usuario) // Este método agora será mais simples!
+	err := h.service.CriarUsuario(&usuario)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusCreated, usuario)
 }
-
 // @Summary      Obtém os dados do usuário logado
 // @Description  Retorna as informações detalhadas do usuário que está a fazer o pedido.
 // @Tags         Usuários
