@@ -2,17 +2,20 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"regexp"
+	"strings"
+
 	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/config"
 	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/justificativa"
 	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	"github.com/gin-contrib/cors"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"log"
-	"os"
-	"strings"
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/auth"
 	"github.com/Loviiin/ponto-api-go/internal/domain/cargo"
@@ -23,6 +26,7 @@ import (
 
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
+
 	// Vamos usar este pacote para as nossas constantes de permissão
 	"github.com/Loviiin/ponto-api-go/pkg/permissions"
 
@@ -30,6 +34,9 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
+
 
 // @title           Ponto API em Go
 // @version         1.0
@@ -98,7 +105,6 @@ func main() {
 	usuarioService := usuario.NewUsuarioService(usuarioRepo)
 	authService := auth.NewAuthService(usuarioRepo, jwtService)
 	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, db)
-	
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
@@ -136,18 +142,36 @@ func main() {
 	// --- Rotas da API ---
 	router := gin.Default()
 
-	// Garante que a aplicação confia apenas nos proxies do Google Cloud.
-	// nil significa que ele vai usar os padrões recomendados para nuvem.
 	router.SetTrustedProxies(nil)
 
-	docs.SwaggerInfo.BasePath = "/api/v1"
+// --- CONFIGURAÇÃO DE CORS OTIMIZADA E SEGURA ---
+configCORS := cors.DefaultConfig()
+configCORS.AllowCredentials = true
 
-	if os.Getenv("PORT") != "" {
-		docs.SwaggerInfo.Host = ""
-	}
+// Para produção (ex: Cloud Run), você usaria uma origem específica.
+// Para desenvolvimento no Codespaces, usamos a função com o regex pré-compilado.
+configCORS.AllowOriginFunc = func(origin string) bool {
+    // A variável 'allowedOriginRegex' deve ser definida no topo do seu arquivo main.go:
+    // var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
+    return allowedOriginRegex.MatchString(origin)
+}
 
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	apiV1 := router.Group("/api/v1")
+configCORS.AllowHeaders = []string{"Authorization", "Content-Type", "Origin"}
+router.Use(cors.New(configCORS))
+
+
+// --- CONFIGURAÇÃO DINÂMICA DO SWAGGER ---
+// Verifica a variável de ambiente para determinar o ambiente de execução.
+if os.Getenv("ENVIRONMENT") == "production" {
+    // Em produção (Cloud Run, Codespaces), apaga o host para usar um caminho relativo.
+    docs.SwaggerInfo.Host = ""
+}
+
+docs.SwaggerInfo.BasePath = "/api/v1"
+router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+// Define o grupo de rotas da API.
+apiV1 := router.Group("/api/v1")
 	{
 		// Rotas Públicas
 		apiV1.POST("/auth/login", authHandler.Login)
