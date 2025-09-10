@@ -20,9 +20,9 @@ func NewHandler(s Service, f funcoes.FuncoesInterface) *Handler {
 }
 
 type solicitarAjusteRequest struct {
-	DataOcorrencia time.Time `json:"data_ocorrencia" binding:"required"`
-	Tipo           string    `json:"tipo" binding:"required"`
-	Descricao      string    `json:"descricao" binding:"required"`
+	DataOcorrencia time.Time `json:"data_ocorrencia" binding:"required" example:"2025-09-10T09:00:00Z"`
+	Tipo           string    `json:"tipo" binding:"required" example:"ENTRADA_ESQUECIDA"`
+	Descricao      string    `json:"descricao" binding:"required" example:"Esqueci de bater o ponto na entrada."`
 }
 
 type aprovarReprovarRequest struct {
@@ -39,6 +39,7 @@ type aprovarReprovarRequest struct {
 // @Param        solicitacao  body      solicitarAjusteRequest  true  "Dados da solicitação de ajuste"
 // @Success      201          {object}  model.Justificativa
 // @Failure      400          {object}  map[string]string
+// @Failure      500          {object}  map[string]string "Falha interna no servidor"
 // @Router       /justificativas [post]
 func (h *Handler) SolicitarAjuste(c *gin.Context) {
 	userID, _ := h.converter.GetUintIDFromContext(c, "userID")

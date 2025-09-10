@@ -825,6 +825,15 @@ const docTemplate = `{
                                 "type": "string"
                             }
                         }
+                    },
+                    "500": {
+                        "description": "Falha interna no servidor",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -1708,13 +1717,16 @@ const docTemplate = `{
             ],
             "properties": {
                 "data_ocorrencia": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2025-09-10T09:00:00Z"
                 },
                 "descricao": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Esqueci de bater o ponto na entrada."
                 },
                 "tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "ENTRADA_ESQUECIDA"
                 }
             }
         },
@@ -1898,13 +1910,16 @@ const docTemplate = `{
             ],
             "properties": {
                 "justificativa": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Ajuste manual de entrada."
                 },
                 "timestamp": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2025-09-10T09:00:00Z"
                 },
                 "usuario_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 2
                 }
             }
         },
@@ -1929,10 +1944,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "justificativa": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Correção do horário de saída."
                 },
                 "timestamp": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2025-09-10T18:05:00Z"
                 }
             }
         },

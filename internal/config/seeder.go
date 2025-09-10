@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/Loviiin/ponto-api-go/pkg/password"
 	"log"
+
+	"github.com/Loviiin/ponto-api-go/pkg/password"
 
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/permissions"
@@ -23,6 +24,7 @@ func SeedPermissions(db *gorm.DB) map[string]model.Permissao {
 		{Nome: permissions.EDITAR_SALDO_FUNCIONARIOS, Descricao: "Pemite a edição de pontos de um funcionário caso necessário"},
 		{Nome: permissions.VISUALIZAR_PONTO_FUNCIONARIOS, Descricao: "Permite visualizar os registros de ponto de outros funcionários."},
 		{Nome: permissions.AJUSTAR_PONTO_FUNCIONARIOS, Descricao: "Permite adicionar, editar ou remover registros de ponto de outros funcionários."},
+		{Nome: permissions.GERENCIAR_JUSTIFICATIVAS, Descricao: "Permite gerenciar justificativas de ponto dos funcionários."},
 	}
 
 	for i := range permissoes {
