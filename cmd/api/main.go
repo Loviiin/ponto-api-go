@@ -2,16 +2,20 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"regexp"
+	"strings"
+
 	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/config"
 	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/justificativa"
+	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	"github.com/gin-contrib/cors"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"log"
-	"os"
-	"strings"
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/auth"
 	"github.com/Loviiin/ponto-api-go/internal/domain/cargo"
@@ -22,6 +26,7 @@ import (
 
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
+
 	// Vamos usar este pacote para as nossas constantes de permissão
 	"github.com/Loviiin/ponto-api-go/pkg/permissions"
 
@@ -29,6 +34,9 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
+
 
 // @title           Ponto API em Go
 // @version         1.0
@@ -73,7 +81,7 @@ func main() {
 	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
 
 	// Adicionámos o &model.Permissao{} para a migração automática
-	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{})
+	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{})
 	if err != nil {
 		log.Fatal("Falha ao rodar a migração: ", err)
 	}
@@ -92,22 +100,27 @@ func main() {
 	cargoRepo := cargo.NewCargoRepository(db)
 	permissaoRepo := permissao.NewRepository(db)
 	justificativaRepo := justificativa.NewRepository(db)
+	logBancoHorasRepo := logbancohoras.NewRepository(db)
 
 	usuarioService := usuario.NewUsuarioService(usuarioRepo)
 	authService := auth.NewAuthService(usuarioRepo, jwtService)
-	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, justificativaRepo, db)
+	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, db)
+
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
 	permissaoService := permissao.NewService(permissaoRepo)
-	bancoHorasService := bancohoras.NewBancoHorasService(pontoRepo, usuarioRepo)
+	bancoHorasService := bancohoras.NewBancoHorasService(pontoRepo, usuarioRepo, logBancoHorasRepo, db)
+	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, db)
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, empresaService, cargoService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
-	pontoHandler := ponto.NewPontoHandler(pontoService, funcoesService)
+	pontoHandler := ponto.NewPontoHandler(pontoService, justificativaService, funcoesService)
+
 	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, db)
 	cargoHandler := cargo.NewCargoHandler(cargoService, funcoesService)
 	permissaoHandler := permissao.NewHandler(permissaoService)
 	bancoHorasHandler := bancohoras.NewBancoHorasHandler(bancoHorasService, usuarioService, funcoesService)
+	justificativaHandler := justificativa.NewHandler(justificativaService, funcoesService)
 
 	// --- Middlewares ---
 	authMiddleware := auth.AuthMiddleware(jwtService)
@@ -120,7 +133,8 @@ func main() {
 	canManageCargos := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_CARGOS)
 	canEditSaldo := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_SALDO_FUNCIONARIOS)
 	canViewPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VISUALIZAR_PONTO_FUNCIONARIOS)
-	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS) // Novo
+	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS)
+	canManageJustificativas := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_JUSTIFICATIVAS)
 
 	//	scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
 	//	scheduler.Start()
@@ -128,18 +142,36 @@ func main() {
 	// --- Rotas da API ---
 	router := gin.Default()
 
-	// Garante que a aplicação confia apenas nos proxies do Google Cloud.
-	// nil significa que ele vai usar os padrões recomendados para nuvem.
 	router.SetTrustedProxies(nil)
 
-	docs.SwaggerInfo.BasePath = "/api/v1"
+// --- CONFIGURAÇÃO DE CORS OTIMIZADA E SEGURA ---
+configCORS := cors.DefaultConfig()
+configCORS.AllowCredentials = true
 
-	if os.Getenv("PORT") != "" {
-		docs.SwaggerInfo.Host = ""
-	}
+// Para produção (ex: Cloud Run), você usaria uma origem específica.
+// Para desenvolvimento no Codespaces, usamos a função com o regex pré-compilado.
+configCORS.AllowOriginFunc = func(origin string) bool {
+    // A variável 'allowedOriginRegex' deve ser definida no topo do seu arquivo main.go:
+    // var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
+    return allowedOriginRegex.MatchString(origin)
+}
 
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-	apiV1 := router.Group("/api/v1")
+configCORS.AllowHeaders = []string{"Authorization", "Content-Type", "Origin"}
+router.Use(cors.New(configCORS))
+
+
+// --- CONFIGURAÇÃO DINÂMICA DO SWAGGER ---
+// Verifica a variável de ambiente para determinar o ambiente de execução.
+if os.Getenv("ENVIRONMENT") == "production" {
+    // Em produção (Cloud Run, Codespaces), apaga o host para usar um caminho relativo.
+    docs.SwaggerInfo.Host = ""
+}
+
+docs.SwaggerInfo.BasePath = "/api/v1"
+router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+// Define o grupo de rotas da API.
+apiV1 := router.Group("/api/v1")
 	{
 		// Rotas Públicas
 		apiV1.POST("/auth/login", authHandler.Login)
@@ -191,6 +223,15 @@ func main() {
 
 			rotasProtegidas.GET("/bancohoras/saldo/usuario/:id", bancoHorasHandler.GetSaldoDoDia)
 			rotasProtegidas.POST("/bancohoras/fechamento/usuario/:id", canEditSaldo, bancoHorasHandler.FecharDia)
+
+			// --- NOVAS ROTAS DE JUSTIFICATIVAS ---
+			// Rota para o funcionário criar uma solicitação
+			rotasProtegidas.POST("/justificativas", justificativaHandler.SolicitarAjuste)
+
+			// Rotas para o admin/gestor gerir as solicitações
+			rotasProtegidas.GET("/justificativas/pendentes", canManageJustificativas, justificativaHandler.ListarPendentes)
+			rotasProtegidas.POST("/justificativas/:id/processar", canManageJustificativas, justificativaHandler.AprovarReprovar)
+
 		}
 	}
 
