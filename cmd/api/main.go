@@ -102,7 +102,7 @@ func main() {
 	justificativaRepo := justificativa.NewRepository(db)
 	logBancoHorasRepo := logbancohoras.NewRepository(db)
 
-	usuarioService := usuario.NewUsuarioService(usuarioRepo)
+	usuarioService := usuario.NewUsuarioService(usuarioRepo, cargoRepo, empresaRepo)
 	authService := auth.NewAuthService(usuarioRepo, jwtService)
 	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, db)
 
@@ -112,7 +112,7 @@ func main() {
 	bancoHorasService := bancohoras.NewBancoHorasService(pontoRepo, usuarioRepo, logBancoHorasRepo, db)
 	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, db)
 
-	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, empresaService, cargoService, funcoesService)
+	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
 	pontoHandler := ponto.NewPontoHandler(pontoService, justificativaService, funcoesService)
 

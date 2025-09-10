@@ -2,6 +2,8 @@ package usuario
 
 import (
 	"errors"
+	"github.com/Loviiin/ponto-api-go/internal/domain/cargo" // <-- 1. IMPORTAR O PACOTE DO CARGO
+	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/password"
 	"gorm.io/gorm"
@@ -20,11 +22,15 @@ var criptografaSenha = password.CriptografaSenha
 
 type usuarioService struct {
 	usuarioRepo UsuarioRepository
+	cargoRepo   cargo.CargoRepository
+	empresaRepo empresa.EmpresaRepository
 }
 
-func NewUsuarioService(repo UsuarioRepository) UsuarioService {
+func NewUsuarioService(repo UsuarioRepository, cargoRepo cargo.CargoRepository, empresaRepo empresa.EmpresaRepository) UsuarioService {
 	return &usuarioService{
 		usuarioRepo: repo,
+		cargoRepo:   cargoRepo,
+		empresaRepo: empresaRepo,
 	}
 }
 
@@ -44,6 +50,15 @@ func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
+	_, err = s.empresaRepo.FindByID(usuario.EmpresaID)
+	if err != nil {
+		return errors.New("a empresa especificada não existe")
+	}
+	_, err = s.cargoRepo.FindByID(usuario.CargoID, usuario.EmpresaID)
+	if err != nil {
+		return errors.New("o cargo especificado não existe ou não pertence a esta empresa")
+	}
+
 	senhaHash, err := criptografaSenha(usuario.Senha)
 	if err != nil {
 		return err
