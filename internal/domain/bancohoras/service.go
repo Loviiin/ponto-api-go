@@ -1,10 +1,12 @@
 package bancohoras
 
 import (
-	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
-	"gorm.io/gorm"
+	"errors"
 	"sort"
 	"time"
+
+	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
+	"gorm.io/gorm"
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
@@ -58,6 +60,10 @@ func CalcularSaldoDoDia(pontosDoDia []model.RegistroPonto, cargoDoUsuario model.
 	sort.Slice(pontosDoDia, func(i, j int) bool {
 		return pontosDoDia[i].Timestamp.Before(pontosDoDia[j].Timestamp)
 	})
+
+	if len(pontosDoDia)%2 == 1 {
+		return 0, errors.New("o dia tem um número ímpar de marcações de ponto e não pode ser fechado automaticamente")
+	}
 
 	var totalTrabalhadoEmMinutos float64 = 0
 	for i := 0; i < len(pontosDoDia)-1; i += 2 {
