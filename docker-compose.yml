@@ -16,7 +16,7 @@ services:
     ports:
       - "5432:5432"
     restart: unless-stopped
-
+  
   ponto-api:
     # Em vez de uma 'image' pronta, dizemos para 'build' a partir do nosso Dockerfile.
     # O '.' significa que o Dockerfile está na mesma pasta que este docker-compose.yml.
@@ -25,6 +25,8 @@ services:
     ports:
       # Mapeamos a porta 8083 da nossa máquina para a porta 8083 do container.
       - "8083:8083"
+    environment:
+       - ENVIRONMENT=production
     # A linha MAIS IMPORTANTE! Isto garante que o container do banco de dados
     # estará pronto e a funcionar ANTES de tentar iniciar a nossa API.
     depends_on:
