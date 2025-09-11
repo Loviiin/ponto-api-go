@@ -12,7 +12,7 @@ type EmpresaRepository interface {
 	GetEmpresaByID(idempresa uint) (*model.Empresa, error)
 	UpdateEmpresa(idempresa uint, dados map[string]interface{}) error
 	DeleteEmpresa(idempresa uint) error
-    WithTransaction(tx *gorm.DB) EmpresaRepository // <-- ADICIONE ESTA LINHA
+    WithTransaction(tx *gorm.DB) EmpresaRepository
 }
 
 type empresaRepository struct {
