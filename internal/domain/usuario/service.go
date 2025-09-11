@@ -10,7 +10,7 @@ import (
 )
 
 type UsuarioService interface {
-	CriarUsuario(usuario *model.Usuario) error
+	CriarUsuario(usuario *model.Usuario, cargoNome string) error 
 	GetAll(empresaID uint) ([]model.Usuario, error)
 	FindByID(id uint, empresaID uint) (*model.Usuario, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
@@ -42,11 +42,19 @@ func (s *usuarioService) FindByID(id uint, empresaID uint) (*model.Usuario, erro
 	return s.usuarioRepo.FindByID(id, empresaID)
 }
 
-func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {
-	_, err := s.usuarioRepo.FindByEmail(usuario.Email)
-	if err == nil {
-		return errors.New("e-mail já cadastrado")
-	}
+func (s *usuarioService) CriarUsuario(usuario *model.Usuario, cargoNome string) error {
+    if usuario.CargoID == 0 && cargoNome != "" {
+        cargo, err := s.cargoRepo.FindByName(cargoNome, usuario.EmpresaID)
+        if err != nil {
+            return errors.New("o cargo especificado não foi encontrado")
+        }
+        usuario.CargoID = cargo.ID
+    }
+
+    _, err := s.usuarioRepo.FindByEmail(usuario.Email)
+    if err == nil {
+        return errors.New("e-mail já cadastrado")
+    }
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
