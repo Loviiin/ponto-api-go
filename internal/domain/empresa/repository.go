@@ -12,6 +12,7 @@ type EmpresaRepository interface {
 	GetEmpresaByID(idempresa uint) (*model.Empresa, error)
 	UpdateEmpresa(idempresa uint, dados map[string]interface{}) error
 	DeleteEmpresa(idempresa uint) error
+    WithTransaction(tx *gorm.DB) EmpresaRepository // <-- ADICIONE ESTA LINHA
 }
 
 type empresaRepository struct {
@@ -54,4 +55,8 @@ func (r *empresaRepository) DeleteEmpresa(idempresa uint) error {
 	// A função Unscoped() garante uma exclusão permanente (hard delete).
 	// Sem ela, o GORM faria um soft delete se o modelo tivesse um campo gorm.DeletedAt.
 	return r.Db.Unscoped().Delete(&model.Empresa{}, idempresa).Error
+}
+
+func (r *empresaRepository) WithTransaction(tx *gorm.DB) EmpresaRepository {
+    return &empresaRepository{Db: tx}
 }

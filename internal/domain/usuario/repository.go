@@ -13,6 +13,7 @@ type UsuarioRepository interface {
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
 	Delete(id uint, empresaID uint) error
 	FindAll() ([]model.Usuario, error)
+	WithTransaction(tx *gorm.DB) UsuarioRepository
 }
 
 type usuarioRepository struct {
@@ -59,4 +60,8 @@ func (r *usuarioRepository) FindAll() ([]model.Usuario, error) {
 	var usuarios []model.Usuario
 	err := r.Db.Find(&usuarios).Error
 	return usuarios, err
+}
+
+func (r *usuarioRepository) WithTransaction(tx *gorm.DB) UsuarioRepository {
+    return &usuarioRepository{Db: tx}
 }
