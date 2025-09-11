@@ -103,7 +103,7 @@ func main() {
 	logBancoHorasRepo := logbancohoras.NewRepository(db)
 
 	usuarioService := usuario.NewUsuarioService(usuarioRepo, cargoRepo, empresaRepo)
-	authService := auth.NewAuthService(usuarioRepo, jwtService)
+	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, jwtService,db)
 	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, db)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
@@ -174,6 +174,7 @@ router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 apiV1 := router.Group("/api/v1")
 	{
 		// Rotas Públicas
+		apiV1.POST("/auth/signup", authHandler.SignUp)
 		apiV1.POST("/auth/login", authHandler.Login)
 		apiV1.POST("/usuarios", usuarioHandler.CriarUsuarioHandler)
 
