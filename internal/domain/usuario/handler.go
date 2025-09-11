@@ -27,7 +27,8 @@ type CriarUsuarioRequest struct {
 	Email     string `json:"email" binding:"required,email" example:"joao.silva@empresa.com"`
 	Senha     string `json:"senha" binding:"required,min=6" example:"senha123"`
 	EmpresaID uint   `json:"empresa_id" binding:"required" example:"1"`
-	CargoID   uint   `json:"cargo_id" binding:"required" example:"2"`
+	CargoID   uint   `json:"cargo_id,omitempty" example:"2"` 
+	CargoNome string `json:"cargo_nome,omitempty" example:"Funcionário"`
 }
 
 // UpdateUsuarioRequest define o corpo do pedido para atualizar um usuário.
@@ -234,21 +235,26 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 		return
 	}
 
-	usuario := model.Usuario{
-		Nome:      request.Nome,
-		Email:     request.Email,
-		Senha:     request.Senha,
-		EmpresaID: request.EmpresaID,
-		CargoID:   request.CargoID,
-	}
-
-	err := h.service.CriarUsuario(&usuario)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if (request.CargoID == 0 && request.CargoNome == "") || (request.CargoID != 0 && request.CargoNome != "") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Forneça apenas 'cargo_id' ou 'cargo_nome', mas não ambos ou nenhum."})
 		return
 	}
 
-	c.JSON(http.StatusCreated, usuario)
+    usuario := model.Usuario{
+        Nome:      request.Nome,
+        Email:     request.Email,
+        Senha:     request.Senha,
+        EmpresaID: request.EmpresaID,
+        CargoID:   request.CargoID,
+    }
+
+    err := h.service.CriarUsuario(&usuario, request.CargoNome)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusCreated, usuario)
 }
 // @Summary      Obtém os dados do usuário logado
 // @Description  Retorna as informações detalhadas do usuário que está a fazer o pedido.
