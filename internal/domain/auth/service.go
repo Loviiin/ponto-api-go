@@ -74,7 +74,7 @@ func (s *authService) SignUp(empresaReq *model.Empresa, usuarioReq *model.Usuari
 			return err
 		}
 
-		permissoes := config.SeedPermissions(s.db)
+		permissoes := config.SeedPermissions(tx)
 		config.SetupDefaultRolesAndPermissions(tx, empresaReq.ID, permissoes)
 
 		cargoRepoTx := s.cargoRepo.WithTransaction(tx)
