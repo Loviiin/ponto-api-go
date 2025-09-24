@@ -834,6 +834,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/empresas/{id}/localidades": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna uma lista de todas as localidades de uma empresa. Requer permissão 'GERENCIAR_LOCALIDADES'.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Localidades"
+                ],
+                "summary": "Lista as localidades de uma empresa",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID da Empresa",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/model.Localidade"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/justificativas": {
             "post": {
                 "security": [
@@ -982,6 +1028,63 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/localidades": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cria uma nova localidade (matriz ou filial) para uma empresa, buscando o endereço e as coordenadas a partir do CEP. Requer permissão 'GERENCIAR_LOCALIDADES'.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Localidades"
+                ],
+                "summary": "Cria uma nova localidade",
+                "parameters": [
+                    {
+                        "description": "Dados da nova localidade",
+                        "name": "localidade",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localidade.createRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/model.Localidade"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1442,7 +1545,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Cria um novo usuário (funcionário) no sistema.",
+                "description": "Cria um novo usuário (funcionário) e seu contrato de trabalho no sistema.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1455,7 +1558,7 @@ const docTemplate = `{
                 "summary": "Cria um novo usuário",
                 "parameters": [
                     {
-                        "description": "Dados do Novo Usuário",
+                        "description": "Dados do Novo Usuário e Contrato",
                         "name": "usuario",
                         "in": "body",
                         "required": true,
@@ -1822,6 +1925,29 @@ const docTemplate = `{
                 }
             }
         },
+        "localidade.createRequest": {
+            "type": "object",
+            "required": [
+                "cep",
+                "empresa_id",
+                "nome",
+                "raio_geofence_metros"
+            ],
+            "properties": {
+                "cep": {
+                    "type": "string"
+                },
+                "empresa_id": {
+                    "type": "integer"
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "raio_geofence_metros": {
+                    "type": "number"
+                }
+            }
+        },
         "model.Cargo": {
             "type": "object",
             "properties": {
@@ -1851,26 +1977,67 @@ const docTemplate = `{
                 },
                 "saida_esperada_minutos": {
                     "type": "integer"
+                },
+                "salario_maximo": {
+                    "type": "number"
+                },
+                "salario_minimo": {
+                    "type": "number"
+                }
+            }
+        },
+        "model.Contrato": {
+            "type": "object",
+            "properties": {
+                "cargo_id": {
+                    "type": "integer"
+                },
+                "data_admissao": {
+                    "type": "string"
+                },
+                "data_demissao": {
+                    "type": "string"
+                },
+                "empresa_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "localidade_id": {
+                    "type": "integer"
+                },
+                "salario": {
+                    "type": "number"
+                },
+                "saldo_banco_horas_minutos": {
+                    "type": "integer"
+                },
+                "usuario_id": {
+                    "type": "integer"
                 }
             }
         },
         "model.Empresa": {
             "type": "object",
             "properties": {
+                "cnpj": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
                 },
-                "nome": {
+                "localidades": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Localidade"
+                    }
+                },
+                "nome_fantasia": {
                     "type": "string"
                 },
-                "raioGeofenceMetros": {
-                    "type": "number"
-                },
-                "sedeLatitude": {
-                    "type": "number"
-                },
-                "sedeLongitude": {
-                    "type": "number"
+                "razao_social": {
+                    "type": "string"
                 }
             }
         },
@@ -1904,6 +2071,48 @@ const docTemplate = `{
                 },
                 "usuario_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "model.Localidade": {
+            "type": "object",
+            "properties": {
+                "bairro": {
+                    "type": "string"
+                },
+                "cep": {
+                    "type": "string"
+                },
+                "cidade": {
+                    "type": "string"
+                },
+                "empresa_id": {
+                    "type": "integer"
+                },
+                "estado": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "latitude": {
+                    "type": "number"
+                },
+                "logradouro": {
+                    "type": "string"
+                },
+                "longitude": {
+                    "type": "number"
+                },
+                "nome": {
+                    "description": "Ex: \"Matriz São Paulo\", \"Filial Rio\"",
+                    "type": "string"
+                },
+                "numero": {
+                    "type": "string"
+                },
+                "raio_geofence_metros": {
+                    "type": "number"
                 }
             }
         },
@@ -1967,8 +2176,11 @@ const docTemplate = `{
         "model.Usuario": {
             "type": "object",
             "properties": {
-                "cargo_id": {
-                    "type": "integer"
+                "contrato": {
+                    "$ref": "#/definitions/model.Contrato"
+                },
+                "cpf": {
+                    "type": "string"
                 },
                 "data_atualizacao": {
                     "type": "string"
@@ -1979,17 +2191,11 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
-                "empresa_id": {
-                    "type": "integer"
-                },
                 "id": {
                     "type": "integer"
                 },
                 "nome": {
                     "type": "string"
-                },
-                "saldo_banco_horas_minutos": {
-                    "type": "integer"
                 }
             }
         },
@@ -2049,32 +2255,45 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "cargo_id",
+                "cpf",
+                "data_admissao",
                 "email",
                 "empresa_id",
+                "localidade_id",
                 "nome",
+                "salario",
                 "senha"
             ],
             "properties": {
                 "cargo_id": {
-                    "type": "integer",
-                    "example": 2
+                    "type": "integer"
+                },
+                "cpf": {
+                    "type": "string"
+                },
+                "data_admissao": {
+                    "type": "string"
                 },
                 "email": {
-                    "type": "string",
-                    "example": "joao.silva@empresa.com"
+                    "type": "string"
                 },
                 "empresa_id": {
-                    "type": "integer",
-                    "example": 1
+                    "description": "Dados do Contrato",
+                    "type": "integer"
+                },
+                "localidade_id": {
+                    "type": "integer"
                 },
                 "nome": {
-                    "type": "string",
-                    "example": "João Silva"
+                    "description": "Dados do Usuário (Pessoa)",
+                    "type": "string"
+                },
+                "salario": {
+                    "type": "number"
                 },
                 "senha": {
                     "type": "string",
-                    "minLength": 6,
-                    "example": "senha123"
+                    "minLength": 6
                 }
             }
         },

@@ -35,9 +35,12 @@ func (r *usuarioRepository) FindByEmail(email string) (*model.Usuario, error) {
 }
 
 func (r *usuarioRepository) FindByID(id uint, empresaID uint) (*model.Usuario, error) {
-	var usuario model.Usuario
-	err := r.Db.Where("id = ? AND empresa_id = ?", id, empresaID).Preload("Cargo.Permissoes").First(&usuario).Error
-	return &usuario, err
+    var usuario model.Usuario
+    err := r.Db.Joins("JOIN contratos on contratos.usuario_id = usuarios.id").
+        Where("usuarios.id = ? AND contratos.empresa_id = ?", id, empresaID).
+        Preload("Contrato").
+        First(&usuario).Error
+    return &usuario, err
 }
 
 func (r *usuarioRepository) GetAll(empresaID uint) ([]model.Usuario, error) {

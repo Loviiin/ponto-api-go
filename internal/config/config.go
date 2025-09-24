@@ -4,8 +4,9 @@ package config
 
 import (
 	// Viper é a biblioteca que vamos usar para ler o arquivo .env
-	"github.com/spf13/viper"
 	"strings" // <-- NOVO IMPORT
+
+	"github.com/spf13/viper"
 )
 
 // Config é a struct que vai armazenar todas as configurações da nossa aplicação.
@@ -26,6 +27,8 @@ type Config struct {
 
 	// Chave secreta para assinar os tokens JWT (usaremos mais tarde)
 	JWTSecretKey string `mapstructure:"JWT_SECRET_KEY"`
+	// Chave da API do OpenCage para geocodificação
+	OpenCageAPIKey string `mapstructure:"API_OPENCAGE"`
 }
 
 // --- FUNÇÃO LoadConfig COMPLETAMENTE NOVA ---
@@ -40,7 +43,6 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.SetDefault("API_PORT", "8083")
 	// Definimos 'require' como padrão para o SSL, que é o mais seguro e exigido pelo Neon
 	viper.SetDefault("DB_SSLMODE", "require")
-
 
 	// Tenta ler o ficheiro .env (para desenvolvimento local)
 	// Se não encontrar, não há problema, continuará com as variáveis de ambiente.
@@ -80,6 +82,10 @@ func LoadConfig(path string) (config Config, err error) {
 		return
 	}
 	err = viper.BindEnv("JWT_SECRET_KEY")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("API_OPENCAGE")
 	if err != nil {
 		return
 	}

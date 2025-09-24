@@ -2,7 +2,7 @@ package ponto
 
 import (
 	"errors"
-	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
+	"github.com/Loviiin/ponto-api-go/internal/domain/localidade"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/umahmood/haversine"
@@ -15,52 +15,60 @@ type PontoService interface {
 	GetPontosDoDia(usuarioID uint, dia time.Time) ([]model.RegistroPonto, error)
 	AjustarPonto(usuarioID, empresaID, adminID uint, timestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error)
 	EditarPonto(pontoID, empresaID uint, novoTimestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error)
-	FindPontoByID(pontoID, empresaID uint) (*model.RegistroPonto, error) // <-- Adicione este método à interface
+	FindPontoByID(pontoID, empresaID uint) (*model.RegistroPonto, error)
 }
 
-
 type pontoService struct {
-	pontoRepo   RegistroPontoRepository
-	empresaRepo empresa.EmpresaRepository
-	userRepo    usuario.UsuarioRepository
-	db          *gorm.DB
+	pontoRepo      RegistroPontoRepository
+	userRepo       usuario.UsuarioRepository
+	localidadeRepo localidade.Repository
+	db             *gorm.DB
 }
 
 
 func NewPontoService(
 	pontoRepo RegistroPontoRepository,
 	userRepo usuario.UsuarioRepository,
-	empresaRepo empresa.EmpresaRepository,
+	localidadeRepo localidade.Repository,
 	db *gorm.DB,
 ) PontoService {
 	return &pontoService{
-		pontoRepo:   pontoRepo,
-		userRepo:    userRepo,
-		empresaRepo: empresaRepo,
-		db:          db,
+		pontoRepo:      pontoRepo,
+		userRepo:       userRepo,
+		localidadeRepo: localidadeRepo,
+		db:             db,
 	}
 }
 
 func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, longitude float64) (*model.RegistroPonto, error) {
-	_, err := s.userRepo.FindByID(usuarioID, empresaID)
+	user, err := s.userRepo.FindByID(usuarioID, empresaID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("usuário não encontrado ou não pertence a esta empresa")
+		}
 		return nil, err
 	}
 
-	dadoEmpresa, err := s.empresaRepo.FindByID(empresaID)
+	if user.Contrato.ID == 0 {
+		return nil, errors.New("usuário não possui um contrato de trabalho ativo")
+	}
+
+	localidade, err := s.localidadeRepo.FindByID(user.Contrato.LocalidadeID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("a localidade de trabalho do usuário não foi encontrada")
+		}
 		return nil, err
 	}
 
-	pontoSede := haversine.Coord{Lat: dadoEmpresa.SedeLatitude, Lon: dadoEmpresa.SedeLongitude}
+	pontoLocalidade := haversine.Coord{Lat: localidade.Latitude, Lon: localidade.Longitude}
 	pontoBatida := haversine.Coord{Lat: latitude, Lon: longitude}
 
-	km, _ := haversine.Distance(pontoSede, pontoBatida)
+	km, _ := haversine.Distance(pontoLocalidade, pontoBatida)
 	distanciaEmMetros := km * 1000
 
 	var tipoBatida string
-
-	if distanciaEmMetros > dadoEmpresa.RaioGeofenceMetros {
+	if distanciaEmMetros > localidade.RaioGeofenceMetros {
 		tipoBatida = "Remoto"
 	} else {
 		tipoBatida = "Presencial"
@@ -75,8 +83,7 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 		Metodo:    tipoBatida,
 	}
 
-	err = s.pontoRepo.SavePonto(registroPonto)
-	if err != nil {
+	if err := s.pontoRepo.SavePonto(registroPonto); err != nil {
 		return nil, err
 	}
 

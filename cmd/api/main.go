@@ -21,11 +21,13 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/auth"
 	"github.com/Loviiin/ponto-api-go/internal/domain/cargo"
 	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
+	"github.com/Loviiin/ponto-api-go/internal/domain/localidade"
 	"github.com/Loviiin/ponto-api-go/internal/domain/permissao"
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
+	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
 
 	// Vamos usar este pacote para as nossas constantes de permissão
@@ -152,16 +154,21 @@ func main() {
 	justificativaRepo := justificativa.NewRepository(db)
 	logBancoHorasRepo := logbancohoras.NewRepository(db)
 	contratoRepo := contrato.NewContratoRepository(db)
+	localidadeRepo := localidade.NewRepository(db)
+
+	// Crie uma instância do serviço de geolocalização
+	geoService := geolocation.NewService(cfg.OpenCageAPIKey)
 
 	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo)
 	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, jwtService,db)
-	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, db)
+	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, localidadeRepo, db)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
 	permissaoService := permissao.NewService(permissaoRepo)
 	bancoHorasService := bancohoras.NewBancoHorasService(pontoRepo, usuarioRepo, logBancoHorasRepo, db)
 	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, db)
+	localidadeService := localidade.NewService(localidadeRepo, geoService)
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
@@ -172,6 +179,7 @@ func main() {
 	permissaoHandler := permissao.NewHandler(permissaoService)
 	bancoHorasHandler := bancohoras.NewBancoHorasHandler(bancoHorasService, usuarioService, funcoesService)
 	justificativaHandler := justificativa.NewHandler(justificativaService, funcoesService)
+	localidadeHandler := localidade.NewHandler(localidadeService, funcoesService)
 
 	// --- Middlewares ---
 	authMiddleware := auth.AuthMiddleware(jwtService)
@@ -186,6 +194,7 @@ func main() {
 	canViewPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VISUALIZAR_PONTO_FUNCIONARIOS)
 	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS)
 	canManageJustificativas := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_JUSTIFICATIVAS)
+	canManageLocalidades := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_LOCALIDADES)
 
 	//	scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
 	//	scheduler.Start()
@@ -284,8 +293,12 @@ func main() {
 			// Rotas para o admin/gestor gerir as solicitações
 			rotasProtegidas.GET("/justificativas/pendentes", canManageJustificativas, justificativaHandler.ListarPendentes)
 			rotasProtegidas.POST("/justificativas/:id/processar", canManageJustificativas, justificativaHandler.AprovarReprovar)
-
-		}
+			rotasProtegidas.POST("/justificativas", justificativaHandler.SolicitarAjuste)
+			
+			//rotas de localodade
+    		rotasProtegidas.POST("/localidades", canManageLocalidades, localidadeHandler.Create)
+    		rotasProtegidas.GET("/empresas/:id/localidades", canManageLocalidades, localidadeHandler.GetAllByEmpresa)
+}
 	}
 
 	port := os.Getenv("PORT")
