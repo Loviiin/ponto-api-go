@@ -39,14 +39,19 @@ func SeedPermissions(db *gorm.DB) map[string]model.Permissao {
 	return mapaPermissoes
 }
 
-func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes map[string]model.Permissao) {
-	adminRole := model.Cargo{Nome: "Admin", EmpresaID: empresaID}
-	db.Where(model.Cargo{Nome: adminRole.Nome, EmpresaID: empresaID}).FirstOrCreate(&adminRole)
+func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes map[string]model.Permissao) (dono model.Cargo, gerente model.Cargo, colaborador model.Cargo) {
+	// Criação dos cargos
+	dono = model.Cargo{Nome: "Dono", EmpresaID: empresaID}
+	db.Where(model.Cargo{Nome: dono.Nome, EmpresaID: empresaID}).FirstOrCreate(&dono)
 
-	funcRole := model.Cargo{Nome: "Funcionário", EmpresaID: empresaID}
-	db.Where(model.Cargo{Nome: funcRole.Nome, EmpresaID: empresaID}).FirstOrCreate(&funcRole)
+	gerente = model.Cargo{Nome: "Gerente", EmpresaID: empresaID}
+	db.Where(model.Cargo{Nome: gerente.Nome, EmpresaID: empresaID}).FirstOrCreate(&gerente)
 
-	adminPermissions := []model.Permissao{
+	colaborador = model.Cargo{Nome: "Colaborador", EmpresaID: empresaID}
+	db.Where(model.Cargo{Nome: colaborador.Nome, EmpresaID: empresaID}).FirstOrCreate(&colaborador)
+
+	// Permissões para cada cargo
+	donoPerms := []model.Permissao{
 		mapaPermissoes[permissions.EDITAR_EMPRESA],
 		mapaPermissoes[permissions.DELETAR_EMPRESA],
 		mapaPermissoes[permissions.GERENCIAR_CARGOS],
@@ -60,58 +65,100 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.AJUSTAR_PONTO_FUNCIONARIOS],
 		mapaPermissoes[permissions.GERENCIAR_JUSTIFICATIVAS],
 	}
-
-	funcPermissions := []model.Permissao{
-		mapaPermissoes[permissions.DELETAR_PROPRIA_CONTA],
+	gerentePerms := []model.Permissao{
+		mapaPermissoes[permissions.GERENCIAR_CARGOS],
+		mapaPermissoes[permissions.EDITAR_USUARIO],
 		mapaPermissoes[permissions.EDITAR_PROPRIA_CONTA],
+		mapaPermissoes[permissions.DELETAR_PROPRIA_CONTA],
+		mapaPermissoes[permissions.EDITAR_SALDO_FUNCIONARIOS],
+		mapaPermissoes[permissions.VER_SALDO_FUNCIONARIOS],
+		mapaPermissoes[permissions.VISUALIZAR_PONTO_FUNCIONARIOS],
+		mapaPermissoes[permissions.AJUSTAR_PONTO_FUNCIONARIOS],
+		mapaPermissoes[permissions.GERENCIAR_JUSTIFICATIVAS],
+	}
+	colaboradorPerms := []model.Permissao{
+		mapaPermissoes[permissions.EDITAR_PROPRIA_CONTA],
+		mapaPermissoes[permissions.DELETAR_PROPRIA_CONTA],
 	}
 
-	err := db.Model(&adminRole).Association("Permissoes").Replace(adminPermissions)
-	if err != nil {
-		return
-	}
-	err = db.Model(&funcRole).Association("Permissoes").Replace(funcPermissions)
-	if err != nil {
-		return
-	}
+	db.Model(&dono).Association("Permissoes").Replace(donoPerms)
+	db.Model(&gerente).Association("Permissoes").Replace(gerentePerms)
+	db.Model(&colaborador).Association("Permissoes").Replace(colaboradorPerms)
 
 	log.Printf("Cargos e permissões padrão configurados para a empresa %d.", empresaID)
+	return
 }
 
 func SeedSuperAdmin(db *gorm.DB) {
+	// Criação dos usuários padrão da empresa
 	var usuarioExistente model.Usuario
-	err := db.Where("email = ?", "superadmin@ponto.com").First(&usuarioExistente).Error
-	if err == nil {
-		log.Println("Usuário Super Admin já existe.")
-		return
+	emails := []string{"dono@ponto.com", "gerente@ponto.com", "colaborador@ponto.com"}
+	for _, email := range emails {
+		err := db.Where("email = ?", email).First(&usuarioExistente).Error
+		if err == nil {
+			log.Printf("Usuário %s já existe.", email)
+			return
+		}
 	}
 
 	var empresa model.Empresa
-	err = db.First(&empresa).Error
+	err := db.First(&empresa).Error
 	if err != nil {
 		empresa = model.Empresa{Nome: "Empresa Padrão"}
 		db.Create(&empresa)
 	}
 
 	mapaPermissoes := SeedPermissions(db)
-	SetupDefaultRolesAndPermissions(db, empresa.ID, mapaPermissoes)
+	donoCargo, gerenteCargo, colaboradorCargo := SetupDefaultRolesAndPermissions(db, empresa.ID, mapaPermissoes)
 
-	var adminCargo model.Cargo
-	db.Where("nome = ? AND empresa_id = ?", "Admin", empresa.ID).First(&adminCargo)
-	if adminCargo.ID == 0 {
-		log.Println("Falha ao encontrar o cargo de Admin para o Super Admin.")
+	// Criação dos usuários
+	senhaDono, _ := password.CriptografaSenha("donosenha")
+	dono := model.Usuario{
+		Nome:      "Dono",
+		Email:     "dono@ponto.com",
+		Senha:     string(senhaDono),
+		EmpresaID: empresa.ID,
+		CargoID:   donoCargo.ID,
+	}
+	senhaGerente, _ := password.CriptografaSenha("gerentesenha")
+	gerente := model.Usuario{
+		Nome:      "Gerente",
+		Email:     "gerente@ponto.com",
+		Senha:     string(senhaGerente),
+		EmpresaID: empresa.ID,
+		CargoID:   gerenteCargo.ID,
+	}
+	senhaColab, _ := password.CriptografaSenha("colabsenha")
+	colaborador := model.Usuario{
+		Nome:      "Colaborador",
+		Email:     "colaborador@ponto.com",
+		Senha:     string(senhaColab),
+		EmpresaID: empresa.ID,
+		CargoID:   colaboradorCargo.ID,
+	}
+
+	db.Create(&dono)
+	db.Create(&gerente)
+	db.Create(&colaborador)
+	log.Println("Usuários Dono, Gerente e Colaborador criados com sucesso.")
+
+	// Criação do Super Admin global (para desenvolvedores)
+	var superAdminExistente model.Usuario
+	err = db.Where("email = ?", "superadmin@ponto.com").First(&superAdminExistente).Error
+	if err == nil {
+		log.Println("Super Admin já existe.")
 		return
 	}
 
-	senhaCripto, _ := password.CriptografaSenha("superadmin")
+	// Vincular Super Admin à empresa padrão e ao cargo Dono
+	senhaSuper, _ := password.CriptografaSenha("superadmin")
 	superAdmin := model.Usuario{
 		Nome:      "Super Admin",
 		Email:     "superadmin@ponto.com",
-		Senha:     string(senhaCripto),
+		Senha:     string(senhaSuper),
 		EmpresaID: empresa.ID,
-		CargoID:   adminCargo.ID,
+		CargoID:   donoCargo.ID,
 	}
-
 	db.Create(&superAdmin)
-	log.Println("Usuário Super Admin criado com sucesso.")
+	log.Println("Super Admin criado com sucesso.")
 }
