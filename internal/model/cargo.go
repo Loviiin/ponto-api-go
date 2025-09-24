@@ -4,6 +4,8 @@ type Cargo struct {
 	ID                        uint        `gorm:"primaryKey" json:"id"`
 	Nome                      string      `gorm:"not null" json:"nome"`
 	EmpresaID                 uint        `gorm:"not null" json:"empresa_id"`
+	SalarioMinimo             float64     `json:"salario_minimo"`
+	SalarioMaximo             float64     `json:"salario_maximo"`
 	Permissoes                []Permissao `gorm:"many2many:cargo_permissoes;" json:"permissoes,omitempty"`
 	CargaHorariaDiariaMinutos uint        `json:"carga_horaria_diaria_minutos"`
 	EntradaEsperadaMinutos    uint        `json:"entrada_esperada_minutos"`

@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
+	"time"
 )
 
 type UsuarioHandler struct {
@@ -23,12 +24,18 @@ func NewUsuarioHandler(s UsuarioService, f funcoes.FuncoesInterface) *UsuarioHan
 }
 
 type CriarUsuarioRequest struct {
-	Nome      string `json:"nome" binding:"required" example:"João Silva"`
-	Email     string `json:"email" binding:"required,email" example:"joao.silva@empresa.com"`
-	Senha     string `json:"senha" binding:"required,min=6" example:"senha123"`
-	EmpresaID uint   `json:"empresa_id" binding:"required" example:"1"`
-	CargoID   uint   `json:"cargo_id,omitempty" example:"2"` 
-	CargoNome string `json:"cargo_nome,omitempty" example:"Funcionário"`
+    // Dados do Usuário (Pessoa)
+    Nome  string `json:"nome" binding:"required"`
+    CPF   string `json:"cpf" binding:"required"`
+    Email string `json:"email" binding:"required,email"`
+    Senha string `json:"senha" binding:"required,min=6"`
+
+    // Dados do Contrato
+    EmpresaID    uint      `json:"empresa_id" binding:"required"`
+    LocalidadeID uint      `json:"localidade_id" binding:"required"`
+    CargoID      uint      `json:"cargo_id" binding:"required"`
+    Salario      float64   `json:"salario" binding:"required"`
+    DataAdmissao time.Time `json:"data_admissao" binding:"required"`
 }
 
 // UpdateUsuarioRequest define o corpo do pedido para atualizar um usuário.
@@ -219,36 +226,37 @@ func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 }
 
 // @Summary      Cria um novo usuário
-// @Description  Cria um novo usuário (funcionário) no sistema.
+// @Description  Cria um novo usuário (funcionário) e seu contrato de trabalho no sistema.
 // @Tags         Usuários
 // @Accept       json
 // @Produce      json
-// @Param        usuario  body      CriarUsuarioRequest  true  "Dados do Novo Usuário"
+// @Param        usuario  body      CriarUsuarioRequest  true  "Dados do Novo Usuário e Contrato"
 // @Success      201      {object}  model.Usuario
 // @Failure      400      {object}  map[string]string
 // @Router       /usuarios [post]
 func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
-
-	var request CriarUsuarioRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if (request.CargoID == 0 && request.CargoNome == "") || (request.CargoID != 0 && request.CargoNome != "") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Forneça apenas 'cargo_id' ou 'cargo_nome', mas não ambos ou nenhum."})
-		return
-	}
-
-    usuario := model.Usuario{
-        Nome:      request.Nome,
-        Email:     request.Email,
-        Senha:     request.Senha,
-        EmpresaID: request.EmpresaID,
-        CargoID:   request.CargoID,
+    var request CriarUsuarioRequest
+    if err := c.ShouldBindJSON(&request); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
     }
 
-    err := h.service.CriarUsuario(&usuario, request.CargoNome)
+    usuario := &model.Usuario{
+        Nome:  request.Nome,
+        CPF:   request.CPF,
+        Email: request.Email,
+        Senha: request.Senha,
+    }
+
+    contrato := &model.Contrato{
+        EmpresaID:    request.EmpresaID,
+        LocalidadeID: request.LocalidadeID,
+        CargoID:      request.CargoID,
+        Salario:      request.Salario,
+        DataAdmissao: request.DataAdmissao,
+    }
+
+    err := h.service.CriarUsuarioEContrato(usuario, contrato)
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return

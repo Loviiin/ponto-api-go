@@ -10,6 +10,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/config"
 	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
+	"github.com/Loviiin/ponto-api-go/internal/domain/contrato"
 	"github.com/Loviiin/ponto-api-go/internal/domain/justificativa"
 	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -130,7 +131,7 @@ func main() {
 		resetAndSeedDatabase(db)
 	} else {
 		// Adicionámos o &model.Permissao{} para a migração automática
-		err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{})
+		err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{}, &model.Contrato{}, &model.Localidade{})
 		if err != nil {
 			log.Fatal("Falha ao rodar a migração: ", err)
 		}
@@ -150,9 +151,10 @@ func main() {
 	permissaoRepo := permissao.NewRepository(db)
 	justificativaRepo := justificativa.NewRepository(db)
 	logBancoHorasRepo := logbancohoras.NewRepository(db)
+	contratoRepo := contrato.NewContratoRepository(db)
 
-	usuarioService := usuario.NewUsuarioService(usuarioRepo, cargoRepo, empresaRepo)
-	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, jwtService, db)
+	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo)
+	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, jwtService,db)
 	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, db)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
