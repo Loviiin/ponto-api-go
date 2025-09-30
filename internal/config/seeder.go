@@ -25,6 +25,7 @@ func SeedPermissions(db *gorm.DB) map[string]model.Permissao {
 		{Nome: permissions.VISUALIZAR_PONTO_FUNCIONARIOS, Descricao: "Permite visualizar os registros de ponto de outros funcionários."},
 		{Nome: permissions.AJUSTAR_PONTO_FUNCIONARIOS, Descricao: "Permite adicionar, editar ou remover registros de ponto de outros funcionários."},
 		{Nome: permissions.GERENCIAR_JUSTIFICATIVAS, Descricao: "Permite gerenciar justificativas de ponto dos funcionários."},
+		{Nome: permissions.VER_JUSTIFICATIVAS_PENDENTES, Descricao: "Permite visualizar justificativas pendentes de aprovação."},
 	}
 
 	for i := range permissoes {
@@ -64,10 +65,12 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.VISUALIZAR_PONTO_FUNCIONARIOS],
 		mapaPermissoes[permissions.AJUSTAR_PONTO_FUNCIONARIOS],
 		mapaPermissoes[permissions.GERENCIAR_JUSTIFICATIVAS],
+		mapaPermissoes[permissions.VER_JUSTIFICATIVAS_PENDENTES],
 	}
 	gerentePerms := []model.Permissao{
 		mapaPermissoes[permissions.GERENCIAR_CARGOS],
 		mapaPermissoes[permissions.EDITAR_USUARIO],
+		mapaPermissoes[permissions.DELETAR_USUARIO],
 		mapaPermissoes[permissions.EDITAR_PROPRIA_CONTA],
 		mapaPermissoes[permissions.DELETAR_PROPRIA_CONTA],
 		mapaPermissoes[permissions.EDITAR_SALDO_FUNCIONARIOS],
@@ -75,6 +78,7 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.VISUALIZAR_PONTO_FUNCIONARIOS],
 		mapaPermissoes[permissions.AJUSTAR_PONTO_FUNCIONARIOS],
 		mapaPermissoes[permissions.GERENCIAR_JUSTIFICATIVAS],
+		mapaPermissoes[permissions.VER_JUSTIFICATIVAS_PENDENTES],
 	}
 	colaboradorPerms := []model.Permissao{
 		mapaPermissoes[permissions.EDITAR_PROPRIA_CONTA],
