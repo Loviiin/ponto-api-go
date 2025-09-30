@@ -75,18 +75,11 @@ func (s *authService) SignUp(empresaReq *model.Empresa, usuarioReq *model.Usuari
 		}
 
 		permissoes := config.SeedPermissions(tx)
-		config.SetupDefaultRolesAndPermissions(tx, empresaReq.ID, permissoes)
-
-		cargoRepoTx := s.cargoRepo.WithTransaction(tx)
-		adminCargo, err := cargoRepoTx.FindByName("Admin", empresaReq.ID)
-		if err != nil {
-			// Se não encontrarmos o cargo, algo correu muito mal.
-			return errors.New("falha ao encontrar o cargo de Admin padrão")
-		}
+		donoCargo, _, _ := config.SetupDefaultRolesAndPermissions(tx, empresaReq.ID, permissoes)
 
 		// 4. Preparar os dados do utilizador antes de o criar
 		usuarioReq.EmpresaID = empresaReq.ID
-		usuarioReq.CargoID = adminCargo.ID
+		usuarioReq.CargoID = donoCargo.ID
 
 		senhaHash, err := password.CriptografaSenha(usuarioReq.Senha)
 		if err != nil {
