@@ -23,8 +23,7 @@ func NewCargoHandler(s CargoService, f funcoes.FuncoesInterface) *CargoHandler {
 }
 
 type createRequest struct {
-	Nome      string `json:"nome" binding:"required"`
-	EmpresaID uint   `json:"empresa_id" binding:"required"`
+	Nome string `json:"nome" binding:"required"`
 }
 
 // @Summary      Cria um novo cargo
@@ -40,16 +39,21 @@ type createRequest struct {
 // @Failure      500    {object}  map[string]string
 // @Router       /cargos [post]
 func (h *CargoHandler) CreateCargo(c *gin.Context) {
-
 	var req createRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "O corpo da requisição é inválido. 'nome' e 'empresa_id' são obrigatórios."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "O corpo da requisição é inválido. O campo 'nome' é obrigatório."})
+		return
+	}
+
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaId")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Não foi possível identificar a empresa do usuário."})
 		return
 	}
 
 	cargo := model.Cargo{
 		Nome:      req.Nome,
-		EmpresaID: req.EmpresaID,
+		EmpresaID: empresaID,
 	}
 
 	if err := h.service.Create(&cargo); err != nil {
