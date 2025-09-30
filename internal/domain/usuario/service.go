@@ -2,6 +2,7 @@ package usuario
 
 import (
 	"errors"
+
 	"github.com/Loviiin/ponto-api-go/internal/domain/cargo" // <-- 1. IMPORTAR O PACOTE DO CARGO
 	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -10,7 +11,7 @@ import (
 )
 
 type UsuarioService interface {
-	CriarUsuario(usuario *model.Usuario, cargoNome string) error 
+	CriarUsuario(usuario *model.Usuario, cargoNome string) error
 	GetAll(empresaID uint) ([]model.Usuario, error)
 	FindByID(id uint, empresaID uint) (*model.Usuario, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
@@ -43,28 +44,24 @@ func (s *usuarioService) FindByID(id uint, empresaID uint) (*model.Usuario, erro
 }
 
 func (s *usuarioService) CriarUsuario(usuario *model.Usuario, cargoNome string) error {
-    if usuario.CargoID == 0 && cargoNome != "" {
-        cargo, err := s.cargoRepo.FindByName(cargoNome, usuario.EmpresaID)
-        if err != nil {
-            return errors.New("o cargo especificado não foi encontrado")
-        }
-        usuario.CargoID = cargo.ID
-    }
+	if usuario.CargoID == 0 && cargoNome != "" {
+		cargo, err := s.cargoRepo.FindByName(cargoNome, usuario.EmpresaID)
+		if err != nil {
+			return errors.New("o cargo especificado não foi encontrado")
+		}
+		usuario.CargoID = cargo.ID
+	}
 
-    _, err := s.usuarioRepo.FindByEmail(usuario.Email)
-    if err == nil {
-        return errors.New("e-mail já cadastrado")
-    }
+	_, err := s.usuarioRepo.FindByEmail(usuario.Email)
+	if err == nil {
+		return errors.New("e-mail já cadastrado")
+	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	_, err = s.empresaRepo.FindByID(usuario.EmpresaID)
 	if err != nil {
 		return errors.New("a empresa especificada não existe")
-	}
-	_, err = s.cargoRepo.FindByID(usuario.CargoID, usuario.EmpresaID)
-	if err != nil {
-		return errors.New("o cargo especificado não existe ou não pertence a esta empresa")
 	}
 
 	senhaHash, err := criptografaSenha(usuario.Senha)
