@@ -41,7 +41,7 @@ func resetAndSeedDatabase(db *gorm.DB) {
 
 	// Apaga as tabelas na ordem correta para evitar problemas de chave estrangeira
 	err := db.Migrator().DropTable(
-		"usuario_cargos", // Tabela de junção para Usuario e Cargo
+		"usuario_cargos",   // Tabela de junção para Usuario e Cargo
 		"cargo_permissoes", // Tabela de junção para Cargo e Permissao
 		&model.RegistroPonto{},
 		&model.Justificativa{},
@@ -72,8 +72,16 @@ func resetAndSeedDatabase(db *gorm.DB) {
 	log.Println("Banco de dados resetado e populado com sucesso!")
 }
 
-var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
+// --- CONFIGURAÇÃO DE CORS ---
+// Lista explícita de domínios permitidos (mais seguro e legível)
+var allowedOrigins = map[string]bool{
+	"https://meu-ponto-frontend.vercel.app":                            true,
+	"https://meu-ponto-frontend-git-main-loviins-projects.vercel.app":  true,
+	"https://meu-ponto-frontend-n9lx9odbj-loviins-projects.vercel.app": true,
+}
 
+// Regex para permitir todos os subdomínios de desenvolvimento do GitHub Codespaces
+var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
 
 // @title           Ponto API em Go
 // @version         1.0
@@ -144,7 +152,7 @@ func main() {
 	logBancoHorasRepo := logbancohoras.NewRepository(db)
 
 	usuarioService := usuario.NewUsuarioService(usuarioRepo, cargoRepo, empresaRepo)
-	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, jwtService,db)
+	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, jwtService, db)
 	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, empresaRepo, db)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
@@ -185,34 +193,35 @@ func main() {
 
 	router.SetTrustedProxies(nil)
 
-// --- CONFIGURAÇÃO DE CORS OTIMIZADA E SEGURA ---
-configCORS := cors.DefaultConfig()
-configCORS.AllowCredentials = true
+	// --- CONFIGURAÇÃO DE CORS OTIMIZADA E SEGURA ---
+	configCORS := cors.DefaultConfig()
+	configCORS.AllowCredentials = true
 
-// Para produção (ex: Cloud Run), você usaria uma origem específica.
-// Para desenvolvimento no Codespaces, usamos a função com o regex pré-compilado.
-configCORS.AllowOriginFunc = func(origin string) bool {
-    // A variável 'allowedOriginRegex' deve ser definida no topo do seu arquivo main.go:
-    // var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
-    return allowedOriginRegex.MatchString(origin)
-}
+	// A nossa nova função de verificação de origem
+	configCORS.AllowOriginFunc = func(origin string) bool {
+		// Primeiro, verifica se a origem está na nossa lista de domínios permitidos.
+		if allowedOrigins[origin] {
+			return true
+		}
+		// Se não estiver, verifica se corresponde ao padrão do GitHub Codespaces.
+		return allowedOriginRegex.MatchString(origin)
+	}
 
-configCORS.AllowHeaders = []string{"Authorization", "Content-Type", "Origin"}
-router.Use(cors.New(configCORS))
+	configCORS.AllowHeaders = []string{"Authorization", "Content-Type", "Origin"}
+	router.Use(cors.New(configCORS))
 
+	// --- CONFIGURAÇÃO DINÂMICA DO SWAGGER ---
+	// Verifica a variável de ambiente para determinar o ambiente de execução.
+	if os.Getenv("ENVIRONMENT") == "production" {
+		// Em produção (Cloud Run, Codespaces), apaga o host para usar um caminho relativo.
+		docs.SwaggerInfo.Host = ""
+	}
 
-// --- CONFIGURAÇÃO DINÂMICA DO SWAGGER ---
-// Verifica a variável de ambiente para determinar o ambiente de execução.
-if os.Getenv("ENVIRONMENT") == "production" {
-    // Em produção (Cloud Run, Codespaces), apaga o host para usar um caminho relativo.
-    docs.SwaggerInfo.Host = ""
-}
+	docs.SwaggerInfo.BasePath = "/api/v1"
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-docs.SwaggerInfo.BasePath = "/api/v1"
-router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-
-// Define o grupo de rotas da API.
-apiV1 := router.Group("/api/v1")
+	// Define o grupo de rotas da API.
+	apiV1 := router.Group("/api/v1")
 	{
 		// Rotas Públicas
 		apiV1.POST("/auth/signup", authHandler.SignUp)
