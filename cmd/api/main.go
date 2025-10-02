@@ -35,6 +35,43 @@ import (
 	"gorm.io/gorm"
 )
 
+// NOVO: Função para resetar e popular o banco de dados
+func resetAndSeedDatabase(db *gorm.DB) {
+	log.Println("Iniciando reset do banco de dados...")
+
+	// Apaga as tabelas na ordem correta para evitar problemas de chave estrangeira
+	err := db.Migrator().DropTable(
+		"usuario_cargos", // Tabela de junção para Usuario e Cargo
+		"cargo_permissoes", // Tabela de junção para Cargo e Permissao
+		&model.RegistroPonto{},
+		&model.Justificativa{},
+		&model.LogBancoHoras{},
+		&model.Usuario{},
+		&model.Permissao{},
+		&model.Cargo{},
+		&model.Empresa{},
+	)
+
+	if err != nil {
+		log.Fatalf("Falha ao apagar tabelas: %v", err)
+	}
+	log.Println("Tabelas antigas removidas.")
+
+	// Recria as tabelas
+	log.Println("Recriando tabelas com AutoMigrate...")
+	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{})
+	if err != nil {
+		log.Fatal("Falha ao rodar a migração: ", err)
+	}
+	log.Println("Tabelas recriadas com sucesso.")
+
+	// Popula com dados iniciais (seeding)
+	log.Println("Populando o banco de dados com dados iniciais...")
+	config.SeedPermissions(db)
+	config.SeedSuperAdmin(db)
+	log.Println("Banco de dados resetado e populado com sucesso!")
+}
+
 var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
 
 
@@ -80,15 +117,19 @@ func main() {
 	}
 	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
 
-	// Adicionámos o &model.Permissao{} para a migração automática
-	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{})
-	if err != nil {
-		log.Fatal("Falha ao rodar a migração: ", err)
+	// NOVO: Verifica a variável de ambiente para decidir se reseta o BD
+	if os.Getenv("RESET_DB_ON_START") == "true" {
+		resetAndSeedDatabase(db)
+	} else {
+		// Adicionámos o &model.Permissao{} para a migração automática
+		err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{})
+		if err != nil {
+			log.Fatal("Falha ao rodar a migração: ", err)
+		}
+		log.Println("Migração do banco de dados executada com sucesso.")
+		config.SeedPermissions(db)
+		config.SeedSuperAdmin(db)
 	}
-	log.Println("Migração do banco de dados executada com sucesso.")
-	log.Println("Migração do banco de dados executada com sucesso.")
-	config.SeedPermissions(db)
-	config.SeedSuperAdmin(db)
 
 	// --- Inicialização de Serviços e Repositórios ---
 	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
