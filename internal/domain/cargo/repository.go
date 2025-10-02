@@ -13,6 +13,7 @@ type CargoRepository interface {
 	Delete(id uint, empresaID uint) error
 	AddPermissionToCargo(cargoID uint, permissaoID uint) error
 	FindByName(nome string, empresaID uint) (*model.Cargo, error)
+	WithTransaction(tx *gorm.DB) CargoRepository
 }
 
 type cargoRepository struct {
@@ -65,4 +66,8 @@ func (r *cargoRepository) FindByName(nome string, empresaID uint) (*model.Cargo,
 	var cargo model.Cargo
 	err := r.Db.Where("nome = ? AND empresa_id = ?", nome, empresaID).First(&cargo).Error
 	return &cargo, err
+}
+
+func (r *cargoRepository) WithTransaction(tx *gorm.DB) CargoRepository {
+    return &cargoRepository{Db: tx}
 }

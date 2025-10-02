@@ -79,6 +79,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/signup": {
+            "post": {
+                "description": "Cria uma nova empresa e o primeiro usuário administrador em uma única transação. Retorna o novo usuário e um token JWT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Autenticação"
+                ],
+                "summary": "Realiza o cadastro de uma nova empresa e seu administrador",
+                "parameters": [
+                    {
+                        "description": "Dados da Empresa e do Administrador",
+                        "name": "signUpRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.SignUpRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/bancohoras/fechamento/usuario/{id}": {
             "post": {
                 "security": [
@@ -819,6 +872,15 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Falha interna no servidor",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1650,6 +1712,45 @@ const docTemplate = `{
                 }
             }
         },
+        "auth.SignUpRequest": {
+            "type": "object",
+            "properties": {
+                "empresa": {
+                    "type": "object",
+                    "required": [
+                        "nome"
+                    ],
+                    "properties": {
+                        "nome": {
+                            "type": "string",
+                            "example": "Minha Empresa"
+                        }
+                    }
+                },
+                "usuario": {
+                    "type": "object",
+                    "required": [
+                        "email",
+                        "nome",
+                        "password"
+                    ],
+                    "properties": {
+                        "email": {
+                            "type": "string",
+                            "example": "joao@empresa.com"
+                        },
+                        "nome": {
+                            "type": "string",
+                            "example": "João Silva"
+                        },
+                        "password": {
+                            "type": "string",
+                            "example": "senha123"
+                        }
+                    }
+                }
+            }
+        },
         "cargo.createRequest": {
             "type": "object",
             "required": [
@@ -1708,13 +1809,16 @@ const docTemplate = `{
             ],
             "properties": {
                 "data_ocorrencia": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2025-09-10T09:00:00Z"
                 },
                 "descricao": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Esqueci de bater o ponto na entrada."
                 },
                 "tipo": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "ENTRADA_ESQUECIDA"
                 }
             }
         },
@@ -1898,13 +2002,16 @@ const docTemplate = `{
             ],
             "properties": {
                 "justificativa": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Ajuste manual de entrada."
                 },
                 "timestamp": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2025-09-10T09:00:00Z"
                 },
                 "usuario_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 2
                 }
             }
         },
@@ -1929,10 +2036,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "justificativa": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Correção do horário de saída."
                 },
                 "timestamp": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2025-09-10T18:05:00Z"
                 }
             }
         },

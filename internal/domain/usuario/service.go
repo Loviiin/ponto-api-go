@@ -2,13 +2,16 @@ package usuario
 
 import (
 	"errors"
+
+	"github.com/Loviiin/ponto-api-go/internal/domain/cargo" // <-- 1. IMPORTAR O PACOTE DO CARGO
+	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/password"
 	"gorm.io/gorm"
 )
 
 type UsuarioService interface {
-	CriarUsuario(usuario *model.Usuario) error
+	CriarUsuario(usuario *model.Usuario, cargoNome string) error
 	GetAll(empresaID uint) ([]model.Usuario, error)
 	FindByID(id uint, empresaID uint) (*model.Usuario, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
@@ -20,11 +23,15 @@ var criptografaSenha = password.CriptografaSenha
 
 type usuarioService struct {
 	usuarioRepo UsuarioRepository
+	cargoRepo   cargo.CargoRepository
+	empresaRepo empresa.EmpresaRepository
 }
 
-func NewUsuarioService(repo UsuarioRepository) UsuarioService {
+func NewUsuarioService(repo UsuarioRepository, cargoRepo cargo.CargoRepository, empresaRepo empresa.EmpresaRepository) UsuarioService {
 	return &usuarioService{
 		usuarioRepo: repo,
+		cargoRepo:   cargoRepo,
+		empresaRepo: empresaRepo,
 	}
 }
 
@@ -36,7 +43,15 @@ func (s *usuarioService) FindByID(id uint, empresaID uint) (*model.Usuario, erro
 	return s.usuarioRepo.FindByID(id, empresaID)
 }
 
-func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {
+func (s *usuarioService) CriarUsuario(usuario *model.Usuario, cargoNome string) error {
+	if usuario.CargoID == 0 && cargoNome != "" {
+		cargo, err := s.cargoRepo.FindByName(cargoNome, usuario.EmpresaID)
+		if err != nil {
+			return errors.New("o cargo especificado não foi encontrado")
+		}
+		usuario.CargoID = cargo.ID
+	}
+
 	_, err := s.usuarioRepo.FindByEmail(usuario.Email)
 	if err == nil {
 		return errors.New("e-mail já cadastrado")
@@ -44,6 +59,11 @@ func (s *usuarioService) CriarUsuario(usuario *model.Usuario) error {
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
+	_, err = s.empresaRepo.FindByID(usuario.EmpresaID)
+	if err != nil {
+		return errors.New("a empresa especificada não existe")
+	}
+
 	senhaHash, err := criptografaSenha(usuario.Senha)
 	if err != nil {
 		return err

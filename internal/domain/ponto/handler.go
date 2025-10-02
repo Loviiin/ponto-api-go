@@ -38,14 +38,14 @@ type BaterPontoRequest struct {
 }
 
 type AjustePontoRequest struct {
-	UsuarioID     uint      `json:"usuario_id" binding:"required"`
-	Timestamp     time.Time `json:"timestamp" binding:"required"`
-	Justificativa string    `json:"justificativa" binding:"required"`
+	UsuarioID     uint      `json:"usuario_id" binding:"required" example:"2"`
+	Timestamp     time.Time `json:"timestamp" binding:"required" example:"2025-09-10T09:00:00Z"`
+	Justificativa string    `json:"justificativa" binding:"required" example:"Ajuste manual de entrada."`
 }
 
 type EditarPontoRequest struct {
-	Timestamp     time.Time `json:"timestamp" binding:"required"`
-	Justificativa string    `json:"justificativa" binding:"required"`
+	Timestamp     time.Time `json:"timestamp" binding:"required" example:"2025-09-10T18:05:00Z"`
+	Justificativa string    `json:"justificativa" binding:"required" example:"Correção do horário de saída."`
 }
 
 // @Summary      Registra uma batida de ponto

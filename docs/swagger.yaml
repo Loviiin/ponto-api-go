@@ -12,6 +12,33 @@ definitions:
     - email
     - password
     type: object
+  auth.SignUpRequest:
+    properties:
+      empresa:
+        properties:
+          nome:
+            example: Minha Empresa
+            type: string
+        required:
+        - nome
+        type: object
+      usuario:
+        properties:
+          email:
+            example: joao@empresa.com
+            type: string
+          nome:
+            example: João Silva
+            type: string
+          password:
+            example: senha123
+            type: string
+        required:
+        - email
+        - nome
+        - password
+        type: object
+    type: object
   cargo.createRequest:
     properties:
       empresa_id:
@@ -48,10 +75,13 @@ definitions:
   justificativa.solicitarAjusteRequest:
     properties:
       data_ocorrencia:
+        example: "2025-09-10T09:00:00Z"
         type: string
       descricao:
+        example: Esqueci de bater o ponto na entrada.
         type: string
       tipo:
+        example: ENTRADA_ESQUECIDA
         type: string
     required:
     - data_ocorrencia
@@ -172,10 +202,13 @@ definitions:
   ponto.AjustePontoRequest:
     properties:
       justificativa:
+        example: Ajuste manual de entrada.
         type: string
       timestamp:
+        example: "2025-09-10T09:00:00Z"
         type: string
       usuario_id:
+        example: 2
         type: integer
     required:
     - justificativa
@@ -194,8 +227,10 @@ definitions:
   ponto.EditarPontoRequest:
     properties:
       justificativa:
+        example: Correção do horário de saída.
         type: string
       timestamp:
+        example: "2025-09-10T18:05:00Z"
         type: string
     required:
     - justificativa
@@ -286,6 +321,42 @@ paths:
               type: string
             type: object
       summary: Realiza o login do usuário
+      tags:
+      - Autenticação
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova empresa e o primeiro usuário administrador em uma
+        única transação. Retorna o novo usuário e um token JWT.
+      parameters:
+      - description: Dados da Empresa e do Administrador
+        in: body
+        name: signUpRequest
+        required: true
+        schema:
+          $ref: '#/definitions/auth.SignUpRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Realiza o cadastro de uma nova empresa e seu administrador
       tags:
       - Autenticação
   /bancohoras/fechamento/usuario/{id}:
@@ -769,6 +840,12 @@ paths:
             $ref: '#/definitions/model.Justificativa'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Falha interna no servidor
           schema:
             additionalProperties:
               type: string
