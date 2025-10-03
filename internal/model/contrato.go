@@ -12,4 +12,7 @@ type Contrato struct {
     DataAdmissao           time.Time  `json:"data_admissao"`
     DataDemissao           *time.Time `json:"data_demissao,omitempty"`
     SaldoBancoHorasMinutos int        `json:"saldo_banco_horas_minutos"`
+	Empresa    Empresa    `json:"empresa,omitempty"`
+	Localidade Localidade `json:"localidade,omitempty"`
+	Cargo      Cargo      `json:"cargo,omitempty"`
 }

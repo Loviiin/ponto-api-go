@@ -3,6 +3,7 @@ package auth
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/gin-gonic/gin"
@@ -25,12 +26,22 @@ type LoginRequest struct {
 
 type SignUpRequest struct {
 	Empresa struct {
-		Nome string `json:"nome" binding:"required" example:"Minha Empresa"`
+		NomeFantasia string `json:"nome_fantasia" binding:"required" example:"Minha Empresa"`
+		RazaoSocial  string `json:"razao_social" binding:"required" example:"Minha Empresa LTDA"`
+		CNPJ         string `json:"cnpj" binding:"required" example:"12345678000195"`
 	} `json:"empresa"`
+	Localidade struct {
+		Nome               string  `json:"nome" binding:"required" example:"Matriz Principal"`
+		CEP                string  `json:"cep" binding:"required" example:"01001-000"`
+		RaioGeofenceMetros float64 `json:"raio_geofence_metros" binding:"required" example:"100"`
+	} `json:"localidade"`
 	Usuario struct {
-		Nome     string `json:"nome" binding:"required" example:"João Silva"`
-		Email    string `json:"email" binding:"required,email" example:"joao@empresa.com"`
-		Password string `json:"password" binding:"required" example:"senha123"`
+		Nome         string    `json:"nome" binding:"required" example:"João Administrador"`
+		Email        string    `json:"email" binding:"required,email" example:"joao@empresa.com"`
+		CPF          string    `json:"cpf" binding:"required" example:"12345678900"`
+		Password     string    `json:"password" binding:"required,min=6" example:"senha123"`
+		Salario      float64   `json:"salario" binding:"required" example:"5000.00"`
+		DataAdmissao time.Time `json:"data_admissao" binding:"required" example:"2025-01-20T00:00:00Z"`
 	} `json:"usuario"`
 }
 
@@ -60,45 +71,60 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 // @Summary      Realiza o cadastro de uma nova empresa e seu administrador
-// @Description  Cria uma nova empresa e o primeiro usuário administrador em uma única transação. Retorna o novo usuário e um token JWT.
+// @Description  Cria uma nova empresa, a sua localidade principal (matriz), e o primeiro usuário administrador em uma única transação. Retorna o novo usuário e um token JWT.
 // @Tags         Autenticação
 // @Accept       json
 // @Produce      json
-// @Param        signUpRequest body      SignUpRequest true "Dados da Empresa e do Administrador"
+// @Param        signUpRequest body      SignUpRequest true "Dados completos da Empresa, Localidade e Administrador" // CORRIGIDO: Swagger atualizado
 // @Success      201           {object}  map[string]interface{}
 // @Failure      400           {object}  map[string]string
 // @Failure      500           {object}  map[string]string
 // @Router       /auth/signup [post]
 func (h *AuthHandler) SignUp(c *gin.Context) {
-    var request SignUpRequest
-    if err := c.ShouldBindJSON(&request); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"erro": "Corpo da requisição inválido: " + err.Error()})
-        return
-    }
+	var request SignUpRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": "Corpo da requisição inválido: " + err.Error()})
+		return
+	}
 
-    empresa := &model.Empresa{
-        Nome: request.Empresa.Nome,
-    }
+	empresa := &model.Empresa{
+		NomeFantasia: request.Empresa.NomeFantasia,
+		RazaoSocial:  request.Empresa.RazaoSocial,
+		CNPJ:         request.Empresa.CNPJ,
+	}
 
-    usuario := &model.Usuario{
-        Nome:  request.Usuario.Nome,
-        Email: request.Usuario.Email,
-        Senha: request.Usuario.Password,
-    }
+	localidade := &model.Localidade{
+		Nome:               request.Localidade.Nome,
+		CEP:                request.Localidade.CEP,
+		RaioGeofenceMetros: request.Localidade.RaioGeofenceMetros,
+	}
 
-    novoUsuario, token, err := h.authService.SignUp(empresa, usuario)
-    if err != nil {
-        if strings.Contains(err.Error(), "e-mail já cadastrado") {
-             c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
-             return
-        }
-        c.JSON(http.StatusInternalServerError, gin.H{"erro": "Falha ao realizar o cadastro"})
-        return
-    }
+	usuario := &model.Usuario{
+		Nome:  request.Usuario.Nome,
+		Email: request.Usuario.Email,
+		Senha: request.Usuario.Password,
+		CPF:   request.Usuario.CPF,
+	}
 
-    c.JSON(http.StatusCreated, gin.H{
-        "mensagem": "Empresa e usuário administrador criados com sucesso!",
-        "usuario":  novoUsuario,
-        "token":    token,
-    })
+	dadosContrato := &model.Contrato{
+		Salario:      request.Usuario.Salario,
+		DataAdmissao: request.Usuario.DataAdmissao,
+	}
+
+	novoUsuario, token, err := h.authService.SignUp(empresa, localidade, usuario, dadosContrato)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "e-mail já cadastrado") || strings.Contains(err.Error(), "CNPJ já cadastrado") {
+			c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"erro": "Falha ao realizar o cadastro: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"mensagem": "Empresa e usuário administrador criados com sucesso!",
+		"usuario":  novoUsuario,
+		"token":    token,
+	})
 }

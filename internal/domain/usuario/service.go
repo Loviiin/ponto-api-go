@@ -113,7 +113,7 @@ func (s *usuarioService) Update(id uint, empresaID uint, dados map[string]interf
 	if err != nil {
 		return err
 	}
-	return s.usuarioRepo.Update(id, empresaID, dados)
+	return s.usuarioRepo.Update(id, dados)
 }
 
 func (s *usuarioService) Delete(id uint, empresaID uint) error {
@@ -121,7 +121,7 @@ func (s *usuarioService) Delete(id uint, empresaID uint) error {
 	if err != nil {
 		return err
 	}
-	return s.usuarioRepo.Delete(id, empresaID)
+	return s.usuarioRepo.Delete(id)
 }
 
 func (s *usuarioService) FindAll() ([]model.Usuario, error) {

@@ -7,6 +7,7 @@ import (
 
 type Repository interface {
 	Create(log *model.LogBancoHoras) error
+	WithTransaction(tx *gorm.DB) Repository // ADICIONAR ESTA LINHA
 }
 
 type repository struct {
@@ -19,4 +20,8 @@ func NewRepository(db *gorm.DB) Repository {
 
 func (r *repository) Create(log *model.LogBancoHoras) error {
 	return r.Db.Create(log).Error
+}
+
+func (r *repository) WithTransaction(tx *gorm.DB) Repository {
+	return &repository{Db: tx}
 }

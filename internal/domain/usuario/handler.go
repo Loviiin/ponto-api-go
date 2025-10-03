@@ -108,27 +108,26 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 // @Failure      404  {object}  map[string]string
 // @Router       /usuarios/{id} [delete]
 func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
-
 	empresaID, _ := h.converter.GetUintIDFromContext(c, "empresaID")
 	idToken, _ := h.converter.GetUintIDFromContext(c, "userID")
 	idUrl, _ := h.converter.StrParaUint(c.Param("id"))
 
 	requester, err := h.service.FindByID(idToken, empresaID)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado."})
+	if err != nil || requester.Contrato.ID == 0 || requester.Contrato.Cargo.ID == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado. Não foi possível verificar as suas permissões."})
 		return
 	}
 
 	podeDeletar := false
 	if idUrl == idToken {
-		for _, p := range requester.Cargo.Permissoes {
+		for _, p := range requester.Contrato.Cargo.Permissoes {
 			if p.Nome == permissions.DELETAR_PROPRIA_CONTA {
 				podeDeletar = true
 				break
 			}
 		}
 	} else {
-		for _, p := range requester.Cargo.Permissoes {
+		for _, p := range requester.Contrato.Cargo.Permissoes {
 			if p.Nome == permissions.DELETAR_USUARIO {
 				podeDeletar = true
 				break
@@ -161,34 +160,33 @@ func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      int                  true  "ID do Usuário a ser atualizado"
-// @Param        dados    body      UpdateUsuarioRequest true  "Dados para atualização" // <-- Usamos a struct aqui para o Swagger
+// @Param        dados    body      UpdateUsuarioRequest true  "Dados para atualização"
 // @Success      204      "No Content"
 // @Failure      400      {object}  map[string]string
 // @Failure      403      {object}  map[string]string
 // @Failure      404      {object}  map[string]string
 // @Router       /usuarios/{id} [put]
 func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
-
 	empresaID, _ := h.converter.GetUintIDFromContext(c, "empresaID")
 	idToken, _ := h.converter.GetUintIDFromContext(c, "userID")
 	idUrl, _ := h.converter.StrParaUint(c.Param("id"))
 
 	requester, err := h.service.FindByID(idToken, empresaID)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado."})
+	if err != nil || requester.Contrato.ID == 0 || requester.Contrato.Cargo.ID == 0 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Acesso negado. Não foi possível verificar as suas permissões."})
 		return
 	}
 
 	podeEditar := false
 	if idUrl == idToken {
-		for _, p := range requester.Cargo.Permissoes {
+		for _, p := range requester.Contrato.Cargo.Permissoes {
 			if p.Nome == permissions.EDITAR_PROPRIA_CONTA {
 				podeEditar = true
 				break
 			}
 		}
 	} else {
-		for _, p := range requester.Cargo.Permissoes {
+		for _, p := range requester.Contrato.Cargo.Permissoes {
 			if p.Nome == permissions.EDITAR_USUARIO {
 				podeEditar = true
 				break
@@ -206,11 +204,14 @@ func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Corpo da requisição (JSON) inválido"})
 		return
 	}
-
-	if idUrl == idToken {
-		delete(dadosParaAtualizar, "cargo_id")
-	}
+    
+    // Remove campos que não devem ser atualizados diretamente nesta rota
+	delete(dadosParaAtualizar, "cargo_id")
 	delete(dadosParaAtualizar, "empresa_id")
+    delete(dadosParaAtualizar, "localidade_id")
+    delete(dadosParaAtualizar, "salario")
+    delete(dadosParaAtualizar, "data_admissao")
+
 
 	err = h.service.Update(idUrl, empresaID, dadosParaAtualizar)
 	if err != nil {

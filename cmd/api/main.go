@@ -160,7 +160,7 @@ func main() {
 	geoService := geolocation.NewService(cfg.OpenCageAPIKey)
 
 	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo)
-	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, jwtService,db)
+	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, db)
 	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, localidadeRepo, db)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)

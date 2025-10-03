@@ -11,6 +11,7 @@ type Repository interface {
 	FindAllByEmpresaID(empresaID uint) ([]model.Localidade, error)
 	Update(localidade *model.Localidade) error
 	Delete(id uint, empresaID uint) error
+	WithTransaction(tx *gorm.DB) Repository
 }
 
 type repository struct {
@@ -43,4 +44,8 @@ func (r *repository) Update(localidade *model.Localidade) error {
 
 func (r *repository) Delete(id uint, empresaID uint) error {
 	return r.Db.Unscoped().Delete(&model.Localidade{}, "id = ? AND empresa_id = ?", id, empresaID).Error
+}
+
+func (r *repository) WithTransaction(tx *gorm.DB) Repository {
+	return &repository{Db: tx}
 }

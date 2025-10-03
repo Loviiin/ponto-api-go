@@ -1,15 +1,16 @@
 package bancohoras
 
 import (
-	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
-	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
-	"github.com/Loviiin/ponto-api-go/pkg/permissions"
-	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
+	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
+	"github.com/Loviiin/ponto-api-go/pkg/permissions"
+	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
@@ -71,7 +72,7 @@ func (h *Handler) GetSaldoDoDia(c *gin.Context) {
 		}
 
 		temPermissao := false
-		for _, permissao := range requisitante.Cargo.Permissoes {
+		for _, permissao := range requisitante.Contrato.Cargo.Permissoes {
 			if permissao.Nome == permissions.VER_SALDO_FUNCIONARIOS {
 				temPermissao = true
 				break
@@ -101,7 +102,7 @@ func (h *Handler) GetSaldoDoDia(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        id   path      int     true  "ID do Usuário"
 // @Param        dia  query     string  true  "Dia para fechar (formato: AAAA-MM-DD)"  example("2025-08-26")
-// @Success      200  {object}  model.Usuario
+// @Success      200  {object}  model.Contrato
 // @Failure      400  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
@@ -166,7 +167,7 @@ func (h *Handler) ExecutarFechamentoDiario(c *gin.Context) {
 	log.Printf("SCHEDULER_HTTP: Encontrados %d usuários para processar.", len(usuarios))
 
 	for _, usr := range usuarios {
-		_, err := h.service.FecharDiaParaUsuario(usr.ID, usr.EmpresaID, diaAnterior)
+		_, err := h.service.FecharDiaParaUsuario(usr.ID, usr.Contrato.EmpresaID, diaAnterior)
 		if err != nil {
 			log.Printf("SCHEDULER_HTTP: Erro ao fechar o dia para o usuário ID %d: %v", usr.ID, err)
 		} else {

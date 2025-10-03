@@ -16,27 +16,64 @@ definitions:
     properties:
       empresa:
         properties:
-          nome:
+          cnpj:
+            example: "12345678000195"
+            type: string
+          nome_fantasia:
             example: Minha Empresa
             type: string
+          razao_social:
+            example: Minha Empresa LTDA
+            type: string
         required:
+        - cnpj
+        - nome_fantasia
+        - razao_social
+        type: object
+      localidade:
+        properties:
+          cep:
+            example: 01001-000
+            type: string
+          nome:
+            example: Matriz Principal
+            type: string
+          raio_geofence_metros:
+            example: 100
+            type: number
+        required:
+        - cep
         - nome
+        - raio_geofence_metros
         type: object
       usuario:
         properties:
+          cpf:
+            example: "12345678900"
+            type: string
+          data_admissao:
+            example: "2025-01-20T00:00:00Z"
+            type: string
           email:
             example: joao@empresa.com
             type: string
           nome:
-            example: João Silva
+            example: João Administrador
             type: string
           password:
             example: senha123
+            minLength: 6
             type: string
+          salario:
+            example: 5000
+            type: number
         required:
+        - cpf
+        - data_admissao
         - email
         - nome
         - password
+        - salario
         type: object
     type: object
   cargo.createRequest:
@@ -51,19 +88,19 @@ definitions:
     type: object
   empresa.criaEmpresaRequest:
     properties:
-      nome:
+      cnpj:
+        example: 12.345.678/0001-95
         type: string
-      raioGeofenceMetros:
-        type: number
-      sedeLatitude:
-        type: number
-      sedeLongitude:
-        type: number
+      nomeFantasia:
+        example: Minha Empresa
+        type: string
+      razaoSocial:
+        example: Minha Empresa LTDA
+        type: string
     required:
-    - nome
-    - raioGeofenceMetros
-    - sedeLatitude
-    - sedeLongitude
+    - cnpj
+    - nomeFantasia
+    - razaoSocial
     type: object
   justificativa.aprovarReprovarRequest:
     properties:
@@ -131,16 +168,22 @@ definitions:
     type: object
   model.Contrato:
     properties:
+      cargo:
+        $ref: '#/definitions/model.Cargo'
       cargo_id:
         type: integer
       data_admissao:
         type: string
       data_demissao:
         type: string
+      empresa:
+        $ref: '#/definitions/model.Empresa'
       empresa_id:
         type: integer
       id:
         type: integer
+      localidade:
+        $ref: '#/definitions/model.Localidade'
       localidade_id:
         type: integer
       salario:
@@ -405,10 +448,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: Cria uma nova empresa e o primeiro usuário administrador em uma
-        única transação. Retorna o novo usuário e um token JWT.
+      description: Cria uma nova empresa, a sua localidade principal (matriz), e o
+        primeiro usuário administrador em uma única transação. Retorna o novo usuário
+        e um token JWT.
       parameters:
-      - description: Dados da Empresa e do Administrador
+      - description: Dados completos da Empresa, Localidade e Administrador
         in: body
         name: signUpRequest
         required: true
@@ -459,7 +503,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.Usuario'
+            $ref: '#/definitions/model.Contrato'
         "400":
           description: Bad Request
           schema:

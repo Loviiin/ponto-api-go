@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"log"
+	"time"
 
 	"github.com/Loviiin/ponto-api-go/pkg/password"
 
@@ -66,7 +68,7 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.VISUALIZAR_PONTO_FUNCIONARIOS],
 		mapaPermissoes[permissions.AJUSTAR_PONTO_FUNCIONARIOS],
 		mapaPermissoes[permissions.GERENCIAR_JUSTIFICATIVAS],
-    	mapaPermissoes[permissions.GERENCIAR_LOCALIDADES],
+		mapaPermissoes[permissions.GERENCIAR_LOCALIDADES],
 		mapaPermissoes[permissions.VER_JUSTIFICATIVAS_PENDENTES],
 	}
 	gerentePerms := []model.Permissao{
@@ -96,75 +98,109 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 }
 
 func SeedSuperAdmin(db *gorm.DB) {
-	// Criação dos usuários padrão da empresa
-	var usuarioExistente model.Usuario
-	emails := []string{"dono@ponto.com", "gerente@ponto.com", "colaborador@ponto.com"}
-	for _, email := range emails {
-		err := db.Where("email = ?", email).First(&usuarioExistente).Error
-		if err == nil {
-			log.Printf("Usuário %s já existe.", email)
+	// Garantir empresa e localidade padrão
+	empresa := model.Empresa{
+		NomeFantasia: "Empresa Padrão",
+		RazaoSocial:  "Empresa Padrão LTDA",
+		CNPJ:         "00000000000191",
+	}
+	db.Where(model.Empresa{CNPJ: empresa.CNPJ}).FirstOrCreate(&empresa)
+
+	localidade := model.Localidade{
+		Nome:               "Matriz Padrão",
+		EmpresaID:          empresa.ID,
+		CEP:                "01001-000",
+		Cidade:             "São Paulo",
+		Estado:             "SP",
+		Latitude:           -23.550520,
+		Longitude:          -46.633308,
+		RaioGeofenceMetros: 100,
+	}
+	db.Where(model.Localidade{EmpresaID: empresa.ID, Nome: "Matriz Padrão"}).FirstOrCreate(&localidade)
+
+	// Permissões e cargos padrão
+	mapaPermissoes := SeedPermissions(db)
+	donoCargo, gerenteCargo, colaboradorCargo := SetupDefaultRolesAndPermissions(db, empresa.ID, mapaPermissoes)
+
+	// Helper para criar usuário e contrato se necessário
+	createUserWithContract := func(nome, email, cpf, senha string, cargoID uint) {
+		// Usuário
+		var u model.Usuario
+		err := db.Where("email = ?", email).First(&u).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			hash, _ := password.CriptografaSenha(senha)
+			u = model.Usuario{
+				Nome:  nome,
+				Email: email,
+				CPF:   cpf,
+				Senha: hash,
+			}
+			if e := db.Create(&u).Error; e != nil {
+				log.Printf("Falha ao criar usuário %s: %v", email, e)
+				return
+			}
+		} else if err != nil {
+			log.Printf("Erro ao buscar usuário %s: %v", email, err)
+			return
+		}
+
+		// Contrato
+		var c model.Contrato
+		err = db.Where("usuario_id = ?", u.ID).First(&c).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c = model.Contrato{
+				UsuarioID:    u.ID,
+				EmpresaID:    empresa.ID,
+				LocalidadeID: localidade.ID,
+				CargoID:      cargoID,
+				DataAdmissao: time.Now(),
+				Salario:      0,
+			}
+			if e := db.Create(&c).Error; e != nil {
+				log.Printf("Falha ao criar contrato para %s: %v", email, e)
+				return
+			}
+		} else if err != nil {
+			log.Printf("Erro ao buscar contrato do usuário %s: %v", email, err)
 			return
 		}
 	}
 
-	var empresa model.Empresa
-	err := db.First(&empresa).Error
-	if err != nil {
-		empresa = model.Empresa{Nome: "Empresa Padrão"}
-		db.Create(&empresa)
-	}
+	// Usuários padrão
+	createUserWithContract("Dono", "dono@ponto.com", "00000000001", "donosenha", donoCargo.ID)
+	createUserWithContract("Gerente", "gerente@ponto.com", "00000000002", "gerentesenha", gerenteCargo.ID)
+	createUserWithContract("Colaborador", "colaborador@ponto.com", "00000000003", "colabsenha", colaboradorCargo.ID)
 
-	mapaPermissoes := SeedPermissions(db)
-	donoCargo, gerenteCargo, colaboradorCargo := SetupDefaultRolesAndPermissions(db, empresa.ID, mapaPermissoes)
+	// Super Admin global (para desenvolvimento)
+	var super model.Usuario
+	err := db.Where("email = ?", "superadmin@ponto.com").First(&super).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		hash, _ := password.CriptografaSenha("superadmin")
+		super = model.Usuario{
+			Nome:  "Super Admin",
+			Email: "superadmin@ponto.com",
+			CPF:   "00000000000",
+			Senha: hash,
+		}
+		if e := db.Create(&super).Error; e != nil {
+			log.Printf("Falha ao criar Super Admin: %v", e)
+			return
+		}
 
-	// Criação dos usuários
-	senhaDono, _ := password.CriptografaSenha("donosenha")
-	dono := model.Usuario{
-		Nome:      "Dono",
-		Email:     "dono@ponto.com",
-		Senha:     string(senhaDono),
-		EmpresaID: empresa.ID,
-		CargoID:   donoCargo.ID,
+		c := model.Contrato{
+			UsuarioID:    super.ID,
+			EmpresaID:    empresa.ID,
+			LocalidadeID: localidade.ID,
+			CargoID:      donoCargo.ID,
+			DataAdmissao: time.Now(),
+			Salario:      99999.0,
+		}
+		if e := db.Create(&c).Error; e != nil {
+			log.Printf("Falha ao criar contrato do Super Admin: %v", e)
+			return
+		}
+		log.Println("Usuário Super Admin criado com sucesso.")
+	} else if err != nil {
+		log.Printf("Erro ao buscar Super Admin: %v", err)
 	}
-	senhaGerente, _ := password.CriptografaSenha("gerentesenha")
-	gerente := model.Usuario{
-		Nome:      "Gerente",
-		Email:     "gerente@ponto.com",
-		Senha:     string(senhaGerente),
-		EmpresaID: empresa.ID,
-		CargoID:   gerenteCargo.ID,
-	}
-	senhaColab, _ := password.CriptografaSenha("colabsenha")
-	colaborador := model.Usuario{
-		Nome:      "Colaborador",
-		Email:     "colaborador@ponto.com",
-		Senha:     string(senhaColab),
-		EmpresaID: empresa.ID,
-		CargoID:   colaboradorCargo.ID,
-	}
-
-	db.Create(&dono)
-	db.Create(&gerente)
-	db.Create(&colaborador)
-	log.Println("Usuários Dono, Gerente e Colaborador criados com sucesso.")
-
-	// Criação do Super Admin global (para desenvolvedores)
-	var superAdminExistente model.Usuario
-	err = db.Where("email = ?", "superadmin@ponto.com").First(&superAdminExistente).Error
-	if err == nil {
-		log.Println("Super Admin já existe.")
-		return
-	}
-
-	// Vincular Super Admin à empresa padrão e ao cargo Dono
-	senhaSuper, _ := password.CriptografaSenha("superadmin")
-	superAdmin := model.Usuario{
-		Nome:      "Super Admin",
-		Email:     "superadmin@ponto.com",
-		Senha:     string(senhaSuper),
-		EmpresaID: empresa.ID,
-		CargoID:   donoCargo.ID,
-	}
-	db.Create(&superAdmin)
-	log.Println("Super Admin criado com sucesso.")
 }

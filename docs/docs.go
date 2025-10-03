@@ -81,7 +81,7 @@ const docTemplate = `{
         },
         "/auth/signup": {
             "post": {
-                "description": "Cria uma nova empresa e o primeiro usuário administrador em uma única transação. Retorna o novo usuário e um token JWT.",
+                "description": "Cria uma nova empresa, a sua localidade principal (matriz), e o primeiro usuário administrador em uma única transação. Retorna o novo usuário e um token JWT.",
                 "consumes": [
                     "application/json"
                 ],
@@ -94,7 +94,7 @@ const docTemplate = `{
                 "summary": "Realiza o cadastro de uma nova empresa e seu administrador",
                 "parameters": [
                     {
-                        "description": "Dados da Empresa e do Administrador",
+                        "description": "Dados completos da Empresa, Localidade e Administrador",
                         "name": "signUpRequest",
                         "in": "body",
                         "required": true,
@@ -168,7 +168,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.Usuario"
+                            "$ref": "#/definitions/model.Contrato"
                         }
                     },
                     "400": {
@@ -1821,34 +1821,82 @@ const docTemplate = `{
                 "empresa": {
                     "type": "object",
                     "required": [
-                        "nome"
+                        "cnpj",
+                        "nome_fantasia",
+                        "razao_social"
                     ],
                     "properties": {
-                        "nome": {
+                        "cnpj": {
+                            "type": "string",
+                            "example": "12345678000195"
+                        },
+                        "nome_fantasia": {
                             "type": "string",
                             "example": "Minha Empresa"
+                        },
+                        "razao_social": {
+                            "type": "string",
+                            "example": "Minha Empresa LTDA"
+                        }
+                    }
+                },
+                "localidade": {
+                    "type": "object",
+                    "required": [
+                        "cep",
+                        "nome",
+                        "raio_geofence_metros"
+                    ],
+                    "properties": {
+                        "cep": {
+                            "type": "string",
+                            "example": "01001-000"
+                        },
+                        "nome": {
+                            "type": "string",
+                            "example": "Matriz Principal"
+                        },
+                        "raio_geofence_metros": {
+                            "type": "number",
+                            "example": 100
                         }
                     }
                 },
                 "usuario": {
                     "type": "object",
                     "required": [
+                        "cpf",
+                        "data_admissao",
                         "email",
                         "nome",
-                        "password"
+                        "password",
+                        "salario"
                     ],
                     "properties": {
+                        "cpf": {
+                            "type": "string",
+                            "example": "12345678900"
+                        },
+                        "data_admissao": {
+                            "type": "string",
+                            "example": "2025-01-20T00:00:00Z"
+                        },
                         "email": {
                             "type": "string",
                             "example": "joao@empresa.com"
                         },
                         "nome": {
                             "type": "string",
-                            "example": "João Silva"
+                            "example": "João Administrador"
                         },
                         "password": {
                             "type": "string",
+                            "minLength": 6,
                             "example": "senha123"
+                        },
+                        "salario": {
+                            "type": "number",
+                            "example": 5000
                         }
                     }
                 }
@@ -1872,23 +1920,22 @@ const docTemplate = `{
         "empresa.criaEmpresaRequest": {
             "type": "object",
             "required": [
-                "nome",
-                "raioGeofenceMetros",
-                "sedeLatitude",
-                "sedeLongitude"
+                "cnpj",
+                "nomeFantasia",
+                "razaoSocial"
             ],
             "properties": {
-                "nome": {
-                    "type": "string"
+                "cnpj": {
+                    "type": "string",
+                    "example": "12.345.678/0001-95"
                 },
-                "raioGeofenceMetros": {
-                    "type": "number"
+                "nomeFantasia": {
+                    "type": "string",
+                    "example": "Minha Empresa"
                 },
-                "sedeLatitude": {
-                    "type": "number"
-                },
-                "sedeLongitude": {
-                    "type": "number"
+                "razaoSocial": {
+                    "type": "string",
+                    "example": "Minha Empresa LTDA"
                 }
             }
         },
@@ -1989,6 +2036,9 @@ const docTemplate = `{
         "model.Contrato": {
             "type": "object",
             "properties": {
+                "cargo": {
+                    "$ref": "#/definitions/model.Cargo"
+                },
                 "cargo_id": {
                     "type": "integer"
                 },
@@ -1998,11 +2048,17 @@ const docTemplate = `{
                 "data_demissao": {
                     "type": "string"
                 },
+                "empresa": {
+                    "$ref": "#/definitions/model.Empresa"
+                },
                 "empresa_id": {
                     "type": "integer"
                 },
                 "id": {
                     "type": "integer"
+                },
+                "localidade": {
+                    "$ref": "#/definitions/model.Localidade"
                 },
                 "localidade_id": {
                     "type": "integer"
