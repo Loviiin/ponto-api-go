@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Loviiin/ponto-api-go/pkg/jwt" // Importa o nosso serviço de JWT
+	"github.com/Loviiin/ponto-api-go/pkg/jwt"
 	"github.com/gin-gonic/gin"
 )
 

@@ -2,9 +2,10 @@ package empresa
 
 import (
 	"errors"
-	"github.com/Loviiin/ponto-api-go/internal/config"
 	"net/http"
+	"strings"
 
+	"github.com/Loviiin/ponto-api-go/internal/config"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/gin-gonic/gin"
@@ -27,10 +28,9 @@ func NewEmpresaHandler(s EmpresaService, f funcoes.FuncoesInterface, db *gorm.DB
 }
 
 type criaEmpresaRequest struct {
-	Nome               string  `json:"nome" binding:"required"`
-	SedeLatitude       float64 `json:"sedeLatitude" binding:"required"`
-	SedeLongitude      float64 `json:"sedeLongitude" binding:"required"`
-	RaioGeofenceMetros float64 `json:"raioGeofenceMetros" binding:"required"`
+	NomeFantasia string `json:"nomeFantasia" binding:"required" example:"Minha Empresa"`
+	RazaoSocial  string `json:"razaoSocial"  binding:"required" example:"Minha Empresa LTDA"`
+	CNPJ         string `json:"cnpj"         binding:"required" example:"12.345.678/0001-95"`
 }
 
 // @Summary      Cria uma nova empresa
@@ -50,11 +50,30 @@ func (h *EmpresaHandler) CriarEmpresaHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// Normalização básica dos campos e validação simples de CNPJ
+	request.NomeFantasia = strings.TrimSpace(request.NomeFantasia)
+	request.RazaoSocial = strings.TrimSpace(request.RazaoSocial)
+	// Normalizar CNPJ: manter apenas dígitos
+	cnpjDigits := make([]rune, 0, len(request.CNPJ))
+	for _, r := range request.CNPJ {
+		if r >= '0' && r <= '9' {
+			cnpjDigits = append(cnpjDigits, r)
+		}
+	}
+	normalizedCNPJ := string(cnpjDigits)
+	if request.NomeFantasia == "" || request.RazaoSocial == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nome fantasia e razão social são obrigatórios."})
+		return
+	}
+	if len(normalizedCNPJ) != 14 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "CNPJ inválido. Informe 14 dígitos."})
+		return
+	}
+
 	empresa := model.Empresa{
-		Nome:               request.Nome,
-		SedeLatitude:       request.SedeLatitude,
-		SedeLongitude:      request.SedeLongitude,
-		RaioGeofenceMetros: request.RaioGeofenceMetros,
+		NomeFantasia: request.NomeFantasia,
+		RazaoSocial:  request.RazaoSocial,
+		CNPJ:         normalizedCNPJ,
 	}
 
 	err := h.service.CreateEmpresa(&empresa)

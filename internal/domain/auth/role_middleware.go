@@ -29,7 +29,7 @@ func RoleAuthMiddleware(usuarioRepo usuario.UsuarioRepository, funcoesService fu
 			return
 		}
 
-		if usuario.Cargo.Nome != requiredRole {
+		if usuario.Contrato.Cargo.Nome != requiredRole {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Acesso negado. Seu cargo não tem permissão para executar esta ação."})
 			return
 		}

@@ -1,11 +1,12 @@
 package scheduler
 
 import (
+	"log"
+	"time"
+
 	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 	"github.com/robfig/cron/v3"
-	"log"
-	"time"
 )
 
 type Scheduler struct {
@@ -47,7 +48,7 @@ func (s *Scheduler) executarFechamentoDiario() {
 	log.Printf("Encontrados %d usuários para processar.", len(usuarios))
 
 	for _, usr := range usuarios {
-		_, err := s.bancoHorasService.FecharDiaParaUsuario(usr.ID, usr.EmpresaID, diaAnterior)
+		_, err := s.bancoHorasService.FecharDiaParaUsuario(usr.ID, usr.Contrato.EmpresaID, diaAnterior)
 		if err != nil {
 			log.Printf("SCHEDULER: Erro ao fechar o dia para o usuário ID %d: %v", usr.ID, err)
 		} else {

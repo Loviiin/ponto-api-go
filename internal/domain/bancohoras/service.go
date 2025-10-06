@@ -15,13 +15,13 @@ import (
 
 type BancoHorasService interface {
 	CalcularSaldoParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (int, error)
-	FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Usuario, error)
+	FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Contrato, error)
 }
 
 type bancoHorasService struct {
 	pontoRepo   ponto.RegistroPontoRepository
 	usuarioRepo usuario.UsuarioRepository
-	logRepo     logbancohoras.Repository // <-- ADICIONE O NOVO REPOSITÓRIO
+	logRepo     logbancohoras.Repository
 	db          *gorm.DB
 }
 
@@ -44,11 +44,17 @@ func (s *bancoHorasService) CalcularSaldoParaUsuario(usuarioID uint, empresaID u
 	if err != nil {
 		return 0, err
 	}
+
+	if &user.Contrato == nil || &user.Contrato.Cargo == nil {
+		return 0, errors.New("utilizador não possui um contrato ou cargo ativo para calcular o saldo")
+	}
+
 	pontos, err := s.pontoRepo.FindPontosByUserIDAndDate(user.ID, dia)
 	if err != nil {
 		return 0, err
 	}
-	doDia, err := CalcularSaldoDoDia(pontos, user.Cargo)
+
+	doDia, err := CalcularSaldoDoDia(pontos, user.Contrato.Cargo)
 	if err != nil {
 		return 0, err
 	}
@@ -79,38 +85,42 @@ func CalcularSaldoDoDia(pontosDoDia []model.RegistroPonto, cargoDoUsuario model.
 	return int(saldo), nil
 }
 
-func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Usuario, error) {
+func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Contrato, error) {
+	usuarioAtual, err := s.usuarioRepo.FindByID(usuarioID, empresaID)
+	if err != nil {
+		return nil, err
+	}
+	if &usuarioAtual.Contrato == nil {
+		return nil, errors.New("utilizador não possui um contrato para fechar o dia")
+	}
+
 	saldoDoDia, err := s.CalcularSaldoParaUsuario(usuarioID, empresaID, dia)
 	if err != nil {
 		return nil, err
 	}
 
-	usuarioAtual, err := s.usuarioRepo.FindByID(usuarioID, empresaID)
-	if err != nil {
-		return nil, err
-	}
-
-	novoSaldoTotal := usuarioAtual.SaldoBancoHorasMinutos + saldoDoDia
+	saldoAnterior := usuarioAtual.Contrato.SaldoBancoHorasMinutos
+	novoSaldoTotal := saldoAnterior + saldoDoDia
 
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		dadosParaAtualizar := map[string]interface{}{
-			"saldo_banco_horas_minutos": novoSaldoTotal,
-		}
-		if err := s.usuarioRepo.Update(usuarioID, empresaID, dadosParaAtualizar); err != nil {
+		if err := tx.Model(&model.Contrato{}).Where("id = ?", usuarioAtual.Contrato.ID).
+			Update("saldo_banco_horas_minutos", novoSaldoTotal).Error; err != nil {
 			return err
 		}
 
+		// Cria o log do banco de horas
 		log := &model.LogBancoHoras{
 			UsuarioID:            usuarioID,
-			AutorID:              nil,
+			AutorID:              nil, // Fechamento automático não tem autor
 			EmpresaID:            empresaID,
 			Data:                 time.Now(),
 			ValorAlteradoMinutos: saldoDoDia,
-			SaldoAnteriorMinutos: usuarioAtual.SaldoBancoHorasMinutos,
+			SaldoAnteriorMinutos: saldoAnterior,
 			SaldoNovoMinutos:     novoSaldoTotal,
 			Motivo:               "Fechamento automático do dia " + dia.Format("2006-01-02"),
 		}
-		if err := s.logRepo.Create(log); err != nil {
+		// Usa o logRepo dentro da transação
+		if err := s.logRepo.WithTransaction(tx).Create(log); err != nil {
 			return err
 		}
 
@@ -120,6 +130,7 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 		return nil, err
 	}
 
-	usuarioAtual.SaldoBancoHorasMinutos = novoSaldoTotal
-	return usuarioAtual, nil
+	// Retorna o contrato atualizado
+	usuarioAtual.Contrato.SaldoBancoHorasMinutos = novoSaldoTotal
+	return &usuarioAtual.Contrato, nil
 }

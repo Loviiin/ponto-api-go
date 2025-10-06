@@ -24,8 +24,6 @@ func PermissionMiddleware(usuarioService usuario.UsuarioService, funcoesService 
 			return
 		}
 
-		// 2. Obter o utilizador, o seu cargo e as suas permissões, tudo de uma vez.
-		// Graças ao nosso pré-carregamento aninhado, esta única chamada traz tudo.
 		user, err := usuarioService.FindByID(userID, empresaID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -36,16 +34,18 @@ func PermissionMiddleware(usuarioService usuario.UsuarioService, funcoesService 
 			return
 		}
 
-		// 3. Verificar se a permissão necessária está na lista de permissões do cargo.
-		hasPermission := false
-		for _, p := range user.Cargo.Permissoes {
-			if p.Nome == requiredPermission {
-				hasPermission = true
-				break // Encontrámos a permissão, não precisamos de procurar mais.
-			}
+		if user.Contrato.ID == 0 || user.Contrato.Cargo.ID == 0 {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Acesso negado. O seu utilizador não tem um contrato ou cargo válido."})
+			return
 		}
 
-		// 4. Tomar a decisão final.
+		hasPermission := false
+		for _, p := range user.Contrato.Cargo.Permissoes {
+			if p.Nome == requiredPermission {
+				hasPermission = true
+				break 
+			}
+		}
 		if !hasPermission {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Acesso negado. O seu cargo não tem permissão para executar esta ação."})
 			return

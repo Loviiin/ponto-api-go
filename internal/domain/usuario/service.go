@@ -2,8 +2,10 @@ package usuario
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/cargo" // <-- 1. IMPORTAR O PACOTE DO CARGO
+	"github.com/Loviiin/ponto-api-go/internal/domain/contrato"
 	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/password"
@@ -11,7 +13,8 @@ import (
 )
 
 type UsuarioService interface {
-	CriarUsuario(usuario *model.Usuario, cargoNome string) error
+
+	CriarUsuarioEContrato(usuario *model.Usuario, contrato *model.Contrato) error
 	GetAll(empresaID uint) ([]model.Usuario, error)
 	FindByID(id uint, empresaID uint) (*model.Usuario, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
@@ -22,16 +25,20 @@ type UsuarioService interface {
 var criptografaSenha = password.CriptografaSenha
 
 type usuarioService struct {
+	Db           *gorm.DB
 	usuarioRepo UsuarioRepository
 	cargoRepo   cargo.CargoRepository
 	empresaRepo empresa.EmpresaRepository
+	contratoRepo contrato.ContratoRepository
 }
 
-func NewUsuarioService(repo UsuarioRepository, cargoRepo cargo.CargoRepository, empresaRepo empresa.EmpresaRepository) UsuarioService {
+func NewUsuarioService(db *gorm.DB, repo UsuarioRepository, cargoRepo cargo.CargoRepository, empresaRepo empresa.EmpresaRepository, contratoRepo contrato.ContratoRepository) UsuarioService {
 	return &usuarioService{
-		usuarioRepo: repo,
-		cargoRepo:   cargoRepo,
-		empresaRepo: empresaRepo,
+        Db:           db,
+		usuarioRepo:  repo,
+		cargoRepo:    cargoRepo,
+		empresaRepo:  empresaRepo,
+		contratoRepo: contratoRepo,
 	}
 }
 
@@ -43,33 +50,62 @@ func (s *usuarioService) FindByID(id uint, empresaID uint) (*model.Usuario, erro
 	return s.usuarioRepo.FindByID(id, empresaID)
 }
 
-func (s *usuarioService) CriarUsuario(usuario *model.Usuario, cargoNome string) error {
-	if usuario.CargoID == 0 && cargoNome != "" {
-		cargo, err := s.cargoRepo.FindByName(cargoNome, usuario.EmpresaID)
-		if err != nil {
-			return errors.New("o cargo especificado não foi encontrado")
-		}
-		usuario.CargoID = cargo.ID
+func (s *usuarioService) CriarUsuarioEContrato(usuario *model.Usuario, contrato *model.Contrato) error {
+	tx := s.Db.Begin()
+	if tx.Error != nil {
+		return tx.Error
 	}
+    defer func() {
+        if r := recover(); r != nil {
+            tx.Rollback()
+        }
+    }()
+
 
 	_, err := s.usuarioRepo.FindByEmail(usuario.Email)
 	if err == nil {
+		tx.Rollback()
 		return errors.New("e-mail já cadastrado")
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		tx.Rollback()
 		return err
 	}
-	_, err = s.empresaRepo.FindByID(usuario.EmpresaID)
+
+    //TODO Adicionar outras validações igual email
+
+	cargo, err := s.cargoRepo.FindByID(contrato.CargoID, contrato.EmpresaID)
 	if err != nil {
-		return errors.New("a empresa especificada não existe")
+		tx.Rollback()
+		return errors.New("o cargo especificado não existe ou não pertence a esta empresa")
+	}
+
+	if cargo.SalarioMaximo > 0 && (contrato.Salario < cargo.SalarioMinimo || contrato.Salario > cargo.SalarioMaximo) {
+		tx.Rollback()
+		return fmt.Errorf("o salário R$%.2f está fora da faixa permitida (R$%.2f - R$%.2f) para o cargo %s",
+			contrato.Salario, cargo.SalarioMinimo, cargo.SalarioMaximo, cargo.Nome)
 	}
 
 	senhaHash, err := criptografaSenha(usuario.Senha)
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 	usuario.Senha = senhaHash
-	return s.usuarioRepo.Save(usuario)
+
+	if err := s.usuarioRepo.WithTransaction(tx).Save(usuario); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	contrato.UsuarioID = usuario.ID
+
+	if err := s.contratoRepo.WithTransaction(tx).Save(contrato); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
 func (s *usuarioService) Update(id uint, empresaID uint, dados map[string]interface{}) error {
@@ -77,7 +113,7 @@ func (s *usuarioService) Update(id uint, empresaID uint, dados map[string]interf
 	if err != nil {
 		return err
 	}
-	return s.usuarioRepo.Update(id, empresaID, dados)
+	return s.usuarioRepo.Update(id, dados)
 }
 
 func (s *usuarioService) Delete(id uint, empresaID uint) error {
@@ -85,7 +121,7 @@ func (s *usuarioService) Delete(id uint, empresaID uint) error {
 	if err != nil {
 		return err
 	}
-	return s.usuarioRepo.Delete(id, empresaID)
+	return s.usuarioRepo.Delete(id)
 }
 
 func (s *usuarioService) FindAll() ([]model.Usuario, error) {
