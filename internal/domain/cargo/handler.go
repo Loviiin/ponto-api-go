@@ -69,7 +69,8 @@ func (h *CargoHandler) CreateCargo(c *gin.Context) {
 // @Tags         Cargos
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {array}   model.Cargo
+// @Success      200  {array}   model.Cargo  "Exemplo"
+// @Example 200 [{"id":10,"nome":"Desenvolvedor","empresaId":1}]
 // @Failure      401  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
 // @Router       /cargos [get]

@@ -9,6 +9,7 @@ import (
 type RegistroPontoRepository interface {
 	SavePonto(ponto *model.RegistroPonto) error
 	FindPontosByUserIDAndDate(userID uint, dia time.Time) ([]model.RegistroPonto, error)
+	FindPontosByUserIDAndDateRange(userID uint, inicio, fim time.Time) ([]model.RegistroPonto, error)
 	WithTransaction(tx *gorm.DB) RegistroPontoRepository
 	FindPontoByID(pontoID uint, empresaID uint) (*model.RegistroPonto, error)
 	UpdatePonto(ponto *model.RegistroPonto) error
@@ -34,6 +35,22 @@ func (r *pontoRepository) FindPontosByUserIDAndDate(userID uint, dia time.Time) 
 	var pontos []model.RegistroPonto
 	err := r.Db.Where("usuario_id = ?", userID).
 		Where("timestamp BETWEEN ? AND ?", inicioDoDia, fimDoDia).
+		Find(&pontos).Error
+	return pontos, err
+}
+
+func (r *pontoRepository) FindPontosByUserIDAndDateRange(userID uint, inicio, fim time.Time) ([]model.RegistroPonto, error) {
+	// Normalizar para garantir que inicio <= fim e remover nanos para consistência
+	if fim.Before(inicio) {
+		inicio, fim = fim, inicio
+	}
+	inicio = inicio.Truncate(time.Second)
+	fim = fim.Truncate(time.Second)
+
+	var pontos []model.RegistroPonto
+	err := r.Db.Where("usuario_id = ?", userID).
+		Where("timestamp BETWEEN ? AND ?", inicio, fim).
+		Order("timestamp ASC").
 		Find(&pontos).Error
 	return pontos, err
 }

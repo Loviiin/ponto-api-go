@@ -72,7 +72,8 @@ func (h *Handler) SolicitarAjuste(c *gin.Context) {
 // @Tags         Justificativas
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {array}   model.Justificativa
+// @Success      200  {array}   model.Justificativa  "Exemplo"
+// @Example 200 [{"id":55,"usuario_id":3,"empresa_id":1,"tipo":"ENTRADA_ESQUECIDA","descricao":"Esqueci de bater ao chegar","status":"PENDENTE"}]
 // @Failure      500  {object}  map[string]string
 // @Router       /justificativas/pendentes [get]
 func (h *Handler) ListarPendentes(c *gin.Context) {

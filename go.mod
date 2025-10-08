@@ -6,6 +6,7 @@ require (
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/viper v1.20.1
 	github.com/swaggo/files v1.0.1

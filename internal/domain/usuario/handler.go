@@ -2,40 +2,41 @@ package usuario
 
 import (
 	"errors"
+	"net/http"
+	"time"
+
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/permissions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"net/http"
-	"time"
 )
 
 type UsuarioHandler struct {
-	service        UsuarioService
-	converter      funcoes.FuncoesInterface
+	service   UsuarioService
+	converter funcoes.FuncoesInterface
 }
 
 func NewUsuarioHandler(s UsuarioService, f funcoes.FuncoesInterface) *UsuarioHandler {
 	return &UsuarioHandler{
-		service:        s,
-		converter:      f,
+		service:   s,
+		converter: f,
 	}
 }
 
 type CriarUsuarioRequest struct {
-    // Dados do Usuário (Pessoa)
-    Nome  string `json:"nome" binding:"required"`
-    CPF   string `json:"cpf" binding:"required"`
-    Email string `json:"email" binding:"required,email"`
-    Senha string `json:"senha" binding:"required,min=6"`
+	// Dados do Usuário (Pessoa)
+	Nome  string `json:"nome" binding:"required"`
+	CPF   string `json:"cpf" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
+	Senha string `json:"senha" binding:"required,min=6"`
 
-    // Dados do Contrato
-    EmpresaID    uint      `json:"empresa_id" binding:"required"`
-    LocalidadeID uint      `json:"localidade_id" binding:"required"`
-    CargoID      uint      `json:"cargo_id" binding:"required"`
-    Salario      float64   `json:"salario" binding:"required"`
-    DataAdmissao time.Time `json:"data_admissao" binding:"required"`
+	// Dados do Contrato
+	EmpresaID    uint      `json:"empresa_id" binding:"required"`
+	LocalidadeID uint      `json:"localidade_id" binding:"required"`
+	CargoID      uint      `json:"cargo_id" binding:"required"`
+	Salario      float64   `json:"salario" binding:"required"`
+	DataAdmissao time.Time `json:"data_admissao" binding:"required"`
 }
 
 // UpdateUsuarioRequest define o corpo do pedido para atualizar um usuário.
@@ -80,7 +81,8 @@ func (h *UsuarioHandler) GetByIdHandler(c *gin.Context) {
 // @Tags         Usuários
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {array}   model.Usuario
+// @Success      200  {array}   model.Usuario  "Exemplo"
+// @Example 200 [{"id":1,"nome":"João da Silva","email":"joao@empresa.com"}]
 // @Failure      500  {object}  map[string]string
 // @Router       /usuarios [get]
 func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
@@ -204,14 +206,13 @@ func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Corpo da requisição (JSON) inválido"})
 		return
 	}
-    
-    // Remove campos que não devem ser atualizados diretamente nesta rota
+
+	// Remove campos que não devem ser atualizados diretamente nesta rota
 	delete(dadosParaAtualizar, "cargo_id")
 	delete(dadosParaAtualizar, "empresa_id")
-    delete(dadosParaAtualizar, "localidade_id")
-    delete(dadosParaAtualizar, "salario")
-    delete(dadosParaAtualizar, "data_admissao")
-
+	delete(dadosParaAtualizar, "localidade_id")
+	delete(dadosParaAtualizar, "salario")
+	delete(dadosParaAtualizar, "data_admissao")
 
 	err = h.service.Update(idUrl, empresaID, dadosParaAtualizar)
 	if err != nil {
@@ -236,35 +237,36 @@ func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 // @Failure      400      {object}  map[string]string
 // @Router       /usuarios [post]
 func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
-    var request CriarUsuarioRequest
-    if err := c.ShouldBindJSON(&request); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	var request CriarUsuarioRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    usuario := &model.Usuario{
-        Nome:  request.Nome,
-        CPF:   request.CPF,
-        Email: request.Email,
-        Senha: request.Senha,
-    }
+	usuario := &model.Usuario{
+		Nome:  request.Nome,
+		CPF:   request.CPF,
+		Email: request.Email,
+		Senha: request.Senha,
+	}
 
-    contrato := &model.Contrato{
-        EmpresaID:    request.EmpresaID,
-        LocalidadeID: request.LocalidadeID,
-        CargoID:      request.CargoID,
-        Salario:      request.Salario,
-        DataAdmissao: request.DataAdmissao,
-    }
+	contrato := &model.Contrato{
+		EmpresaID:    request.EmpresaID,
+		LocalidadeID: request.LocalidadeID,
+		CargoID:      request.CargoID,
+		Salario:      request.Salario,
+		DataAdmissao: request.DataAdmissao,
+	}
 
-    err := h.service.CriarUsuarioEContrato(usuario, contrato)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	err := h.service.CriarUsuarioEContrato(usuario, contrato)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    c.JSON(http.StatusCreated, usuario)
+	c.JSON(http.StatusCreated, usuario)
 }
+
 // @Summary      Obtém os dados do usuário logado
 // @Description  Retorna as informações detalhadas do usuário que está a fazer o pedido.
 // @Tags         Usuários

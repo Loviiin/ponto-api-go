@@ -290,7 +290,7 @@ const docTemplate = `{
                 "summary": "Lista os cargos da empresa",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Exemplo",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -592,7 +592,7 @@ const docTemplate = `{
                 "summary": "Lista todas as empresas",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Exemplo",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -954,7 +954,7 @@ const docTemplate = `{
                 "summary": "(Admin) Lista justificativas pendentes",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Exemplo",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1326,7 +1326,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Exemplo",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1336,6 +1336,82 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/pontos/meus-registros/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Gera um arquivo (CSV ou PDF) contendo os registros de ponto no intervalo especificado.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ponto"
+                ],
+                "summary": "Exporta relatório de registros de ponto",
+                "parameters": [
+                    {
+                        "enum": [
+                            "csv",
+                            "pdf"
+                        ],
+                        "type": "string",
+                        "description": "Formato do arquivo (csv ou pdf)",
+                        "name": "formato",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data inicial (AAAA-MM-DD)",
+                        "name": "data_inicio",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data final (AAAA-MM-DD)",
+                        "name": "data_fim",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Arquivo gerado"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1388,7 +1464,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Exemplo",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1407,6 +1483,88 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/pontos/usuario/{id}/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Gera um arquivo (CSV ou PDF) contendo os registros de ponto no intervalo especificado.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ponto"
+                ],
+                "summary": "Exporta relatório de registros de ponto",
+                "parameters": [
+                    {
+                        "enum": [
+                            "csv",
+                            "pdf"
+                        ],
+                        "type": "string",
+                        "description": "Formato do arquivo (csv ou pdf)",
+                        "name": "formato",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data inicial (AAAA-MM-DD)",
+                        "name": "data_inicio",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data final (AAAA-MM-DD)",
+                        "name": "data_fim",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "(Admin) ID do usuário para exportar (usar rota /pontos/usuario/{id}/export)",
+                        "name": "id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Arquivo gerado"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1508,6 +1666,149 @@ const docTemplate = `{
                 }
             }
         },
+        "/relatorios/espelho/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna o espelho de ponto (cálculo consolidado) para o intervalo informado.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Relatórios"
+                ],
+                "summary": "Obtém espelho de ponto do usuário logado",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Data inicial (AAAA-MM-DD)",
+                        "name": "data_inicio",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data final (AAAA-MM-DD)",
+                        "name": "data_fim",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/relatorio.GerarEspelhoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/relatorios/espelho/usuario/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna o espelho de ponto de um usuário da empresa para o intervalo informado. Requer permissão administrativa.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Relatórios"
+                ],
+                "summary": "(Admin) Obtém espelho de ponto de um usuário",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do Usuário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data inicial (AAAA-MM-DD)",
+                        "name": "data_inicio",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data final (AAAA-MM-DD)",
+                        "name": "data_fim",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/relatorio.GerarEspelhoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/usuarios": {
             "get": {
                 "security": [
@@ -1525,7 +1826,7 @@ const docTemplate = `{
                 "summary": "Lista todos os usuários da empresa",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Exemplo",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1905,13 +2206,9 @@ const docTemplate = `{
         "cargo.createRequest": {
             "type": "object",
             "required": [
-                "empresa_id",
                 "nome"
             ],
             "properties": {
-                "empresa_id": {
-                    "type": "integer"
-                },
                 "nome": {
                     "type": "string"
                 }
@@ -2304,6 +2601,107 @@ const docTemplate = `{
                 "timestamp": {
                     "type": "string",
                     "example": "2025-09-10T18:05:00Z"
+                }
+            }
+        },
+        "relatorio.DiaEspelho": {
+            "type": "object",
+            "properties": {
+                "carga_planejada_minutos": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "string"
+                },
+                "fechado": {
+                    "type": "boolean"
+                },
+                "inconsistente": {
+                    "type": "boolean"
+                },
+                "log_motivo": {
+                    "type": "string"
+                },
+                "marcacoes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/relatorio.ParMarcacao"
+                    }
+                },
+                "saldo_acumulado_minutos": {
+                    "type": "integer"
+                },
+                "saldo_dia_minutos": {
+                    "type": "integer"
+                },
+                "total_trabalhado_hhmm": {
+                    "type": "string"
+                },
+                "total_trabalhado_minutos": {
+                    "type": "integer"
+                }
+            }
+        },
+        "relatorio.GerarEspelhoResponse": {
+            "description": "Estrutura consolidada do espelho de ponto para um intervalo de datas.",
+            "type": "object",
+            "properties": {
+                "dias": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/relatorio.DiaEspelho"
+                    }
+                },
+                "dias_inconsistentes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "periodo": {
+                    "$ref": "#/definitions/relatorio.PeriodoInterval"
+                },
+                "totais": {
+                    "$ref": "#/definitions/relatorio.TotaisPeriodo"
+                },
+                "usuario_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "relatorio.ParMarcacao": {
+            "type": "object",
+            "properties": {
+                "entrada": {
+                    "type": "string"
+                },
+                "saida": {
+                    "type": "string"
+                }
+            }
+        },
+        "relatorio.PeriodoInterval": {
+            "type": "object",
+            "properties": {
+                "fim": {
+                    "type": "string"
+                },
+                "inicio": {
+                    "type": "string"
+                }
+            }
+        },
+        "relatorio.TotaisPeriodo": {
+            "type": "object",
+            "properties": {
+                "saldo_final_minutos": {
+                    "type": "integer"
+                },
+                "trabalhado_hhmm": {
+                    "type": "string"
+                },
+                "trabalhado_minutos": {
+                    "type": "integer"
                 }
             }
         },

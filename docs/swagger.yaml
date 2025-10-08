@@ -78,12 +78,9 @@ definitions:
     type: object
   cargo.createRequest:
     properties:
-      empresa_id:
-        type: integer
       nome:
         type: string
     required:
-    - empresa_id
     - nome
     type: object
   empresa.criaEmpresaRequest:
@@ -348,6 +345,72 @@ definitions:
     - justificativa
     - timestamp
     type: object
+  relatorio.DiaEspelho:
+    properties:
+      carga_planejada_minutos:
+        type: integer
+      data:
+        type: string
+      fechado:
+        type: boolean
+      inconsistente:
+        type: boolean
+      log_motivo:
+        type: string
+      marcacoes:
+        items:
+          $ref: '#/definitions/relatorio.ParMarcacao'
+        type: array
+      saldo_acumulado_minutos:
+        type: integer
+      saldo_dia_minutos:
+        type: integer
+      total_trabalhado_hhmm:
+        type: string
+      total_trabalhado_minutos:
+        type: integer
+    type: object
+  relatorio.GerarEspelhoResponse:
+    description: Estrutura consolidada do espelho de ponto para um intervalo de datas.
+    properties:
+      dias:
+        items:
+          $ref: '#/definitions/relatorio.DiaEspelho'
+        type: array
+      dias_inconsistentes:
+        items:
+          type: string
+        type: array
+      periodo:
+        $ref: '#/definitions/relatorio.PeriodoInterval'
+      totais:
+        $ref: '#/definitions/relatorio.TotaisPeriodo'
+      usuario_id:
+        type: integer
+    type: object
+  relatorio.ParMarcacao:
+    properties:
+      entrada:
+        type: string
+      saida:
+        type: string
+    type: object
+  relatorio.PeriodoInterval:
+    properties:
+      fim:
+        type: string
+      inicio:
+        type: string
+    type: object
+  relatorio.TotaisPeriodo:
+    properties:
+      saldo_final_minutos:
+        type: integer
+      trabalhado_hhmm:
+        type: string
+      trabalhado_minutos:
+        type: integer
+    type: object
   usuario.CriarUsuarioRequest:
     properties:
       cargo_id:
@@ -583,7 +646,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Exemplo
           schema:
             items:
               $ref: '#/definitions/model.Cargo'
@@ -778,7 +841,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Exemplo
           schema:
             items:
               $ref: '#/definitions/model.Empresa'
@@ -1057,7 +1120,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Exemplo
           schema:
             items:
               $ref: '#/definitions/model.Justificativa'
@@ -1312,7 +1375,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Exemplo
           schema:
             items:
               $ref: '#/definitions/model.RegistroPonto'
@@ -1334,6 +1397,57 @@ paths:
       summary: Lista os registros de ponto do usuário
       tags:
       - Ponto
+  /pontos/meus-registros/export:
+    get:
+      description: Gera um arquivo (CSV ou PDF) contendo os registros de ponto no
+        intervalo especificado.
+      parameters:
+      - description: Formato do arquivo (csv ou pdf)
+        enum:
+        - csv
+        - pdf
+        in: query
+        name: formato
+        required: true
+        type: string
+      - description: Data inicial (AAAA-MM-DD)
+        in: query
+        name: data_inicio
+        required: true
+        type: string
+      - description: Data final (AAAA-MM-DD)
+        in: query
+        name: data_fim
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Arquivo gerado
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Exporta relatório de registros de ponto
+      tags:
+      - Ponto
   /pontos/usuario/{id}:
     get:
       description: Retorna uma lista das batidas de ponto de um usuário específico
@@ -1353,7 +1467,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Exemplo
           schema:
             items:
               $ref: '#/definitions/model.RegistroPonto'
@@ -1381,6 +1495,156 @@ paths:
       summary: (Admin) Lista os registros de ponto de um usuário
       tags:
       - Ponto
+  /pontos/usuario/{id}/export:
+    get:
+      description: Gera um arquivo (CSV ou PDF) contendo os registros de ponto no
+        intervalo especificado.
+      parameters:
+      - description: Formato do arquivo (csv ou pdf)
+        enum:
+        - csv
+        - pdf
+        in: query
+        name: formato
+        required: true
+        type: string
+      - description: Data inicial (AAAA-MM-DD)
+        in: query
+        name: data_inicio
+        required: true
+        type: string
+      - description: Data final (AAAA-MM-DD)
+        in: query
+        name: data_fim
+        required: true
+        type: string
+      - description: (Admin) ID do usuário para exportar (usar rota /pontos/usuario/{id}/export)
+        in: path
+        name: id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Arquivo gerado
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Exporta relatório de registros de ponto
+      tags:
+      - Ponto
+  /relatorios/espelho/me:
+    get:
+      description: Retorna o espelho de ponto (cálculo consolidado) para o intervalo
+        informado.
+      parameters:
+      - description: Data inicial (AAAA-MM-DD)
+        in: query
+        name: data_inicio
+        required: true
+        type: string
+      - description: Data final (AAAA-MM-DD)
+        in: query
+        name: data_fim
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/relatorio.GerarEspelhoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Obtém espelho de ponto do usuário logado
+      tags:
+      - Relatórios
+  /relatorios/espelho/usuario/{id}:
+    get:
+      description: Retorna o espelho de ponto de um usuário da empresa para o intervalo
+        informado. Requer permissão administrativa.
+      parameters:
+      - description: ID do Usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Data inicial (AAAA-MM-DD)
+        in: query
+        name: data_inicio
+        required: true
+        type: string
+      - description: Data final (AAAA-MM-DD)
+        in: query
+        name: data_fim
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/relatorio.GerarEspelhoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: (Admin) Obtém espelho de ponto de um usuário
+      tags:
+      - Relatórios
   /usuarios:
     get:
       description: Retorna uma lista de todos os usuários pertencentes à empresa do
@@ -1389,7 +1653,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Exemplo
           schema:
             items:
               $ref: '#/definitions/model.Usuario'

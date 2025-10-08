@@ -33,6 +33,8 @@ COPY --from=builder /app/out/ponto-api .
 
 COPY docs ./docs
 
+#COPY .env .
+
 # Também precisamos do nosso ficheiro de configuração .env para a aplicação saber
 # como se conectar ao banco de dados, em que porta rodar, etc.
 # Expomos a porta 8083, que é a que a sua API usa (de acordo com o README).

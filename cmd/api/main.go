@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/Loviiin/ponto-api-go/docs"
@@ -13,6 +14,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/contrato"
 	"github.com/Loviiin/ponto-api-go/internal/domain/justificativa"
 	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
+	"github.com/Loviiin/ponto-api-go/internal/domain/relatorio"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/gin-contrib/cors"
 	swaggerFiles "github.com/swaggo/files"
@@ -29,6 +31,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
+	"github.com/Loviiin/ponto-api-go/pkg/scheduler"
 
 	// Vamos usar este pacote para as nossas constantes de permissão
 	"github.com/Loviiin/ponto-api-go/pkg/permissions"
@@ -156,6 +159,10 @@ func main() {
 	contratoRepo := contrato.NewContratoRepository(db)
 	localidadeRepo := localidade.NewRepository(db)
 
+	// Relatório (espelho de ponto)
+	relatorioService := relatorio.NewService(pontoRepo, usuarioRepo, logBancoHorasRepo)
+	relatorioHandler := relatorio.NewHandler(relatorioService, funcoesService)
+
 	// Crie uma instância do serviço de geolocalização
 	geoService := geolocation.NewService(cfg.OpenCageAPIKey)
 
@@ -196,8 +203,14 @@ func main() {
 	canManageJustificativas := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_JUSTIFICATIVAS)
 	canManageLocalidades := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_LOCALIDADES)
 
-	//	scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
-	//	scheduler.Start()
+	// Scheduler controlado por variável de ambiente ENABLE_SCHEDULER=true
+	if enable, err := strconv.ParseBool(os.Getenv("ENABLE_SCHEDULER")); err == nil && enable {
+		log.Println("Scheduler habilitado via ENABLE_SCHEDULER=true")
+		scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
+		scheduler.Start()
+	} else {
+		log.Println("Scheduler desabilitado (defina ENABLE_SCHEDULER=true para ativar)")
+	}
 
 	// --- Rotas da API ---
 	router := gin.Default()
@@ -271,6 +284,14 @@ func main() {
 			rotasProtegidas.POST("/pontos/ajuste", canAdjustPonto, pontoHandler.AjustarPonto)
 			rotasProtegidas.PUT("/pontos/:pontoId", canAdjustPonto, pontoHandler.EditarPonto)
 
+			// Rotas de Relatórios de Ponto (exportação CSV/PDF)
+			rotasProtegidas.GET("/relatorios/ponto/meus-registros/export", pontoHandler.ExportarRelatorio)
+			rotasProtegidas.GET("/relatorios/ponto/usuario/:id/export", canViewPonto, pontoHandler.ExportarRelatorio)
+
+			// Espelho de Ponto
+			rotasProtegidas.GET("/relatorios/ponto/espelho/me", relatorioHandler.GetEspelhoMe)
+			rotasProtegidas.GET("/relatorios/ponto/espelho/usuario/:id", canViewPonto, relatorioHandler.GetEspelhoUsuario)
+
 			// Rotas de Empresa (Ações gerais)
 			rotasProtegidas.GET("/empresas", empresaHandler.GetAllEmpresasHandler)
 
@@ -293,12 +314,11 @@ func main() {
 			// Rotas para o admin/gestor gerir as solicitações
 			rotasProtegidas.GET("/justificativas/pendentes", canManageJustificativas, justificativaHandler.ListarPendentes)
 			rotasProtegidas.POST("/justificativas/:id/processar", canManageJustificativas, justificativaHandler.AprovarReprovar)
-			rotasProtegidas.POST("/justificativas", justificativaHandler.SolicitarAjuste)
-			
+
 			//rotas de localodade
-    		rotasProtegidas.POST("/localidades", canManageLocalidades, localidadeHandler.Create)
-    		rotasProtegidas.GET("/empresas/:id/localidades", canManageLocalidades, localidadeHandler.GetAllByEmpresa)
-}
+			rotasProtegidas.POST("/localidades", canManageLocalidades, localidadeHandler.Create)
+			rotasProtegidas.GET("/empresas/:id/localidades", canManageLocalidades, localidadeHandler.GetAllByEmpresa)
+		}
 	}
 
 	port := os.Getenv("PORT")
