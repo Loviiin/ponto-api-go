@@ -5,233 +5,162 @@
   <img src="https://img.shields.io/badge/Gin-v1.10-007CDA?style=for-the-badge&logo=gin" alt="Gin Framework"/>
   <img src="https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge&logo=postgresql" alt="PostgreSQL"/>
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker" alt="Docker Ready"/>
-  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License MIT"/>
+  <img src="https://img.shields.io/badge/license-AGPLv3%20%7C%20Commercial-blue?style=for-the-badge" alt="License"/>
 </p>
 
 ## 📖 Sobre o Projeto
 
-A **Ponto API** é um backend de alta performance para um sistema de Ponto Eletrônico, construído em **Go (Golang)**. Este projeto foi desenhado para ser um exemplo prático de aplicação de arquitetura limpa, boas práticas de desenvolvimento e um robusto sistema de permissões num ambiente moderno e escalável.
+A **Ponto API** é um backend de alta performance para um sistema de Ponto Eletrônico, construído em **Go (Golang)**. Este projeto foi desenhado não apenas para ser funcional, mas também para servir como um exemplo prático de aplicação de arquitetura limpa, boas práticas de desenvolvimento e segurança em um ambiente moderno.
 
-O sistema foi projetado com uma **arquitetura multi-tenant**, permitindo que múltiplas empresas utilizem a mesma instância da aplicação de forma segura e com total isolamento de dados.
+O sistema foi projetado desde o início com uma **arquitetura multi-tenant**, permitindo que múltiplas empresas utilizem a mesma instância da aplicação de forma segura e isolada.
+
+---
+
+## 📜 Licenciamento
+
+Este projeto opera sob um modelo de **dual-license**, oferecendo flexibilidade para diferentes tipos de uso:
+
+1.  **Community Edition (Gratuita):**
+    *   **Licença:** [GNU AGPLv3](LICENSE)
+    *   **Ideal para:** Estudantes, startups em estágio inicial e projetos de código aberto.
+    *   **Descrição:** Uma versão funcional e básica, perfeita para aprender e para uso em projetos que também são de código aberto. Requer que quaisquer modificações distribuídas ou usadas em um serviço de rede também sejam de código aberto.
+
+2.  **Enterprise Edition (Comercial):**
+    *   **Licença:** Comercial
+    *   **Ideal para:** Empresas que necessitam de funcionalidades avançadas, suporte prioritário e a flexibilidade de uma licença comercial.
+    *   **Descrição:** Inclui todos os recursos da versão community, além de funcionalidades exclusivas, como integrações avançadas, relatórios personalizados, suporte técnico dedicado e a permissão para manter o código-fonte modificado como proprietário. Para adquirir uma licença comercial, entre em contato.
 
 ---
 
 ## 🏛️ Conceitos Chave da Arquitetura
 
-Este projeto evoluiu para além de um simples CRUD, adotando um modelo de dados desacoplado e uma arquitetura orientada a domínios.
+Este projeto não é apenas um CRUD. Ele foi construído sobre uma fundação de princípios de software robustos:
 
-* **Modelo de Dados Desacoplado:** As responsabilidades foram divididas em quatro entidades principais:
-    * `Usuario`: Armazena apenas dados pessoais (identidade).
-    * `Empresa`: Armazena apenas dados fiscais (entidade legal).
-    * `Localidade`: Representa os locais físicos de trabalho, com endereço e coordenadas para geofence.
-    * `Contrato`: Entidade central que representa o vínculo de trabalho, conectando `Usuario`, `Empresa`, `Localidade` e `Cargo`.
-* **Arquitetura Orientada a Domínios (DDD-lite):** O código é organizado por áreas de negócio (`usuario`, `empresa`, `contrato`, `ponto`), resultando num sistema modular, com alta coesão e baixo acoplamento.
-* **Segurança em Camadas:**
-    1.  **Autenticação via JWT:** Garante que apenas utilizadores autenticados acedam a rotas protegidas.
-    2.  **Isolamento de Tenant:** A lógica em `repositories` e `services` usa o `empresa_id` (obtido do contrato do utilizador) para garantir que uma empresa nunca aceda aos dados de outra.
-    3.  **Autorização Baseada em Permissões (RBAC):** Em vez de cargos fixos (`Admin`), a API usa um sistema granular de `Permissões` (ex: `GERENCIAR_CARGOS`, `AJUSTAR_PONTO_FUNCIONARIOS`) que são atribuídas a `Cargos`. Isto permite uma flexibilidade total na configuração de papéis.
-* **Injeção de Dependência:** As dependências são injetadas via construtores, facilitando os testes unitários e o desacoplamento entre as camadas da aplicação.
+* **Arquitetura Orientada a Domínios:** Inspirado no (DDD), o código é organizado por áreas de negócio (`usuario`, `empresa`, `cargo`, `ponto`). Isso resulta em um sistema modular, com alta coesão e baixo acoplamento, facilitando a manutenção e a escalabilidade.
+* **Multi-Tenancy:** O sistema utiliza um modelo de banco de dados compartilhado com `empresa_id` em todas as entidades relevantes, garantindo que os dados de uma empresa sejam completamente isolados dos de outra.
+* **Segurança em Camadas:** A segurança é aplicada em múltiplos níveis:
+    1.  **Autenticação via JWT:** Garante que apenas usuários logados acessem a maioria dos recursos.
+    2.  **Isolamento de Tenant:** A lógica em `repositories` e `services` garante que um usuário só possa ver e modificar dados da sua própria empresa.
+    3.  **Autorização Baseada em Cargos (RBAC):** Um `RoleAuthMiddleware` protege endpoints críticos, garantindo que apenas usuários com cargos específicos (ex: `ADMIN`) possam realizar operações sensíveis, como editar dados da empresa.
+* **Injeção de Dependência:** As dependências (como repositórios e serviços) são injetadas via construtores, facilitando os testes unitários e o desacoplamento entre as camadas.
 
 ---
 
 ## 🚀 Tecnologias Utilizadas
 
-| Categoria | Tecnologia |
-| :--- | :--- |
-| **Linguagem** | Go (Golang) |
-| **Framework Web** | [Gin](https://github.com/gin-gonic/gin) |
-| **Banco de Dados**| [PostgreSQL](https://www.postgresql.org/) |
-| **ORM** | [GORM](https://gorm.io/) |
-| **Autenticação** | [JWT (golang-jwt)](https://github.com/golang-jwt/jwt) |
-| **Configuração** | [Viper](https://github.com/spf13/viper) |
-| **Geocodificação**| ViaCEP & OpenCage Geocoder |
-| **Containerização**| [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/) |
-| **Documentação** | [Swagger](https://swagger.io/) |
+| Categoria         | Tecnologia                                                                                             |
+| :---------------- | :----------------------------------------------------------------------------------------------------- |
+| **Linguagem** | Go (Golang)                                                                                            |
+| **Framework Web** | [Gin](https://github.com/gin-gonic/gin)                                                                |
+| **Banco de Dados** | [PostgreSQL](https://www.postgresql.org/)                                                              |
+| **ORM** | [GORM](https://gorm.io/)                                                                               |
+| **Autenticação** | [JWT (golang-jwt)](https://github.com/golang-jwt/jwt)                                                    |
+| **Configuração** | [Viper](https://github.com/spf13/viper)                                                                |
+| **Containerização** | [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)                 |
 
 ---
 
 ## ⚙️ Guia de Instalação e Execução
 
+Siga os passos abaixo para ter o ambiente completo rodando localmente.
+
 ### Pré-requisitos
 
 * Go (versão 1.24 ou superior)
 * Docker e Docker Compose
-* Cliente de API (Postman, Insomnia, etc.)
+* Um cliente de API como [Postman](https://www.postman.com/) ou [Insomnia](https://insomnia.rest/)
 
 ### Passos
 
 1.  **Clone o Repositório**
     ```bash
-    git clone [https://github.com/Loviiin/ponto-api-go](https://github.com/Loviiin/ponto-api-go)
+    git clone https://github.com/Loviiin/ponto-api-go
     cd ponto-api-go
     ```
 
 2.  **Configure as Variáveis de Ambiente**
-    Copie o ficheiro de exemplo `.env.example` para `.env` e preencha as variáveis.
+    Copie o arquivo de exemplo e, se necessário, ajuste as variáveis.
     ```bash
     cp .env.example .env
     ```
-    *É crucial definir `JWT_SECRET_KEY` e a `API_OPENCAGE`.*
+    *É crucial definir uma `JWT_SECRET_KEY` forte e segura.*
 
-3.  **Inicie os Serviços com Docker Compose**
-    Este comando irá construir a imagem da API e iniciar os contentores da aplicação e do banco de dados.
+3.  **Inicie o Banco de Dados com Docker**
+    Este comando irá baixar a imagem do PostgreSQL e iniciar o contêiner em segundo plano.
     ```bash
-    docker-compose up -d --build
+    docker-compose up -d
     ```
 
-4.  **Aceda à API**
-    O servidor estará a rodar em `http://localhost:8083` (ou na porta configurada). A documentação interativa do Swagger estará disponível em `http://localhost:8083/swagger/index.html`.
+4.  **Instale as Dependências do Go**
+    ```bash
+    go mod tidy
+    ```
+
+5.  **Execute a API**
+    ```bash
+    go run ./cmd/api/main.go
+    ```
+    O servidor estará rodando em `http://localhost:8083` (ou na porta configurada no seu `.env`).
 
 ---
 
-## 📖 Endpoints da API
+## API Endpoints
 
-O prefixo base para todos os endpoints é `/api/v1`. Endpoints protegidos requerem um `Bearer Token` no cabeçalho `Authorization`.
+O prefixo base para todos os endpoints é `/api/v1`.
 
 ### 🔑 Autenticação
 
-| Verbo | Endpoint | Descrição | Protegido |
-| :--- | :--- | :--- | :--- |
-| `POST`| `/auth/signup`| Cria uma nova `Empresa`, `Localidade` (matriz) e o primeiro `Usuario` (com cargo "Dono"). | Não |
-| `POST`| `/auth/login` | Autentica um utilizador e retorna um token JWT. | Não |
+| Verbo  | Endpoint       | Descrição                                    | Protegido |
+| :----- | :------------- | :------------------------------------------- | :-------- |
+| `POST` | `/auth/login`  | Autentica um usuário e retorna um token JWT. | Não       |
+
+### 🏢 Empresas
+
+| Verbo    | Endpoint         | Descrição                                 | Protegido | Permissão Extra |
+| :------- | :--------------- | :---------------------------------------- |:----------| :-------------- |
+| `POST`   | `/empresas`      | Cria uma nova empresa.                    | Sim       |                 |
+| `GET`    | `/empresas`      | Lista todas as empresas.                  | Sim       |                 |
+| `GET`    | `/empresas/{id}` | Busca uma empresa por ID.                 | Não       |                 |
+| `PUT`    | `/empresas/{id}` | Atualiza os dados da própria empresa.     | Sim       | Cargo: `ADMIN`  |
+| `DELETE` | `/empresas/{id}` | Deleta a própria empresa.                 | Sim       | Cargo: `ADMIN`  |
 
 ### 👤 Usuários
 
-| Verbo | Endpoint | Descrição | Protegido | Permissão |
-| :--- | :--- | :--- | :--- | :--- |
-| `POST`| `/usuarios` | Cria um novo utilizador e o seu `Contrato`. | Sim | `GERENCIAR_CARGOS` (implícito) |
-| `GET` | `/usuarios` | Lista todos os utilizadores da empresa. | Sim | N/A |
-| `GET` | `/usuarios/me`| Retorna os dados do próprio utilizador logado. | Sim | N/A |
-| `GET` | `/usuarios/{id}`| Busca um utilizador específico por ID. | Sim | N/A |
-| `PUT` | `/usuarios/{id}`| Atualiza dados de um utilizador. | Sim | `EDITAR_USUARIO` ou `EDITAR_PROPRIA_CONTA` |
-| `DELETE`| `/usuarios/{id}`| Apaga um utilizador e o seu contrato. | Sim | `DELETAR_USUARIO` ou `DELETAR_PROPRIA_CONTA` |
+| Verbo    | Endpoint         | Descrição                                     | Protegido |
+| :------- | :--------------- | :-------------------------------------------- | :-------- |
+| `POST`   | `/usuarios`      | Cria um novo usuário (funcionário).           | Não       |
+| `GET`    | `/usuarios`      | Lista os usuários da empresa do requisitante. | Sim       |
+| `GET`    | `/usuarios/me`   | Retorna os dados do próprio usuário logado.   | Sim       |
+| `PUT`    | `/usuarios/{id}` | Atualiza os dados do próprio usuário.         | Sim       |
+| `DELETE` | `/usuarios/{id}` | Deleta o próprio usuário.                     | Sim       |
 
-### 🏢 Empresas, Localidades e Cargos
+### 🗂️ Cargos
 
-| Verbo | Endpoint | Descrição | Protegido | Permissão |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/empresas` | Lista todas as empresas (endpoint de admin/super-app). | Sim | (a definir) |
-| `GET` | `/empresas/{id}`| Busca uma empresa por ID. | Sim | N/A |
-| `PUT` | `/empresas/{id}`| Atualiza os dados da empresa. | Sim | `EDITAR_EMPRESA` |
-| `POST`| `/localidades`| Cria uma nova localidade (filial) para a empresa. | Sim | `GERENCIAR_LOCALIDADES` |
-| `GET` | `/empresas/{id}/localidades`| Lista as localidades de uma empresa. | Sim | `GERENCIAR_LOCALIDADES` |
-| `GET` | `/cargos` | Lista todos os cargos da empresa. | Sim | N/A |
-| `PUT` | `/cargos/{id}` | Atualiza um cargo. | Sim | `GERENCIAR_CARGOS` |
-| `POST`| `/cargos/{id}/permissoes/{pId}`| Associa uma permissão a um cargo. | Sim | `GERENCIAR_CARGOS` |
+| Verbo    | Endpoint       | Descrição                                 | Protegido |
+| :------- | :------------- | :---------------------------------------- | :-------- |
+| `POST`   | `/cargos`      | Cria um novo cargo para a empresa.        | Sim       |
+| `GET`    | `/cargos`      | Lista os cargos da empresa.               | Sim       |
+| `PUT`    | `/cargos/{id}` | Atualiza um cargo da empresa.             | Sim       |
+| `DELETE` | `/cargos/{id}` | Deleta um cargo da empresa.               | Sim       |
 
-### 🕒 Ponto e Banco de Horas
+### 🕒 Ponto
 
-| Verbo | Endpoint | Descrição | Protegido | Permissão |
-| :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/pontos` | Registra uma batida de ponto (com geofence). | Sim | N/A |
-| `GET` | `/pontos/meus-registros`| Lista os pontos do utilizador logado. | Sim | N/A |
-| `GET` | `/pontos/usuario/{id}`| Lista os pontos de um funcionário específico. | Sim | `VISUALIZAR_PONTO_FUNCIONARIOS` |
-| `POST` | `/pontos/ajuste` | Admin adiciona um registo de ponto manual. | Sim | `AJUSTAR_PONTO_FUNCIONARIOS` |
-| `GET` | `/bancohoras/saldo/usuario/{id}`| Consulta o saldo de horas de um funcionário. | Sim | `VER_SALDO_FUNCIONARIOS` (se não for o próprio) |
-| `POST` | `/bancohoras/fechamento/usuario/{id}`| Admin força o fechamento do dia para um funcionário. | Sim | `EDITAR_SALDO_FUNCIONARIOS` |
-
-*(Endpoints de Justificativas e Permissões foram omitidos por brevidade)*
-
-### 📤 Exportação de Relatórios de Ponto (Novo)
-
-Dois endpoints permitem exportar registros de ponto em CSV ou PDF para um intervalo de datas.
-
-| Verbo | Endpoint | Descrição | Protegido | Permissão |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/relatorios/ponto/meus-registros/export` | Exporta os próprios registros de ponto. | Sim | N/A |
-| `GET` | `/relatorios/ponto/usuario/{id}/export` | Exporta registros de um funcionário específico. | Sim | `VISUALIZAR_PONTO_FUNCIONARIOS` |
-
-Query Params obrigatórios:
-| Nome | Descrição | Formato | Exemplo |
-| :--- | :--- | :--- | :--- |
-| `data_inicio` | Data inicial (inclusiva) | AAAA-MM-DD | `2025-10-01` |
-| `data_fim` | Data final (inclusiva) | AAAA-MM-DD | `2025-10-31` |
-| `formato` | Formato de exportação | `csv` ou `pdf` | `csv` |
-
-Exemplo de chamada:
-```
-GET /api/v1/relatorios/ponto/meus-registros/export?data_inicio=2025-10-01&data_fim=2025-10-31&formato=csv
-Authorization: Bearer <TOKEN>
-```
-
-Headers de resposta:
-```
-Content-Type: text/csv (ou application/pdf)
-Content-Disposition: attachment; filename="relatorio_ponto_<user>_<inicio>_<fim>.<ext>"
-```
-
-Notas sobre o PDF: layout inclui cabeçalho centralizado, metadados (período e data de geração), paginação no rodapé, linhas alternadas e total de registros.
-
-### 🪞 Espelho de Ponto (Novo)
-
-O espelho de ponto consolida as marcações de entrada/saída por dia, calcula tempo trabalhado, horas previstas e saldo acumulado no período.
-
-| Verbo | Endpoint | Descrição | Protegido | Permissão |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/relatorios/ponto/espelho/me` | Gera o espelho do utilizador logado. | Sim | N/A |
-| `GET` | `/relatorios/ponto/espelho/usuario/{id}` | Gera o espelho de um funcionário. | Sim | `VISUALIZAR_PONTO_FUNCIONARIOS` |
-
-Query Params:
-| Nome | Descrição | Formato | Exemplo |
-| :--- | :--- | :--- | :--- |
-| `data_inicio` | Data inicial (inclusiva) | AAAA-MM-DD | `2025-10-01` |
-| `data_fim` | Data final (inclusiva) | AAAA-MM-DD | `2025-10-07` |
-
-Response (exemplo simplificado):
-```json
-{
-    "usuario_id": 42,
-    "empresa_id": 7,
-    "inicio": "2025-10-01",
-    "fim": "2025-10-07",
-    "total_trabalhado_minutos": 2280,
-    "total_previsto_minutos": 2400,
-    "saldo_acumulado_minutos": -120,
-    "dias": [
-        {
-            "data": "2025-10-01",
-            "registros": [
-                {"id": 10, "timestamp": "2025-10-01T08:00:00Z"},
-                {"id": 11, "timestamp": "2025-10-01T12:00:00Z"},
-                {"id": 12, "timestamp": "2025-10-01T13:00:00Z"},
-                {"id": 13, "timestamp": "2025-10-01T17:00:00Z"}
-            ],
-            "total_trabalhado_minutos": 480,
-            "horas_previstas_minutos": 480,
-            "saldo_dia_minutos": 0,
-            "fechado": false,
-            "inconsistente": false
-        }
-    ]
-}
-```
-
-Regras atuais de cálculo:
-* Registros são agrupados por dia (timezone UTC no momento).
-* Marcações pares são consideradas pares Entrada/Saída sequenciais; marcação ímpar → dia marcado como `inconsistente` e a última sobra é ignorada no cálculo.
-* Pausas (almoço) são inferidas pelos pares; não há validação de sobreposição.
-* Carga horária prevista diária: obtida do contrato do utilizador; se ausente, assume 480 minutos (8h) temporariamente.
-* Intervalos invertidos (data_inicio > data_fim) são normalizados automaticamente.
-* Campo `fechado` ainda é placeholder (integração futura com logs de fechamento de banco de horas).
-
-Melhorias Futuras Planeadas:
-* Usar timezone configurável por localidade.
-* Marcar dia como `fechado` com base em `LogBancoHoras`.
-* Exportar espelho em PDF/CSV.
-* Mostrar saldo acumulado também em formato HH:MM.
+| Verbo  | Endpoint  | Descrição                                     | Protegido |
+| :----- | :-------- | :-------------------------------------------- | :-------- |
+| `POST` | `/pontos` | Registra uma batida de ponto (entrada/saída). | Sim       |
 
 ---
 
 ## 🗺️ Próximos Passos (Roadmap)
 
-A fundação do sistema está robusta e pronta para escalar. Os próximos passos focam em enriquecer as funcionalidades de gestão:
+A fundação está sólida, mas o caminho a seguir é empolgante. As próximas grandes features planejadas são:
 
--   [ ] **Épico: Gestão de Contratos:** Criar endpoints para `PUT`, `GET` e `DELETE` de contratos, permitindo transferir um funcionário de cargo ou localidade.
--   [ ] **Épico: Relatórios:** Desenvolver endpoints que gerem relatórios de folha de ponto (`espelho de ponto`) por funcionário e por período.
--   [ ] **Testes Unitários e de Integração:** Aumentar a cobertura de testes, especialmente para os serviços de `auth`, `usuario` e `bancohoras`, para garantir a estabilidade após a refatoração.
--   [ ] **Melhorar o `Scheduler`:** Tornar a tarefa de fechamento diário mais resiliente e com melhores logs.
--   [ ] **Validações Avançadas:** Implementar validações mais complexas (ex: garantir que um CNPJ ou CPF é matematicamente válido).
--   [ ] **Upload de Documentos:** Adicionar a funcionalidade de upload para comprovativos de morada ou atestados, ligada ao módulo de `Justificativas`.
+-   [ ] **Épico: Motor de Políticas (RBAC):** Transformar a verificação de cargos em um sistema de permissões configurável por empresa.
+-   [ ] **Banco de Horas:** Implementar a lógica de cálculo de saldo de horas.
+-   [ ] **Gestão de Ponto:** Permitir que administradores editem e adicionem registros de ponto.
+-   [ ] **Testes:** Aumentar a cobertura de testes unitários e de integração.
+-   [ ] **Documentação Interativa:** Adicionar Swagger para documentar a API.
+-   [ ] **Containerização da API:** Criar um `Dockerfile` para a aplicação Go.
 
 ## 📄 Licença
 
