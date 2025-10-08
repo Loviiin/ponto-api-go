@@ -92,7 +92,8 @@ func (h *EmpresaHandler) CriarEmpresaHandler(c *gin.Context) {
 // @Tags         Empresas
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {array}   model.Empresa
+// @Success      200  {array}   model.Empresa  "Exemplo"
+// @Example 200 [{"id":1,"nomeFantasia":"Acme","razaoSocial":"Acme LTDA","cnpj":"12345678000195"}]
 // @Failure      500  {object}  map[string]string
 // @Router       /empresas [get]
 func (h *EmpresaHandler) GetAllEmpresasHandler(c *gin.Context) {

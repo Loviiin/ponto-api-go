@@ -106,7 +106,6 @@ func (h *PontoHandler) BaterPonto(c *gin.Context) {
 	c.JSON(http.StatusCreated, pontoRegistrado)
 }
 
-
 // @Summary      (Admin) Lista os registros de ponto de um usuário
 // @Description  Retorna uma lista das batidas de ponto de um usuário específico para um determinado dia. Requer permissão 'VISUALIZAR_PONTO_FUNCIONARIOS'.
 // @Tags         Ponto
@@ -114,7 +113,8 @@ func (h *PontoHandler) BaterPonto(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        id   path      int     true   "ID do Usuário"
 // @Param        dia  query     string  false  "Dia para consulta (formato: AAAA-MM-DD)"  example("2025-08-26")
-// @Success      200  {array}   model.RegistroPonto
+// @Success      200  {array}   model.RegistroPonto  "Exemplo"
+// @Example 200 [{"id":100,"timestamp":"2025-10-07T08:00:00Z","latitude":-15.79,"longitude":-47.86,"metodo":"Presencial"}]
 // @Failure      400  {object}  map[string]string
 // @Failure      403  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
@@ -150,7 +150,8 @@ func (h *PontoHandler) GetRegistosPorUsuarioID(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        dia  query     string  false  "Dia para consulta (formato: AAAA-MM-DD)"  example("2025-08-26")
-// @Success      200  {array}   model.RegistroPonto
+// @Success      200  {array}   model.RegistroPonto  "Exemplo"
+// @Example 200 [{"id":101,"timestamp":"2025-10-07T08:02:10Z","latitude":-15.79,"longitude":-47.86,"metodo":"Remoto"}]
 // @Failure      400  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
 // @Router       /pontos/meus-registros [get]
@@ -277,7 +278,6 @@ func (h *PontoHandler) EditarPonto(c *gin.Context) {
 		return
 	}
 
-	
 	pontoOriginal, err := h.service.FindPontoByID(pontoID, empresaID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -314,4 +314,81 @@ func (h *PontoHandler) EditarPonto(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, pontoAtualizado)
+}
+
+// ExportarRelatorio gera um relatório de registros de ponto em CSV ou PDF.
+// Pode ser usado tanto pelo usuário para seus próprios registros quanto por administradores para usuários específicos.
+// @Summary      Exporta relatório de registros de ponto
+// @Description  Gera um arquivo (CSV ou PDF) contendo os registros de ponto no intervalo especificado.
+// @Tags         Ponto
+// @Produce      application/json
+// @Security     BearerAuth
+// @Param        formato      query     string  true   "Formato do arquivo (csv ou pdf)"  Enums(csv,pdf)
+// @Param        data_inicio  query     string  true   "Data inicial (AAAA-MM-DD)"
+// @Param        data_fim     query     string  true   "Data final (AAAA-MM-DD)"
+// @Param        id           path      int     false  "(Admin) ID do usuário para exportar (usar rota /pontos/usuario/{id}/export)"
+// @Success      200          "Arquivo gerado"
+// @Failure      400          {object}  map[string]string
+// @Failure      401          {object}  map[string]string
+// @Failure      500          {object}  map[string]string
+// @Router       /pontos/meus-registros/export [get]
+// @Router       /pontos/usuario/{id}/export [get]
+func (h *PontoHandler) ExportarRelatorio(c *gin.Context) {
+	formato := c.Query("formato")
+	dataInicioStr := c.Query("data_inicio")
+	dataFimStr := c.Query("data_fim")
+
+	if formato == "" || dataInicioStr == "" || dataFimStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Parâmetros obrigatórios: data_inicio, data_fim, formato"})
+		return
+	}
+
+	inicio, err := time.Parse("2006-01-02", dataInicioStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "data_inicio inválida. Use AAAA-MM-DD"})
+		return
+	}
+	fim, err := time.Parse("2006-01-02", dataFimStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "data_fim inválida. Use AAAA-MM-DD"})
+		return
+	}
+	fim = fim.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+	var userID uint
+	if idParam := c.Param("id"); idParam != "" { // rota admin
+		idParsed, err := h.converter.StrParaUint(idParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID de usuário inválido na rota"})
+			return
+		}
+		userID = idParsed
+	} else {
+		uid, err := h.converter.GetUintIDFromContext(c, "userID")
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "ID do usuário não encontrado no token"})
+			return
+		}
+		userID = uid
+	}
+
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "ID da empresa não encontrado no token"})
+		return
+	}
+
+	bytesArquivo, contentType, filename, err := h.service.GerarRelatorio(userID, empresaID, inicio, fim, formato)
+	if err != nil {
+		if errors.Is(err, ErrFormatoInvalido) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao gerar relatório: " + err.Error()})
+		return
+	}
+
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	c.Data(http.StatusOK, contentType, bytesArquivo)
 }

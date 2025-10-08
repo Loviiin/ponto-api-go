@@ -132,6 +132,94 @@ O prefixo base para todos os endpoints é `/api/v1`. Endpoints protegidos requer
 
 *(Endpoints de Justificativas e Permissões foram omitidos por brevidade)*
 
+### 📤 Exportação de Relatórios de Ponto (Novo)
+
+Dois endpoints permitem exportar registros de ponto em CSV ou PDF para um intervalo de datas.
+
+| Verbo | Endpoint | Descrição | Protegido | Permissão |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/relatorios/ponto/meus-registros/export` | Exporta os próprios registros de ponto. | Sim | N/A |
+| `GET` | `/relatorios/ponto/usuario/{id}/export` | Exporta registros de um funcionário específico. | Sim | `VISUALIZAR_PONTO_FUNCIONARIOS` |
+
+Query Params obrigatórios:
+| Nome | Descrição | Formato | Exemplo |
+| :--- | :--- | :--- | :--- |
+| `data_inicio` | Data inicial (inclusiva) | AAAA-MM-DD | `2025-10-01` |
+| `data_fim` | Data final (inclusiva) | AAAA-MM-DD | `2025-10-31` |
+| `formato` | Formato de exportação | `csv` ou `pdf` | `csv` |
+
+Exemplo de chamada:
+```
+GET /api/v1/relatorios/ponto/meus-registros/export?data_inicio=2025-10-01&data_fim=2025-10-31&formato=csv
+Authorization: Bearer <TOKEN>
+```
+
+Headers de resposta:
+```
+Content-Type: text/csv (ou application/pdf)
+Content-Disposition: attachment; filename="relatorio_ponto_<user>_<inicio>_<fim>.<ext>"
+```
+
+Notas sobre o PDF: layout inclui cabeçalho centralizado, metadados (período e data de geração), paginação no rodapé, linhas alternadas e total de registros.
+
+### 🪞 Espelho de Ponto (Novo)
+
+O espelho de ponto consolida as marcações de entrada/saída por dia, calcula tempo trabalhado, horas previstas e saldo acumulado no período.
+
+| Verbo | Endpoint | Descrição | Protegido | Permissão |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/relatorios/ponto/espelho/me` | Gera o espelho do utilizador logado. | Sim | N/A |
+| `GET` | `/relatorios/ponto/espelho/usuario/{id}` | Gera o espelho de um funcionário. | Sim | `VISUALIZAR_PONTO_FUNCIONARIOS` |
+
+Query Params:
+| Nome | Descrição | Formato | Exemplo |
+| :--- | :--- | :--- | :--- |
+| `data_inicio` | Data inicial (inclusiva) | AAAA-MM-DD | `2025-10-01` |
+| `data_fim` | Data final (inclusiva) | AAAA-MM-DD | `2025-10-07` |
+
+Response (exemplo simplificado):
+```json
+{
+    "usuario_id": 42,
+    "empresa_id": 7,
+    "inicio": "2025-10-01",
+    "fim": "2025-10-07",
+    "total_trabalhado_minutos": 2280,
+    "total_previsto_minutos": 2400,
+    "saldo_acumulado_minutos": -120,
+    "dias": [
+        {
+            "data": "2025-10-01",
+            "registros": [
+                {"id": 10, "timestamp": "2025-10-01T08:00:00Z"},
+                {"id": 11, "timestamp": "2025-10-01T12:00:00Z"},
+                {"id": 12, "timestamp": "2025-10-01T13:00:00Z"},
+                {"id": 13, "timestamp": "2025-10-01T17:00:00Z"}
+            ],
+            "total_trabalhado_minutos": 480,
+            "horas_previstas_minutos": 480,
+            "saldo_dia_minutos": 0,
+            "fechado": false,
+            "inconsistente": false
+        }
+    ]
+}
+```
+
+Regras atuais de cálculo:
+* Registros são agrupados por dia (timezone UTC no momento).
+* Marcações pares são consideradas pares Entrada/Saída sequenciais; marcação ímpar → dia marcado como `inconsistente` e a última sobra é ignorada no cálculo.
+* Pausas (almoço) são inferidas pelos pares; não há validação de sobreposição.
+* Carga horária prevista diária: obtida do contrato do utilizador; se ausente, assume 480 minutos (8h) temporariamente.
+* Intervalos invertidos (data_inicio > data_fim) são normalizados automaticamente.
+* Campo `fechado` ainda é placeholder (integração futura com logs de fechamento de banco de horas).
+
+Melhorias Futuras Planeadas:
+* Usar timezone configurável por localidade.
+* Marcar dia como `fechado` com base em `LogBancoHoras`.
+* Exportar espelho em PDF/CSV.
+* Mostrar saldo acumulado também em formato HH:MM.
+
 ---
 
 ## 🗺️ Próximos Passos (Roadmap)
