@@ -250,7 +250,6 @@ func main() {
 		// Rotas Públicas
 		apiV1.POST("/auth/signup", authHandler.SignUp)
 		apiV1.POST("/auth/login", authHandler.Login)
-		apiV1.POST("/usuarios", usuarioHandler.CriarUsuarioHandler)
 
 		// Rotas para Super-Admin (no futuro, proteger com um middleware de "SuperAdmin")
 		apiV1.POST("/permissoes", permissaoHandler.Create)
@@ -269,6 +268,8 @@ func main() {
 		rotasProtegidas.Use(authMiddleware)
 		{
 			// Rotas de Usuário
+			// Criação de usuário precisa estar autenticada para capturar o id do requisitante do token
+			rotasProtegidas.POST("/usuarios", usuarioHandler.CriarUsuarioHandler)
 			rotasProtegidas.GET("/usuarios", usuarioHandler.GetAllUsuariosHandler)
 			rotasProtegidas.GET("/usuarios/:id", usuarioHandler.GetByIdHandler)
 			rotasProtegidas.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler) // Utilizador só pode alterar a si mesmo

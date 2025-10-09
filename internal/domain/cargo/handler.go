@@ -23,7 +23,8 @@ func NewCargoHandler(s CargoService, f funcoes.FuncoesInterface) *CargoHandler {
 }
 
 type createRequest struct {
-	Nome string `json:"nome" binding:"required"`
+	Nome            string `json:"nome" binding:"required" example:"Coordenador"`
+	NivelHierarquia uint   `json:"nivel_hierarquia" example:"50"`
 }
 
 // @Summary      Cria um novo cargo
@@ -41,7 +42,7 @@ type createRequest struct {
 func (h *CargoHandler) CreateCargo(c *gin.Context) {
 	var req createRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "O corpo da requisição é inválido. O campo 'nome' é obrigatório."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "O corpo da requisição é inválido. Os campos 'nome' e 'nivel_hierarquia' são recomendados."})
 		return
 	}
 
@@ -52,8 +53,9 @@ func (h *CargoHandler) CreateCargo(c *gin.Context) {
 	}
 
 	cargo := model.Cargo{
-		Nome:      req.Nome,
-		EmpresaID: empresaID,
+		Nome:            req.Nome,
+		EmpresaID:       empresaID,
+		NivelHierarquia: req.NivelHierarquia,
 	}
 
 	if err := h.service.Create(&cargo); err != nil {
@@ -69,8 +71,8 @@ func (h *CargoHandler) CreateCargo(c *gin.Context) {
 // @Tags         Cargos
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {array}   model.Cargo  "Exemplo"
-// @Example 200 [{"id":10,"nome":"Desenvolvedor","empresaId":1}]
+// @Success      200  {array}   model.Cargo  "Lista de cargos"
+// @Example 200 [{"id":10,"nome":"Desenvolvedor","empresa_id":1,"nivel_hierarquia":50}]
 // @Failure      401  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
 // @Router       /cargos [get]

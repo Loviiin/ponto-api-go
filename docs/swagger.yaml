@@ -78,7 +78,11 @@ definitions:
     type: object
   cargo.createRequest:
     properties:
+      nivel_hierarquia:
+        example: 50
+        type: integer
       nome:
+        example: Coordenador
         type: string
     required:
     - nome
@@ -149,6 +153,10 @@ definitions:
       id:
         type: integer
       minutos_almoco_esperado:
+        type: integer
+      nivel_hierarquia:
+        description: 'Nível de hierarquia: quanto maior, mais alto o cargo (ex.: Dono=100,
+          Gerente=70, Colaborador=10)'
         type: integer
       nome:
         type: string
@@ -414,24 +422,33 @@ definitions:
   usuario.CriarUsuarioRequest:
     properties:
       cargo_id:
+        example: 5
         type: integer
       cpf:
+        example: "12345678901"
         type: string
       data_admissao:
+        example: "2025-10-09T00:00:00Z"
         type: string
       email:
+        example: fulano@empresa.com
         type: string
       empresa_id:
         description: Dados do Contrato
+        example: 1
         type: integer
       localidade_id:
+        example: 10
         type: integer
       nome:
         description: Dados do Usuário (Pessoa)
+        example: Fulano de Tal
         type: string
       salario:
+        example: 3500
         type: number
       senha:
+        example: senha123
         minLength: 6
         type: string
     required:
@@ -646,7 +663,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Exemplo
+          description: Lista de cargos
           schema:
             items:
               $ref: '#/definitions/model.Cargo'
@@ -1672,8 +1689,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Cria um novo usuário (funcionário) e seu contrato de trabalho no
-        sistema.
+      description: |-
+        Cria um novo usuário (funcionário) e seu contrato de trabalho no sistema.
+        Regras: o requisitante só pode atribuir cargos com nível hierárquico menor ou igual ao seu.
       parameters:
       - description: Dados do Novo Usuário e Contrato
         in: body
@@ -1694,6 +1712,14 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
       summary: Cria um novo usuário
       tags:
       - Usuários
