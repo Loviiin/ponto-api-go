@@ -1,9 +1,11 @@
 package model
 
 type Cargo struct {
-	ID                        uint        `gorm:"primaryKey" json:"id"`
-	Nome                      string      `gorm:"not null" json:"nome"`
-	EmpresaID                 uint        `gorm:"not null" json:"empresa_id"`
+	ID        uint   `gorm:"primaryKey" json:"id"`
+	Nome      string `gorm:"not null" json:"nome"`
+	EmpresaID uint   `gorm:"not null" json:"empresa_id"`
+	// Nível de hierarquia: quanto maior, mais alto o cargo (ex.: Dono=100, Gerente=70, Colaborador=10)
+	NivelHierarquia           uint        `gorm:"default:0" json:"nivel_hierarquia"`
 	SalarioMinimo             float64     `json:"salario_minimo"`
 	SalarioMaximo             float64     `json:"salario_maximo"`
 	Permissoes                []Permissao `gorm:"many2many:cargo_permissoes;" json:"permissoes,omitempty"`

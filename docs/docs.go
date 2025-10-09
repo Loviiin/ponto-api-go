@@ -290,7 +290,7 @@ const docTemplate = `{
                 "summary": "Lista os cargos da empresa",
                 "responses": {
                     "200": {
-                        "description": "Exemplo",
+                        "description": "Lista de cargos",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1846,7 +1846,12 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Cria um novo usuário (funcionário) e seu contrato de trabalho no sistema.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cria um novo usuário (funcionário) e seu contrato de trabalho no sistema.\nRegras: o requisitante só pode atribuir cargos com nível hierárquico menor ou igual ao seu.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1877,6 +1882,15 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2209,8 +2223,13 @@ const docTemplate = `{
                 "nome"
             ],
             "properties": {
+                "nivel_hierarquia": {
+                    "type": "integer",
+                    "example": 50
+                },
                 "nome": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Coordenador"
                 }
             }
         },
@@ -2308,6 +2327,10 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "minutos_almoco_esperado": {
+                    "type": "integer"
+                },
+                "nivel_hierarquia": {
+                    "description": "Nível de hierarquia: quanto maior, mais alto o cargo (ex.: Dono=100, Gerente=70, Colaborador=10)",
                     "type": "integer"
                 },
                 "nome": {
@@ -2720,34 +2743,43 @@ const docTemplate = `{
             ],
             "properties": {
                 "cargo_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 5
                 },
                 "cpf": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "12345678901"
                 },
                 "data_admissao": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2025-10-09T00:00:00Z"
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "fulano@empresa.com"
                 },
                 "empresa_id": {
                     "description": "Dados do Contrato",
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 1
                 },
                 "localidade_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 10
                 },
                 "nome": {
                     "description": "Dados do Usuário (Pessoa)",
-                    "type": "string"
+                    "type": "string",
+                    "example": "Fulano de Tal"
                 },
                 "salario": {
-                    "type": "number"
+                    "type": "number",
+                    "example": 3500
                 },
                 "senha": {
                     "type": "string",
-                    "minLength": 6
+                    "minLength": 6,
+                    "example": "senha123"
                 }
             }
         },

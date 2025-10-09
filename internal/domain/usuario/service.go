@@ -13,8 +13,8 @@ import (
 )
 
 type UsuarioService interface {
-
-	CriarUsuarioEContrato(usuario *model.Usuario, contrato *model.Contrato) error
+	// Agora exige o id do requisitante para validação de hierarquia
+	CriarUsuarioEContrato(usuario *model.Usuario, contrato *model.Contrato, idRequisitante uint) error
 	GetAll(empresaID uint) ([]model.Usuario, error)
 	FindByID(id uint, empresaID uint) (*model.Usuario, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
@@ -26,15 +26,15 @@ var criptografaSenha = password.CriptografaSenha
 
 type usuarioService struct {
 	Db           *gorm.DB
-	usuarioRepo UsuarioRepository
-	cargoRepo   cargo.CargoRepository
-	empresaRepo empresa.EmpresaRepository
+	usuarioRepo  UsuarioRepository
+	cargoRepo    cargo.CargoRepository
+	empresaRepo  empresa.EmpresaRepository
 	contratoRepo contrato.ContratoRepository
 }
 
 func NewUsuarioService(db *gorm.DB, repo UsuarioRepository, cargoRepo cargo.CargoRepository, empresaRepo empresa.EmpresaRepository, contratoRepo contrato.ContratoRepository) UsuarioService {
 	return &usuarioService{
-        Db:           db,
+		Db:           db,
 		usuarioRepo:  repo,
 		cargoRepo:    cargoRepo,
 		empresaRepo:  empresaRepo,
@@ -50,17 +50,16 @@ func (s *usuarioService) FindByID(id uint, empresaID uint) (*model.Usuario, erro
 	return s.usuarioRepo.FindByID(id, empresaID)
 }
 
-func (s *usuarioService) CriarUsuarioEContrato(usuario *model.Usuario, contrato *model.Contrato) error {
+func (s *usuarioService) CriarUsuarioEContrato(usuario *model.Usuario, contrato *model.Contrato, idRequisitante uint) error {
 	tx := s.Db.Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
-    defer func() {
-        if r := recover(); r != nil {
-            tx.Rollback()
-        }
-    }()
-
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
 	_, err := s.usuarioRepo.FindByEmail(usuario.Email)
 	if err == nil {
@@ -72,18 +71,32 @@ func (s *usuarioService) CriarUsuarioEContrato(usuario *model.Usuario, contrato 
 		return err
 	}
 
-    //TODO Adicionar outras validações igual email
+	//TODO Adicionar outras validações igual email
 
-	cargo, err := s.cargoRepo.FindByID(contrato.CargoID, contrato.EmpresaID)
+	cargoAlvo, err := s.cargoRepo.FindByID(contrato.CargoID, contrato.EmpresaID)
 	if err != nil {
 		tx.Rollback()
 		return errors.New("o cargo especificado não existe ou não pertence a esta empresa")
 	}
 
-	if cargo.SalarioMaximo > 0 && (contrato.Salario < cargo.SalarioMinimo || contrato.Salario > cargo.SalarioMaximo) {
+	// Buscar o cargo do requisitante para regras de hierarquia
+	requisitante, err := s.usuarioRepo.FindByID(idRequisitante, contrato.EmpresaID)
+	if err != nil {
+		tx.Rollback()
+		return errors.New("usuário requisitante não encontrado para validar permissão")
+	}
+	cargoRequisitante := requisitante.Contrato.Cargo
+
+	// Regra genérica de hierarquia: requisitante não pode criar cargo com nível superior ao seu
+	if cargoRequisitante.NivelHierarquia < cargoAlvo.NivelHierarquia {
+		tx.Rollback()
+		return errors.New("acesso negado: você não pode atribuir um cargo com nível hierárquico superior ao seu")
+	}
+
+	if cargoAlvo.SalarioMaximo > 0 && (contrato.Salario < cargoAlvo.SalarioMinimo || contrato.Salario > cargoAlvo.SalarioMaximo) {
 		tx.Rollback()
 		return fmt.Errorf("o salário R$%.2f está fora da faixa permitida (R$%.2f - R$%.2f) para o cargo %s",
-			contrato.Salario, cargo.SalarioMinimo, cargo.SalarioMaximo, cargo.Nome)
+			contrato.Salario, cargoAlvo.SalarioMinimo, cargoAlvo.SalarioMaximo, cargoAlvo.Nome)
 	}
 
 	senhaHash, err := criptografaSenha(usuario.Senha)
