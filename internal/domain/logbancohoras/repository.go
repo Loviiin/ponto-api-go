@@ -7,7 +7,8 @@ import (
 
 type Repository interface {
 	Create(log *model.LogBancoHoras) error
-	WithTransaction(tx *gorm.DB) Repository // ADICIONAR ESTA LINHA
+	GetAllByUsuarioAndEmpresa(usuarioID uint, empresaID uint) ([]model.LogBancoHoras, error)
+	WithTransaction(tx *gorm.DB) Repository
 }
 
 type repository struct {
@@ -20,6 +21,14 @@ func NewRepository(db *gorm.DB) Repository {
 
 func (r *repository) Create(log *model.LogBancoHoras) error {
 	return r.Db.Create(log).Error
+}
+
+func (r *repository) GetAllByUsuarioAndEmpresa(usuarioID uint, empresaID uint) ([]model.LogBancoHoras, error) {
+	var logs []model.LogBancoHoras
+	err := r.Db.Where("usuario_id = ? AND empresa_id = ?", usuarioID, empresaID).
+		Order("data desc").
+		Find(&logs).Error
+	return logs, err
 }
 
 func (r *repository) WithTransaction(tx *gorm.DB) Repository {

@@ -159,10 +159,6 @@ func main() {
 	contratoRepo := contrato.NewContratoRepository(db)
 	localidadeRepo := localidade.NewRepository(db)
 
-	// Relatório (espelho de ponto)
-	relatorioService := relatorio.NewService(pontoRepo, usuarioRepo, logBancoHorasRepo)
-	relatorioHandler := relatorio.NewHandler(relatorioService, funcoesService)
-
 	// Crie uma instância do serviço de geolocalização
 	geoService := geolocation.NewService(cfg.OpenCageAPIKey)
 
@@ -176,6 +172,10 @@ func main() {
 	bancoHorasService := bancohoras.NewBancoHorasService(pontoRepo, usuarioRepo, logBancoHorasRepo, db)
 	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, db)
 	localidadeService := localidade.NewService(localidadeRepo, geoService)
+
+	// Relatório (espelho de ponto) - após bancoHorasService
+	relatorioService := relatorio.NewService(pontoRepo, usuarioRepo, logBancoHorasRepo, bancoHorasService)
+	relatorioHandler := relatorio.NewHandler(relatorioService, funcoesService)
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
@@ -307,6 +307,8 @@ func main() {
 
 			rotasProtegidas.GET("/bancohoras/saldo/usuario/:id", bancoHorasHandler.GetSaldoDoDia)
 			rotasProtegidas.POST("/bancohoras/fechamento/usuario/:id", canEditSaldo, bancoHorasHandler.FecharDia)
+			// Dashboard de banco de horas do usuário autenticado
+			rotasProtegidas.GET("/bancohoras/dashboard/me", bancoHorasHandler.GetDashboard)
 
 			// --- NOVAS ROTAS DE JUSTIFICATIVAS ---
 			// Rota para o funcionário criar uma solicitação

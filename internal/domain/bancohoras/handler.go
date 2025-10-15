@@ -27,6 +27,36 @@ func NewBancoHorasHandler(s BancoHorasService, u usuario.UsuarioService, f funco
 	}
 }
 
+// GetDashboard retorna saldo total e histórico do banco de horas do usuário autenticado
+// @Summary      Meu Banco de Horas - Dashboard
+// @Description  Retorna, em uma única chamada, o saldo total do banco de horas e o histórico de lançamentos já calculados para o usuário autenticado.
+// @Tags         Banco de Horas
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  bancohoras.DashboardResponse
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /bancohoras/dashboard/me [get]
+func (h *Handler) GetDashboard(c *gin.Context) {
+	userID, err := h.converter.GetUintIDFromContext(c, "userID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+		return
+	}
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "empresa não encontrada no token"})
+		return
+	}
+
+	resp, err := h.service.GetDashboardForUsuario(userID, empresaID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
 // @Summary      Consulta saldo de horas do dia
 // @Description  Retorna o saldo de horas (positivo ou negativo) de um usuário para um dia específico. Requer permissão 'VER_SALDO_FUNCIONARIOS' se o ID consultado não for o do próprio usuário.
 // @Tags         Banco de Horas

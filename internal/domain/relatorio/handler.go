@@ -19,7 +19,7 @@ func NewHandler(service Service, conv funcoes.FuncoesInterface) *Handler {
 
 // GetEspelhoMe retorna o espelho de ponto (resumo consolidado) do usuário autenticado.
 // @Summary      Obtém espelho de ponto do usuário logado
-// @Description  Retorna o espelho de ponto (cálculo consolidado) para o intervalo informado.
+// @Description  Retorna o espelho de ponto (cálculo consolidado) para o intervalo informado. O saldo diário é calculado pelo serviço de Banco de Horas para garantir consistência.
 // @Tags         Relatórios
 // @Produce      json
 // @Security     BearerAuth
@@ -69,7 +69,7 @@ func (h *Handler) GetEspelhoMe(c *gin.Context) {
 
 // GetEspelhoUsuario retorna o espelho de ponto de um usuário específico (admin).
 // @Summary      (Admin) Obtém espelho de ponto de um usuário
-// @Description  Retorna o espelho de ponto de um usuário da empresa para o intervalo informado. Requer permissão administrativa.
+// @Description  Retorna o espelho de ponto de um usuário da empresa para o intervalo informado. O saldo diário é calculado pelo serviço de Banco de Horas para garantir consistência. Requer permissão administrativa.
 // @Tags         Relatórios
 // @Produce      json
 // @Security     BearerAuth

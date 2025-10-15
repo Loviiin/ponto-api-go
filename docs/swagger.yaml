@@ -76,6 +76,43 @@ definitions:
         - salario
         type: object
     type: object
+  bancohoras.DashboardResponse:
+    properties:
+      historico:
+        description: Histórico de alterações do banco de horas, ordenado por data
+          desc
+        items:
+          $ref: '#/definitions/bancohoras.HistoricoDia'
+        type: array
+      saldo_total_minutos:
+        description: |-
+          Saldo total acumulado do banco de horas em minutos
+          example: 120
+        type: integer
+    type: object
+  bancohoras.HistoricoDia:
+    properties:
+      data:
+        description: |-
+          Data do lançamento (formato: 2006-01-02)
+          example: 2025-10-01
+        type: string
+      motivo:
+        description: |-
+          Motivo do lançamento
+          example: Fechamento automático do dia 2025-10-01
+        type: string
+      saldo_resultante_minutos:
+        description: |-
+          É o saldo acumulado após este dia
+          example: 90
+        type: integer
+      valor_alterado_minutos:
+        description: |-
+          É o saldo do dia (variação aplicada no dia)
+          example: 30
+        type: integer
+    type: object
   cargo.createRequest:
     properties:
       nivel_hierarquia:
@@ -561,6 +598,34 @@ paths:
       summary: Realiza o cadastro de uma nova empresa e seu administrador
       tags:
       - Autenticação
+  /bancohoras/dashboard/me:
+    get:
+      description: Retorna, em uma única chamada, o saldo total do banco de horas
+        e o histórico de lançamentos já calculados para o usuário autenticado.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/bancohoras.DashboardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Meu Banco de Horas - Dashboard
+      tags:
+      - Banco de Horas
   /bancohoras/fechamento/usuario/{id}:
     post:
       description: Calcula o saldo de horas de um dia para um usuário e o adiciona
@@ -1570,7 +1635,8 @@ paths:
   /relatorios/espelho/me:
     get:
       description: Retorna o espelho de ponto (cálculo consolidado) para o intervalo
-        informado.
+        informado. O saldo diário é calculado pelo serviço de Banco de Horas para
+        garantir consistência.
       parameters:
       - description: Data inicial (AAAA-MM-DD)
         in: query
@@ -1615,7 +1681,8 @@ paths:
   /relatorios/espelho/usuario/{id}:
     get:
       description: Retorna o espelho de ponto de um usuário da empresa para o intervalo
-        informado. Requer permissão administrativa.
+        informado. O saldo diário é calculado pelo serviço de Banco de Horas para
+        garantir consistência. Requer permissão administrativa.
       parameters:
       - description: ID do Usuário
         in: path

@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -21,13 +22,14 @@ type usuarioReader interface {
 }
 
 type service struct {
-	pontoRepo   ponto.RegistroPontoRepository
-	usuarioRead usuarioReader
-	logRepo     logbancohoras.Repository
+	pontoRepo         ponto.RegistroPontoRepository
+	usuarioRead       usuarioReader
+	logRepo           logbancohoras.Repository
+	bancoHorasService bancohoras.BancoHorasService
 }
 
-func NewService(pontoRepo ponto.RegistroPontoRepository, usuarioRepo usuarioReader, logRepo logbancohoras.Repository) Service {
-	return &service{pontoRepo: pontoRepo, usuarioRead: usuarioRepo, logRepo: logRepo}
+func NewService(pontoRepo ponto.RegistroPontoRepository, usuarioRepo usuarioReader, logRepo logbancohoras.Repository, bancoHorasService bancohoras.BancoHorasService) Service {
+	return &service{pontoRepo: pontoRepo, usuarioRead: usuarioRepo, logRepo: logRepo, bancoHorasService: bancoHorasService}
 }
 
 func (s *service) GerarEspelhoPonto(userID uint, empresaID uint, inicio, fim time.Time) (*EspelhoPonto, error) {
@@ -88,7 +90,14 @@ func (s *service) GerarEspelhoPonto(userID uint, empresaID uint, inicio, fim tim
 			pares = append(pares, ParMarcacao{Entrada: &entradaCopy, Saida: &saidaCopy})
 		}
 		trabalhadoTotal += totalMinutos
-		saldoDia := totalMinutos - cargaDia
+		// Reutiliza a lógica do serviço de banco de horas para calcular o saldo do dia
+		// Convertendo diaStr de volta para time.Time
+		diaTime, _ := time.Parse("2006-01-02", diaStr)
+		saldoDia, errSaldo := s.bancoHorasService.CalcularSaldoParaUsuario(usr.ID, usr.Contrato.EmpresaID, diaTime)
+		if errSaldo != nil {
+			// fallback para cálculo local caso dê erro (ex.: marcações ímpares)
+			saldoDia = totalMinutos - cargaDia
+		}
 		saldoAcumulado += saldoDia
 
 		// Fechado (heurística: existe log com motivo contendo a data)

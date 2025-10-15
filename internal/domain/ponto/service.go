@@ -162,11 +162,12 @@ func (s *pontoService) GerarRelatorio(userID, empresaID uint, inicio, fim time.T
 	}
 	formato = strings.ToLower(strings.TrimSpace(formato))
 
-	// Buscar usuário para obter nome (se existir)
-	usuarioObj, errUser := s.userRepo.FindByID(userID, empresaID)
+	// Buscar usuário para obter nome (se existir) - guarda nil para testes
 	userName := fmt.Sprintf("Usuário %d", userID)
-	if errUser == nil && usuarioObj.Nome != "" {
-		userName = usuarioObj.Nome
+	if s.userRepo != nil {
+		if usuarioObj, errUser := s.userRepo.FindByID(userID, empresaID); errUser == nil && usuarioObj != nil && usuarioObj.Nome != "" {
+			userName = usuarioObj.Nome
+		}
 	}
 	registros, err := s.pontoRepo.FindPontosByUserIDAndDateRange(userID, inicio, fim)
 	if err != nil {

@@ -132,6 +132,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/bancohoras/dashboard/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna, em uma única chamada, o saldo total do banco de horas e o histórico de lançamentos já calculados para o usuário autenticado.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Banco de Horas"
+                ],
+                "summary": "Meu Banco de Horas - Dashboard",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/bancohoras.DashboardResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/bancohoras/fechamento/usuario/{id}": {
             "post": {
                 "security": [
@@ -1673,7 +1716,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna o espelho de ponto (cálculo consolidado) para o intervalo informado.",
+                "description": "Retorna o espelho de ponto (cálculo consolidado) para o intervalo informado. O saldo diário é calculado pelo serviço de Banco de Horas para garantir consistência.",
                 "produces": [
                     "application/json"
                 ],
@@ -1741,7 +1784,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retorna o espelho de ponto de um usuário da empresa para o intervalo informado. Requer permissão administrativa.",
+                "description": "Retorna o espelho de ponto de um usuário da empresa para o intervalo informado. O saldo diário é calculado pelo serviço de Banco de Horas para garantir consistência. Requer permissão administrativa.",
                 "produces": [
                     "application/json"
                 ],
@@ -2214,6 +2257,43 @@ const docTemplate = `{
                             "example": 5000
                         }
                     }
+                }
+            }
+        },
+        "bancohoras.DashboardResponse": {
+            "type": "object",
+            "properties": {
+                "historico": {
+                    "description": "Histórico de alterações do banco de horas, ordenado por data desc",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/bancohoras.HistoricoDia"
+                    }
+                },
+                "saldo_total_minutos": {
+                    "description": "Saldo total acumulado do banco de horas em minutos\nexample: 120",
+                    "type": "integer"
+                }
+            }
+        },
+        "bancohoras.HistoricoDia": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Data do lançamento (formato: 2006-01-02)\nexample: 2025-10-01",
+                    "type": "string"
+                },
+                "motivo": {
+                    "description": "Motivo do lançamento\nexample: Fechamento automático do dia 2025-10-01",
+                    "type": "string"
+                },
+                "saldo_resultante_minutos": {
+                    "description": "É o saldo acumulado após este dia\nexample: 90",
+                    "type": "integer"
+                },
+                "valor_alterado_minutos": {
+                    "description": "É o saldo do dia (variação aplicada no dia)\nexample: 30",
+                    "type": "integer"
                 }
             }
         },

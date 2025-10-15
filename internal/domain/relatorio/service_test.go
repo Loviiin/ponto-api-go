@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -37,9 +38,27 @@ type mockLogRepo struct{}
 
 func (m *mockLogRepo) Create(l *model.LogBancoHoras) error                  { return nil }
 func (m *mockLogRepo) WithTransaction(tx *gorm.DB) logbancohoras.Repository { return m }
+func (m *mockLogRepo) GetAllByUsuarioAndEmpresa(usuarioID uint, empresaID uint) ([]model.LogBancoHoras, error) {
+	return nil, nil
+}
+
+type mockBancoHorasService struct{ carga int }
+
+func (m *mockBancoHorasService) CalcularSaldoParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (int, error) {
+	// Recalcula a partir das marcações providas pelo mockPontoRepo? Simplesmente usa a carga para um resultado determinístico nos testes.
+	// Para manter compatibilidade com os testes existentes que avaliam apenas Totais.TrabalhadoMinutos,
+	// podemos retornar 0 aqui e o serviço de relatorio ainda computa totalTrabalhado para Totais.
+	return 0, nil
+}
+func (m *mockBancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Contrato, error) {
+	return &model.Contrato{}, nil
+}
+func (m *mockBancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint) (*bancohoras.DashboardResponse, error) {
+	return &bancohoras.DashboardResponse{}, nil
+}
 
 func buildService(regs []model.RegistroPonto, carga int) Service {
-	return NewService(&mockPontoRepo{regs: regs}, &mockUserRepo{carga: carga}, &mockLogRepo{})
+	return NewService(&mockPontoRepo{regs: regs}, &mockUserRepo{carga: carga}, &mockLogRepo{}, &mockBancoHorasService{carga: carga})
 }
 
 func TestEspelhoSemRegistros(t *testing.T) {

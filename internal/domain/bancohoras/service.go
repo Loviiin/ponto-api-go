@@ -16,6 +16,7 @@ import (
 type BancoHorasService interface {
 	CalcularSaldoParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (int, error)
 	FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Contrato, error)
+	GetDashboardForUsuario(usuarioID uint, empresaID uint) (*DashboardResponse, error)
 }
 
 type bancoHorasService struct {
@@ -45,7 +46,7 @@ func (s *bancoHorasService) CalcularSaldoParaUsuario(usuarioID uint, empresaID u
 		return 0, err
 	}
 
-	if &user.Contrato == nil || &user.Contrato.Cargo == nil {
+	if user.Contrato.ID == 0 || user.Contrato.Cargo.ID == 0 {
 		return 0, errors.New("utilizador não possui um contrato ou cargo ativo para calcular o saldo")
 	}
 
@@ -90,7 +91,7 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 	if err != nil {
 		return nil, err
 	}
-	if &usuarioAtual.Contrato == nil {
+	if usuarioAtual.Contrato.ID == 0 {
 		return nil, errors.New("utilizador não possui um contrato para fechar o dia")
 	}
 
@@ -133,4 +134,47 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 	// Retorna o contrato atualizado
 	usuarioAtual.Contrato.SaldoBancoHorasMinutos = novoSaldoTotal
 	return &usuarioAtual.Contrato, nil
+}
+
+// GetDashboardForUsuario retorna o saldo total atual e o histórico de alterações do banco de horas
+// do usuário informado já ordenado por data desc.
+func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint) (*DashboardResponse, error) {
+	// a) Buscar o usuário (com contrato)
+	user, err := s.usuarioRepo.FindByID(usuarioID, empresaID)
+	if err != nil {
+		return nil, err
+	}
+
+	// b) Buscar todos os logs do usuário ordenados por data desc
+	logs, err := s.logRepo.GetAllByUsuarioAndEmpresa(usuarioID, empresaID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Mesmo com a query ordenada, garantimos ordenação desc por segurança
+	sort.SliceStable(logs, func(i, j int) bool { return logs[i].Data.After(logs[j].Data) })
+
+	// c) Mapear para DTO
+	historico := make([]HistoricoDia, 0, len(logs))
+	for _, l := range logs {
+		historico = append(historico, HistoricoDia{
+			Data:                   l.Data.Format("2006-01-02"),
+			ValorAlteradoMinutos:   l.ValorAlteradoMinutos,
+			SaldoResultanteMinutos: l.SaldoNovoMinutos,
+			Motivo:                 l.Motivo,
+		})
+	}
+
+	// d) Saldo total vem do contrato do usuário
+	saldoTotal := 0
+	if user != nil {
+		saldoTotal = user.Contrato.SaldoBancoHorasMinutos
+	}
+
+	// e) Montar resposta
+	resp := &DashboardResponse{
+		SaldoTotalMinutos: saldoTotal,
+		Historico:         historico,
+	}
+	return resp, nil
 }
