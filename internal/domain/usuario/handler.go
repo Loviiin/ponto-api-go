@@ -32,7 +32,6 @@ type CriarUsuarioRequest struct {
 	Senha string `json:"senha" binding:"required,min=6" example:"senha123"`
 
 	// Dados do Contrato
-	EmpresaID    uint      `json:"empresa_id" binding:"required" example:"1"`
 	LocalidadeID uint      `json:"localidade_id" binding:"required" example:"10"`
 	CargoID      uint      `json:"cargo_id" binding:"required" example:"5"`
 	Salario      float64   `json:"salario" binding:"required" example:"3500"`
@@ -254,6 +253,13 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 		return
 	}
 
+	// Força o empresaID a ser o do token para evitar uso indevido ou inconsistências no payload
+	empresaIDToken, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Falha ao identificar a empresa do requisitante."})
+		return
+	}
+
 	usuario := &model.Usuario{
 		Nome:  request.Nome,
 		CPF:   request.CPF,
@@ -262,7 +268,8 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 	}
 
 	contrato := &model.Contrato{
-		EmpresaID:    request.EmpresaID,
+		// Ignora o empresa_id do payload e utiliza o do token
+		EmpresaID:    empresaIDToken,
 		LocalidadeID: request.LocalidadeID,
 		CargoID:      request.CargoID,
 		Salario:      request.Salario,
