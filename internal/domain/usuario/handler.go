@@ -254,6 +254,13 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 		return
 	}
 
+	// Força o empresaID a ser o do token para evitar uso indevido ou inconsistências no payload
+	empresaIDToken, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Falha ao identificar a empresa do requisitante."})
+		return
+	}
+
 	usuario := &model.Usuario{
 		Nome:  request.Nome,
 		CPF:   request.CPF,
@@ -262,7 +269,8 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 	}
 
 	contrato := &model.Contrato{
-		EmpresaID:    request.EmpresaID,
+		// Ignora o empresa_id do payload e utiliza o do token
+		EmpresaID:    empresaIDToken,
 		LocalidadeID: request.LocalidadeID,
 		CargoID:      request.CargoID,
 		Salario:      request.Salario,
