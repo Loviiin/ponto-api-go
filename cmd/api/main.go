@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	"net/http"
 
 	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/config"
@@ -53,10 +53,12 @@ func resetAndSeedDatabase(db *gorm.DB) {
 		&model.RegistroPonto{},
 		&model.Justificativa{},
 		&model.LogBancoHoras{},
+		&model.Contrato{},
 		&model.Usuario{},
 		&model.Permissao{},
 		&model.Cargo{},
 		&model.Empresa{},
+		&model.Localidade{},
 	)
 
 	if err != nil {
@@ -66,7 +68,17 @@ func resetAndSeedDatabase(db *gorm.DB) {
 
 	// Recria as tabelas
 	log.Println("Recriando tabelas com AutoMigrate...")
-	err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{})
+	err = db.AutoMigrate(
+		&model.Usuario{},
+		&model.RegistroPonto{},
+		&model.Empresa{},
+		&model.Cargo{},
+		&model.Permissao{},
+		&model.Justificativa{},
+		&model.LogBancoHoras{},
+		&model.Contrato{},
+		&model.Localidade{},
+	)
 	if err != nil {
 		log.Fatal("Falha ao rodar a migração: ", err)
 	}
@@ -250,8 +262,8 @@ func main() {
 	{
 
 		apiV1.GET("/health", func(c *gin.Context) {
-        c.JSON(http.StatusOK, gin.H{"status": "UP"})
-    })
+			c.JSON(http.StatusOK, gin.H{"status": "UP"})
+		})
 		// Rotas Públicas
 		apiV1.POST("/auth/signup", authHandler.SignUp)
 		apiV1.POST("/auth/login", authHandler.Login)
