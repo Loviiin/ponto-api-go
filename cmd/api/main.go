@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"net/http"
 
 	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/config"
@@ -247,6 +248,10 @@ func main() {
 	// Define o grupo de rotas da API.
 	apiV1 := router.Group("/api/v1")
 	{
+
+		apiV1.GET("/health", func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{"status": "UP"})
+    })
 		// Rotas Públicas
 		apiV1.POST("/auth/signup", authHandler.SignUp)
 		apiV1.POST("/auth/login", authHandler.Login)
