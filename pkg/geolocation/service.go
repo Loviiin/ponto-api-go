@@ -32,13 +32,13 @@ type Service interface {
 }
 
 type service struct {
-	httpClient    *http.Client
+	httpClient     *http.Client
 	openCageAPIKey string
 }
 
 func NewService(apiKey string) Service {
 	return &service{
-		httpClient:    &http.Client{},
+		httpClient:     &http.Client{},
 		openCageAPIKey: apiKey,
 	}
 }
@@ -47,13 +47,17 @@ func (s *service) GetLocationFromCEP(cep string) (*model.Localidade, error) {
 	viaCEPURL := fmt.Sprintf("https://viacep.com.br/ws/%s/json/", cep)
 	resp, err := s.httpClient.Get(viaCEPURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("falha ao realizar requisição para ViaCEP: %w", err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ViaCEP retornou status %d", resp.StatusCode)
+	}
+
 	var viaCEPData ViaCEPResponse
 	if err := json.NewDecoder(resp.Body).Decode(&viaCEPData); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("falha ao decodificar resposta da ViaCEP: %w", err)
 	}
 
 	// 2. Montar o endereço e chamar OpenCage
@@ -62,16 +66,20 @@ func (s *service) GetLocationFromCEP(cep string) (*model.Localidade, error) {
 
 	openCageURL := fmt.Sprintf("https://api.opencagedata.com/geocode/v1/json?q=%s&key=%s",
 		url.QueryEscape(address), s.openCageAPIKey)
-		
+
 	resp, err = s.httpClient.Get(openCageURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("falha ao realizar requisição para OpenCage: %w", err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("OpenCage retornou status %d", resp.StatusCode)
+	}
+
 	var openCageData OpenCageResponse
 	if err := json.NewDecoder(resp.Body).Decode(&openCageData); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("falha ao decodificar resposta da OpenCage: %w", err)
 	}
 
 	if len(openCageData.Results) == 0 {
