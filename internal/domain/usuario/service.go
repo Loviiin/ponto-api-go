@@ -1,6 +1,7 @@
 package usuario
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -47,7 +48,7 @@ func (s *usuarioService) GetAll(empresaID uint) ([]model.Usuario, error) {
 }
 
 func (s *usuarioService) FindByID(id uint, empresaID uint) (*model.Usuario, error) {
-	return s.usuarioRepo.FindByID(id, empresaID)
+	return s.usuarioRepo.FindByID(context.Background(), id, empresaID)
 }
 
 func (s *usuarioService) CriarUsuarioEContrato(usuario *model.Usuario, contrato *model.Contrato, idRequisitante uint) error {
@@ -73,14 +74,14 @@ func (s *usuarioService) CriarUsuarioEContrato(usuario *model.Usuario, contrato 
 
 	//TODO Adicionar outras validações igual email
 
-	cargoAlvo, err := s.cargoRepo.FindByID(contrato.CargoID, contrato.EmpresaID)
+	cargoAlvo, err := s.cargoRepo.FindByID(context.Background(), contrato.CargoID, contrato.EmpresaID)
 	if err != nil {
 		tx.Rollback()
 		return errors.New("o cargo especificado não existe ou não pertence a esta empresa")
 	}
 
 	// Buscar o cargo do requisitante para regras de hierarquia
-	requisitante, err := s.usuarioRepo.FindByID(idRequisitante, contrato.EmpresaID)
+	requisitante, err := s.usuarioRepo.FindByID(context.Background(), idRequisitante, contrato.EmpresaID)
 	if err != nil {
 		tx.Rollback()
 		return errors.New("usuário requisitante não encontrado para validar permissão")
@@ -122,7 +123,7 @@ func (s *usuarioService) CriarUsuarioEContrato(usuario *model.Usuario, contrato 
 }
 
 func (s *usuarioService) Update(id uint, empresaID uint, dados map[string]interface{}) error {
-	_, err := s.usuarioRepo.FindByID(id, empresaID)
+	_, err := s.usuarioRepo.FindByID(context.Background(), id, empresaID)
 	if err != nil {
 		return err
 	}
@@ -130,7 +131,7 @@ func (s *usuarioService) Update(id uint, empresaID uint, dados map[string]interf
 }
 
 func (s *usuarioService) Delete(id uint, empresaID uint) error {
-	_, err := s.usuarioRepo.FindByID(id, empresaID)
+	_, err := s.usuarioRepo.FindByID(context.Background(), id, empresaID)
 	if err != nil {
 		return err
 	}

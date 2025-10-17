@@ -62,7 +62,10 @@ func (r *pontoRepository) WithTransaction(tx *gorm.DB) RegistroPontoRepository {
 func (r *pontoRepository) FindPontoByID(pontoID uint, empresaID uint) (*model.RegistroPonto, error) {
 	var ponto model.RegistroPonto
 	err := r.Db.Where("id = ? AND empresa_id = ?", pontoID, empresaID).First(&ponto).Error
-	return &ponto, err
+	if err != nil {
+		return nil, err
+	}
+	return &ponto, nil
 }
 
 func (r *pontoRepository) UpdatePonto(ponto *model.RegistroPonto) error {

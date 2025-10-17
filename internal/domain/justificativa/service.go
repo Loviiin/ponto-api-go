@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 type Service interface {
 	SolicitarAjuste(solicitacao *model.Justificativa) error
 	ListarPendentes(empresaID uint) ([]model.Justificativa, error)
@@ -21,6 +20,7 @@ type service struct {
 	pontoRepo ponto.RegistroPontoRepository
 	db        *gorm.DB
 }
+
 func NewService(repo Repository, pontoRepo ponto.RegistroPontoRepository, db *gorm.DB) Service {
 	return &service{
 		justificativaRepo: repo,

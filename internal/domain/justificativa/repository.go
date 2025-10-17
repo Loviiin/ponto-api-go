@@ -32,7 +32,10 @@ func (r *repository) WithTransaction(tx *gorm.DB) Repository {
 func (r *repository) FindByID(id uint, empresaID uint) (*model.Justificativa, error) {
 	var justificativa model.Justificativa
 	err := r.Db.Where("id = ? AND empresa_id = ?", id, empresaID).First(&justificativa).Error
-	return &justificativa, err
+	if err != nil {
+		return nil, err
+	}
+	return &justificativa, nil
 }
 
 func (r *repository) FindByStatus(empresaID uint, status string) ([]model.Justificativa, error) {

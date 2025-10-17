@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
@@ -23,7 +24,7 @@ func RoleAuthMiddleware(usuarioRepo usuario.UsuarioRepository, funcoesService fu
 			return
 		}
 
-		usuario, err := usuarioRepo.FindByID(idUsuario, idEmpresaToken)
+		usuario, err := usuarioRepo.FindByID(context.Background(), idUsuario, idEmpresaToken)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Acesso negado."})
 			return

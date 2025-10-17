@@ -1,6 +1,8 @@
 package empresa
 
 import (
+	"context"
+
 	"github.com/Loviiin/ponto-api-go/internal/model"
 )
 
@@ -35,7 +37,7 @@ func (s *empresaService) GetEmpresaByIDSer(idempresa uint) (*model.Empresa, erro
 }
 
 func (s *empresaService) UpdateEmpresaSer(idempresa uint, dados map[string]interface{}) error {
-	_, err := s.empresaRepo.FindByID(idempresa)
+	_, err := s.empresaRepo.FindByID(context.Background(), idempresa)
 	if err != nil {
 		return err
 	}
@@ -43,7 +45,7 @@ func (s *empresaService) UpdateEmpresaSer(idempresa uint, dados map[string]inter
 }
 
 func (s *empresaService) DeleteEmpresaSer(idempresa uint) error {
-	_, err := s.empresaRepo.FindByID(idempresa)
+	_, err := s.empresaRepo.FindByID(context.Background(), idempresa)
 	if err != nil {
 		return err
 	}

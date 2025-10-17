@@ -29,7 +29,10 @@ func (r *repository) Save(localidade *model.Localidade) error {
 func (r *repository) FindByID(id uint) (*model.Localidade, error) {
 	var localidade model.Localidade
 	err := r.Db.First(&localidade, id).Error
-	return &localidade, err
+	if err != nil {
+		return nil, err
+	}
+	return &localidade, nil
 }
 
 func (r *repository) FindAllByEmpresaID(empresaID uint) ([]model.Localidade, error) {

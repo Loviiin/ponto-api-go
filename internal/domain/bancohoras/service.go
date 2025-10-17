@@ -1,6 +1,7 @@
 package bancohoras
 
 import (
+	"context"
 	"errors"
 	"sort"
 	"time"
@@ -41,7 +42,7 @@ func NewBancoHorasService(
 }
 
 func (s *bancoHorasService) CalcularSaldoParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (int, error) {
-	user, err := s.usuarioRepo.FindByID(usuarioID, empresaID)
+	user, err := s.usuarioRepo.FindByID(context.Background(), usuarioID, empresaID)
 	if err != nil {
 		return 0, err
 	}
@@ -87,7 +88,7 @@ func CalcularSaldoDoDia(pontosDoDia []model.RegistroPonto, cargoDoUsuario model.
 }
 
 func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Contrato, error) {
-	usuarioAtual, err := s.usuarioRepo.FindByID(usuarioID, empresaID)
+	usuarioAtual, err := s.usuarioRepo.FindByID(context.Background(), usuarioID, empresaID)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +141,7 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 // do usuário informado já ordenado por data desc.
 func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint) (*DashboardResponse, error) {
 	// a) Buscar o usuário (com contrato)
-	user, err := s.usuarioRepo.FindByID(usuarioID, empresaID)
+	user, err := s.usuarioRepo.FindByID(context.Background(), usuarioID, empresaID)
 	if err != nil {
 		return nil, err
 	}
