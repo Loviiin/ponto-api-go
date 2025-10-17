@@ -29,6 +29,7 @@ type Config struct {
 	JWTSecretKey string `mapstructure:"JWT_SECRET_KEY"`
 	// Chave da API do OpenCage para geocodificação
 	OpenCageAPIKey string `mapstructure:"API_OPENCAGE"`
+	BrasilApiUrl string `mapstructure:"BRASILAPI_URL"`
 }
 
 // --- FUNÇÃO LoadConfig COMPLETAMENTE NOVA ---
@@ -86,6 +87,10 @@ func LoadConfig(path string) (config Config, err error) {
 		return
 	}
 	err = viper.BindEnv("API_OPENCAGE")
+	if err != nil {
+		return
+	}
+	err = viper.BindEnv("BRASILAPI_URL")
 	if err != nil {
 		return
 	}

@@ -470,11 +470,8 @@ definitions:
       email:
         example: fulano@empresa.com
         type: string
-      empresa_id:
-        description: Dados do Contrato
-        example: 1
-        type: integer
       localidade_id:
+        description: Dados do Contrato
         example: 10
         type: integer
       nome:
@@ -493,7 +490,6 @@ definitions:
     - cpf
     - data_admissao
     - email
-    - empresa_id
     - localidade_id
     - nome
     - salario
@@ -916,6 +912,38 @@ paths:
       summary: Adiciona permissão a um cargo
       tags:
       - Cargos
+  /cep/{cep}:
+    get:
+      description: Retorna o endereço unificado a partir do CEP informado (8 dígitos,
+        com ou sem hífen).
+      parameters:
+      - description: CEP
+        in: path
+        name: cep
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Localidade'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Consulta CEP
+      tags:
+      - CEP
   /empresas:
     get:
       description: Retorna uma lista de todas as empresas cadastradas. Requer autenticação.
@@ -1223,7 +1251,8 @@ paths:
       consumes:
       - application/json
       description: Cria uma nova localidade (matriz ou filial) para uma empresa, buscando
-        o endereço e as coordenadas a partir do CEP. Requer permissão 'GERENCIAR_LOCALIDADES'.
+        o endereço e as coordenadas a partir do CEP (CEP deve ter 8 dígitos). Requer
+        permissão 'GERENCIAR_LOCALIDADES'.
       parameters:
       - description: Dados da nova localidade
         in: body

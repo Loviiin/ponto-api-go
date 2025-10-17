@@ -1,9 +1,11 @@
 package localidade
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	"github.com/Loviiin/ponto-api-go/pkg/cep"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/gin-gonic/gin"
 )
@@ -26,7 +28,7 @@ type createRequest struct {
 }
 
 // @Summary      Cria uma nova localidade
-// @Description  Cria uma nova localidade (matriz ou filial) para uma empresa, buscando o endereço e as coordenadas a partir do CEP. Requer permissão 'GERENCIAR_LOCALIDADES'.
+// @Description  Cria uma nova localidade (matriz ou filial) para uma empresa, buscando o endereço e as coordenadas a partir do CEP (CEP deve ter 8 dígitos). Requer permissão 'GERENCIAR_LOCALIDADES'.
 // @Tags         Localidades
 // @Accept       json
 // @Produce      json
@@ -51,6 +53,10 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	if err := h.service.Create(localidadeParcial); err != nil {
+		if errors.Is(err, cep.ErrInvalidCEP) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao criar localidade: " + err.Error()})
 		return
 	}

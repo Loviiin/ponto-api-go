@@ -23,16 +23,20 @@ import (
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/auth"
 	"github.com/Loviiin/ponto-api-go/internal/domain/cargo"
+	cephandler "github.com/Loviiin/ponto-api-go/internal/domain/cep"
 	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
 	"github.com/Loviiin/ponto-api-go/internal/domain/localidade"
 	"github.com/Loviiin/ponto-api-go/internal/domain/permissao"
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 
+	"github.com/Loviiin/ponto-api-go/pkg/brasilapi"
+	"github.com/Loviiin/ponto-api-go/pkg/cep"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
 	"github.com/Loviiin/ponto-api-go/pkg/scheduler"
+	"github.com/Loviiin/ponto-api-go/pkg/viacep"
 
 	// Vamos usar este pacote para as nossas constantes de permissão
 	"github.com/Loviiin/ponto-api-go/pkg/permissions"
@@ -172,8 +176,14 @@ func main() {
 	contratoRepo := contrato.NewContratoRepository(db)
 	localidadeRepo := localidade.NewRepository(db)
 
-	// Crie uma instância do serviço de geolocalização
-	geoService := geolocation.NewService(cfg.OpenCageAPIKey)
+	// CEP providers (BrasilAPI primário + ViaCEP fallback)
+	brasilAPIClient := brasilapi.NewClient(cfg.BrasilApiUrl)
+	viacepURL := "https://viacep.com.br/ws"
+	viaCEPClient := viacep.NewClient(viacepURL)
+	cepService := cep.NewService(brasilAPIClient, viaCEPClient)
+
+	// Crie uma instância do serviço de geolocalização usando o serviço de CEP
+	geoService := geolocation.NewService(cfg.OpenCageAPIKey, cepService)
 
 	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo)
 	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, db)
@@ -185,6 +195,9 @@ func main() {
 	bancoHorasService := bancohoras.NewBancoHorasService(pontoRepo, usuarioRepo, logBancoHorasRepo, db)
 	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, db)
 	localidadeService := localidade.NewService(localidadeRepo, geoService)
+
+	// CEP handler para consulta direta por CEP
+	cepHandler := cephandler.NewHandler(geoService)
 
 	// Relatório (espelho de ponto) - após bancoHorasService
 	relatorioService := relatorio.NewService(pontoRepo, usuarioRepo, logBancoHorasRepo, bancoHorasService)
@@ -260,6 +273,9 @@ func main() {
 	// Define o grupo de rotas da API.
 	apiV1 := router.Group("/api/v1")
 	{
+		// Endpoint público para testar consulta de CEP
+		apiV1.GET("/cep/:cep", cepHandler.GetByCEP)
+		apiV1.GET("/cep/v2/:cep", cepHandler.GetByCEPV2)
 
 		apiV1.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "UP"})

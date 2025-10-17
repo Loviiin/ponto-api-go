@@ -618,6 +618,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/cep/{cep}": {
+            "get": {
+                "description": "Retorna o endereço unificado a partir do CEP informado (8 dígitos, com ou sem hífen).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CEP"
+                ],
+                "summary": "Consulta CEP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CEP",
+                        "name": "cep",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/model.Localidade"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/empresas": {
             "get": {
                 "security": [
@@ -1088,7 +1135,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Cria uma nova localidade (matriz ou filial) para uma empresa, buscando o endereço e as coordenadas a partir do CEP. Requer permissão 'GERENCIAR_LOCALIDADES'.",
+                "description": "Cria uma nova localidade (matriz ou filial) para uma empresa, buscando o endereço e as coordenadas a partir do CEP (CEP deve ter 8 dígitos). Requer permissão 'GERENCIAR_LOCALIDADES'.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2815,7 +2862,6 @@ const docTemplate = `{
                 "cpf",
                 "data_admissao",
                 "email",
-                "empresa_id",
                 "localidade_id",
                 "nome",
                 "salario",
@@ -2838,12 +2884,8 @@ const docTemplate = `{
                     "type": "string",
                     "example": "fulano@empresa.com"
                 },
-                "empresa_id": {
-                    "description": "Dados do Contrato",
-                    "type": "integer",
-                    "example": 1
-                },
                 "localidade_id": {
+                    "description": "Dados do Contrato",
                     "type": "integer",
                     "example": 10
                 },
