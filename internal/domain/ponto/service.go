@@ -99,7 +99,8 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 		return nil, err
 	}
 
-	// Se a restrição está ativa e a tentativa é presencial mas fora do raio, rejeitar
+	// Se a restrição está ativa e o usuário está fora do raio, rejeitar a batida
+	// (independente da tentativa ser presencial ou remota - a regra bloqueia qualquer batida fora do raio)
 	if empresa.PresencialRestritoAoRaio && !dentroDoRaio {
 		return nil, fmt.Errorf("%w: você está fora do raio permitido (%.2fm de distância, raio máximo: %.2fm)", ErrGeofencingViolation, distanciaEmMetros, localidade.RaioGeofenceMetros)
 	}

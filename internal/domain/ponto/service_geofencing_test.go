@@ -201,8 +201,10 @@ func TestBaterPonto_GeofencingDisabled(t *testing.T) {
 		db:             nil,
 	}
 
-	// User is far from the location (should be classified as Remoto)
-	// Using coordinates approximately 500m away
+	// User is far from the location
+	// When geofencing is disabled, users can clock in from anywhere
+	// The system classifies based on distance: Presencial (within radius) or Remoto (outside radius)
+	// Using coordinates approximately 500m away - should be classified as Remoto
 	latitude := -15.804879  // ~550m away from the base location
 	longitude := -47.864162
 
