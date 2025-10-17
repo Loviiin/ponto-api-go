@@ -42,7 +42,7 @@ func TestGerarRelatorioCSV(t *testing.T) {
 		{ID: 1, UsuarioID: 10, Timestamp: inicio.Add(8 * time.Hour), Latitude: -10.1, Longitude: -50.2, Metodo: "Presencial"},
 		{ID: 2, UsuarioID: 10, Timestamp: inicio.Add(17 * time.Hour), Latitude: -10.2, Longitude: -50.3, Metodo: "Remoto"},
 	}
-	ps := &pontoService{pontoRepo: &mockRepo{registros: registros}}
+	ps := &pontoService{pontoRepo: &mockRepo{registros: registros}, empresaRepo: nil}
 	bytes_, contentType, filename, err := ps.GerarRelatorio(10, 1, inicio, fim, "csv")
 	if err != nil {
 		t.Fatalf("erro não esperado: %v", err)
@@ -66,7 +66,7 @@ func TestGerarRelatorioPDF(t *testing.T) {
 	inicio := time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC)
 	fim := time.Date(2025, 10, 2, 23, 59, 59, 0, time.UTC)
 	registros := []model.RegistroPonto{{ID: 1, UsuarioID: 10, Timestamp: inicio.Add(8 * time.Hour), Latitude: 1.2345, Longitude: 2.3456, Metodo: "Presencial"}}
-	ps := &pontoService{pontoRepo: &mockRepo{registros: registros}}
+	ps := &pontoService{pontoRepo: &mockRepo{registros: registros}, empresaRepo: nil}
 	bytes_, contentType, filename, err := ps.GerarRelatorio(10, 1, inicio, fim, "pdf")
 	if err != nil {
 		t.Fatalf("erro não esperado: %v", err)
@@ -89,7 +89,7 @@ func TestGerarRelatorioPDF(t *testing.T) {
 func TestGerarRelatorioFormatoInvalido(t *testing.T) {
 	inicio := time.Now().Add(-24 * time.Hour)
 	fim := time.Now()
-	ps := &pontoService{pontoRepo: &mockRepo{registros: nil}}
+	ps := &pontoService{pontoRepo: &mockRepo{registros: nil}, empresaRepo: nil}
 	_, _, _, err := ps.GerarRelatorio(10, 1, inicio, fim, "xls")
 	if err == nil {
 		t.Fatalf("era esperado erro para formato inválido")
@@ -100,7 +100,7 @@ func TestGerarRelatorioFormatoCaseInsensitive(t *testing.T) {
 	inicio := time.Now().Add(-2 * time.Hour)
 	fim := time.Now()
 	registros := []model.RegistroPonto{{ID: 1, UsuarioID: 10, Timestamp: inicio.Add(30 * time.Minute)}}
-	ps := &pontoService{pontoRepo: &mockRepo{registros: registros}}
+	ps := &pontoService{pontoRepo: &mockRepo{registros: registros}, empresaRepo: nil}
 	// Maiúsculo
 	if _, ct, fn, err := ps.GerarRelatorio(10, 1, inicio, fim, "PDF"); err != nil || ct != "application/pdf" || !strings.HasSuffix(fn, ".pdf") {
 		t.Fatalf("esperado PDF válido em formato maiúsculo, err=%v ct=%s fn=%s", err, ct, fn)
@@ -114,7 +114,7 @@ func TestGerarRelatorioIntervaloInvertido(t *testing.T) {
 	fim := time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC)
 	inicio := time.Date(2025, 10, 5, 0, 0, 0, 0, time.UTC) // invertido (inicio > fim)
 	mr := &mockRepo{registros: nil}
-	ps := &pontoService{pontoRepo: mr}
+	ps := &pontoService{pontoRepo: mr, empresaRepo: nil}
 	if _, _, _, err := ps.GerarRelatorio(10, 1, inicio, fim, "csv"); err != nil {
 		t.Fatalf("erro inesperado: %v", err)
 	}
