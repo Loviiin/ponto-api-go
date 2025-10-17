@@ -1,6 +1,7 @@
 package relatorio
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ func (m *mockPontoRepo) UpdatePonto(p *model.RegistroPonto) error { return nil }
 // Minimal usuario reader already defined in service.go as usuarioReader; implement it.
 type mockUserRepo struct{ carga int }
 
-func (r *mockUserRepo) FindByID(id uint, empresaID uint) (*model.Usuario, error) {
+func (r *mockUserRepo) FindByID(ctx context.Context, id uint, empresaID uint) (*model.Usuario, error) {
 	return &model.Usuario{ID: id, Contrato: model.Contrato{ID: 1, EmpresaID: empresaID, Cargo: model.Cargo{ID: 1, CargaHorariaDiariaMinutos: uint(r.carga)}}}, nil
 }
 

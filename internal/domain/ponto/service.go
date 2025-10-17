@@ -2,6 +2,7 @@ package ponto
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -49,7 +50,7 @@ func NewPontoService(
 }
 
 func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, longitude float64) (*model.RegistroPonto, error) {
-	user, err := s.userRepo.FindByID(usuarioID, empresaID)
+	user, err := s.userRepo.FindByID(context.Background(), usuarioID, empresaID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("usuário não encontrado ou não pertence a esta empresa")
@@ -108,7 +109,7 @@ func (s *pontoService) GetPontosDoDia(usuarioID uint, dia time.Time) ([]model.Re
 }
 
 func (s *pontoService) AjustarPonto(usuarioID, empresaID, adminID uint, timestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error) {
-	_, err := s.userRepo.FindByID(usuarioID, empresaID)
+	_, err := s.userRepo.FindByID(context.Background(), usuarioID, empresaID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("usuário alvo não encontrado ou não pertence a esta empresa")
@@ -165,7 +166,7 @@ func (s *pontoService) GerarRelatorio(userID, empresaID uint, inicio, fim time.T
 	// Buscar usuário para obter nome (se existir) - guarda nil para testes
 	userName := fmt.Sprintf("Usuário %d", userID)
 	if s.userRepo != nil {
-		if usuarioObj, errUser := s.userRepo.FindByID(userID, empresaID); errUser == nil && usuarioObj != nil && usuarioObj.Nome != "" {
+		if usuarioObj, errUser := s.userRepo.FindByID(context.Background(), userID, empresaID); errUser == nil && usuarioObj != nil && usuarioObj.Nome != "" {
 			userName = usuarioObj.Nome
 		}
 	}
@@ -348,20 +349,26 @@ func gerarSlugNome(nome string) string {
 	// remover acentos simples substituindo por equivalente ASCII básico
 	// abordagem simples: trocar caracteres comuns manualmente
 	repl := map[string]string{
-		"á":"a","à":"a","â":"a","ã":"a","ä":"a",
-		"é":"e","è":"e","ê":"e","ë":"e",
-		"í":"i","ì":"i","î":"i","ï":"i",
-		"ó":"o","ò":"o","ô":"o","õ":"o","ö":"o",
-		"ú":"u","ù":"u","û":"u","ü":"u",
-		"ç":"c",
+		"á": "a", "à": "a", "â": "a", "ã": "a", "ä": "a",
+		"é": "e", "è": "e", "ê": "e", "ë": "e",
+		"í": "i", "ì": "i", "î": "i", "ï": "i",
+		"ó": "o", "ò": "o", "ô": "o", "õ": "o", "ö": "o",
+		"ú": "u", "ù": "u", "û": "u", "ü": "u",
+		"ç": "c",
 	}
-	for k,v := range repl { nome = strings.ReplaceAll(nome, k, v) }
+	for k, v := range repl {
+		nome = strings.ReplaceAll(nome, k, v)
+	}
 	// manter apenas letras, numeros e converter espaços / separadores em '-'
 	espacos := regexp.MustCompile(`[\s_]+`)
 	nome = espacos.ReplaceAllString(nome, "-")
 	inval := regexp.MustCompile(`[^a-z0-9\-]`)
 	nome = inval.ReplaceAllString(nome, "")
-	if nome == "" { return "usuario" }
-	if len(nome) > 40 { nome = nome[:40] }
+	if nome == "" {
+		return "usuario"
+	}
+	if len(nome) > 40 {
+		nome = nome[:40]
+	}
 	return nome
 }

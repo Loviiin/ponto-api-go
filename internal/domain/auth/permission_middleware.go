@@ -2,11 +2,12 @@ package auth
 
 import (
 	"errors"
+	"net/http"
+
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"net/http"
 )
 
 // PermissionMiddleware verifica se o cargo de um utilizador tem uma permissão específica.
@@ -43,7 +44,7 @@ func PermissionMiddleware(usuarioService usuario.UsuarioService, funcoesService 
 		for _, p := range user.Contrato.Cargo.Permissoes {
 			if p.Nome == requiredPermission {
 				hasPermission = true
-				break 
+				break
 			}
 		}
 		if !hasPermission {

@@ -35,3 +35,4 @@ go.work.sum
 # Docker
 .Dockerfile.swp
 .Dockerfile
+.copilot-instructions.md

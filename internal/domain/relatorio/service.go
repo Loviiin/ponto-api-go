@@ -1,6 +1,7 @@
 package relatorio
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -18,7 +19,7 @@ type Service interface {
 
 // Minimal interface to obtain user with contract & cargo
 type usuarioReader interface {
-	FindByID(id uint, empresaID uint) (*model.Usuario, error)
+	FindByID(ctx context.Context, id uint, empresaID uint) (*model.Usuario, error)
 }
 
 type service struct {
@@ -37,7 +38,7 @@ func (s *service) GerarEspelhoPonto(userID uint, empresaID uint, inicio, fim tim
 		inicio, fim = fim, inicio
 	}
 
-	usr, err := s.usuarioRead.FindByID(userID, empresaID)
+	usr, err := s.usuarioRead.FindByID(context.Background(), userID, empresaID)
 	if err != nil {
 		return nil, err
 	}

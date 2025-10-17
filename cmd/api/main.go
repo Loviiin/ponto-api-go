@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 
 	"github.com/Loviiin/ponto-api-go/pkg/brasilapi"
+	"github.com/Loviiin/ponto-api-go/pkg/cache"
 	"github.com/Loviiin/ponto-api-go/pkg/cep"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
@@ -148,8 +150,8 @@ func main() {
 	}
 	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
 
-	// NOVO: Verifica a variável de ambiente para decidir se reseta o BD
-	if os.Getenv("RESET_DB_ON_START") == "true" {
+	resetDB := os.Getenv("RESET_DB_ON_START") == "true"
+	if resetDB {
 		resetAndSeedDatabase(db)
 	} else {
 		// Adicionámos o &model.Permissao{} para a migração automática
@@ -166,11 +168,44 @@ func main() {
 	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
 	funcoesService := funcoes.NewFuncoes()
 
-	usuarioRepo := usuario.NewUsuarioRepository(db)
+	// Inicializa o serviço de cache: preferir Upstash REST se variáveis estiverem presentes
+	var cacheService cache.Service
+	upstashURL := cfg.UpstashRedisRestURL
+	upstashToken := cfg.UpstashRedisRestToken
+	if upstashURL != "" && upstashToken != "" {
+		cs, cErr := cache.NewUpstashService(upstashURL, upstashToken)
+		if cErr != nil {
+			log.Panicf("Falha ao inicializar Upstash REST: %v", cErr)
+		}
+		cacheService = cs
+		log.Println("Cache: usando Upstash REST API")
+	} else {
+		cs, cErr := cache.NewRedisService(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
+		if cErr != nil {
+			log.Panicf("Falha ao conectar ao Redis: %v", cErr)
+		}
+		cacheService = cs
+		log.Println("Cache: usando Redis nativo")
+	}
+
+	// Se resetDB == true, limpa também o cache se o provider suportar.
+	if resetDB {
+		if flusher, ok := cacheService.(cache.Flusher); ok {
+			if err := flusher.FlushAll(context.Background()); err != nil {
+				log.Printf("[cache] falha ao limpar cache após reset DB: %v", err)
+			} else {
+				log.Println("[cache] cache limpo após reset DB")
+			}
+		} else {
+			log.Println("[cache] provider não suporta FlushAll; considere invalidar por prefixo")
+		}
+	}
+
+	usuarioRepo := usuario.NewUsuarioRepository(db, cacheService)
 	pontoRepo := ponto.NewPontoRepository(db)
-	empresaRepo := empresa.NewEmpresaRepository(db)
-	cargoRepo := cargo.NewCargoRepository(db)
-	permissaoRepo := permissao.NewRepository(db)
+	empresaRepo := empresa.NewEmpresaRepository(db, cacheService)
+	cargoRepo := cargo.NewCargoRepository(db, cacheService)
+	permissaoRepo := permissao.NewRepository(db, cacheService)
 	justificativaRepo := justificativa.NewRepository(db)
 	logBancoHorasRepo := logbancohoras.NewRepository(db)
 	contratoRepo := contrato.NewContratoRepository(db)

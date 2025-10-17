@@ -29,7 +29,16 @@ type Config struct {
 	JWTSecretKey string `mapstructure:"JWT_SECRET_KEY"`
 	// Chave da API do OpenCage para geocodificação
 	OpenCageAPIKey string `mapstructure:"API_OPENCAGE"`
-	BrasilApiUrl string `mapstructure:"BRASILAPI_URL"`
+	BrasilApiUrl   string `mapstructure:"BRASILAPI_URL"`
+
+	// Cache: Upstash REST
+	UpstashRedisRestURL   string `mapstructure:"UPSTASH_REDIS_REST_URL"`
+	UpstashRedisRestToken string `mapstructure:"UPSTASH_REDIS_REST_TOKEN"`
+
+	// Cache: Redis nativo
+	RedisAddr     string `mapstructure:"REDIS_ADDR"`
+	RedisPassword string `mapstructure:"REDIS_PASSWORD"`
+	RedisDB       int    `mapstructure:"REDIS_DB"`
 }
 
 // --- FUNÇÃO LoadConfig COMPLETAMENTE NOVA ---
@@ -44,6 +53,7 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.SetDefault("API_PORT", "8083")
 	// Definimos 'require' como padrão para o SSL, que é o mais seguro e exigido pelo Neon
 	viper.SetDefault("DB_SSLMODE", "require")
+	viper.SetDefault("REDIS_DB", 0)
 
 	// Tenta ler o ficheiro .env (para desenvolvimento local)
 	// Se não encontrar, não há problema, continuará com as variáveis de ambiente.
@@ -92,6 +102,23 @@ func LoadConfig(path string) (config Config, err error) {
 	}
 	err = viper.BindEnv("BRASILAPI_URL")
 	if err != nil {
+		return
+	}
+	// Cache: Upstash REST
+	if err = viper.BindEnv("UPSTASH_REDIS_REST_URL"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("UPSTASH_REDIS_REST_TOKEN"); err != nil {
+		return
+	}
+	// Cache: Redis nativo
+	if err = viper.BindEnv("REDIS_ADDR"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("REDIS_PASSWORD"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("REDIS_DB"); err != nil {
 		return
 	}
 	// --- FIM DA CORREÇÃO ---

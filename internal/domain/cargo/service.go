@@ -1,6 +1,8 @@
 package cargo
 
 import (
+	"context"
+
 	"github.com/Loviiin/ponto-api-go/internal/model"
 )
 
@@ -27,7 +29,7 @@ func (s *cargoService) Create(cargo *model.Cargo) error {
 }
 
 func (s *cargoService) FindByID(id uint, empresaID uint) (*model.Cargo, error) {
-	return s.repo.FindByID(id, empresaID)
+	return s.repo.FindByID(context.Background(), id, empresaID)
 }
 
 func (s *cargoService) GetAllByEmpresaID(empresaID uint) ([]model.Cargo, error) {
@@ -35,7 +37,7 @@ func (s *cargoService) GetAllByEmpresaID(empresaID uint) ([]model.Cargo, error) 
 }
 
 func (s *cargoService) Update(id uint, empresaID uint, dados map[string]interface{}) error {
-	_, err := s.repo.FindByID(id, empresaID)
+	_, err := s.repo.FindByID(context.Background(), id, empresaID)
 	if err != nil {
 		return err // Retorna o erro (ex: not found)
 	}
@@ -43,7 +45,7 @@ func (s *cargoService) Update(id uint, empresaID uint, dados map[string]interfac
 }
 
 func (s *cargoService) Delete(id uint, empresaID uint) error {
-	_, err := s.repo.FindByID(id, empresaID)
+	_, err := s.repo.FindByID(context.Background(), id, empresaID)
 	if err != nil {
 		return err
 	}
@@ -52,7 +54,7 @@ func (s *cargoService) Delete(id uint, empresaID uint) error {
 
 func (s *cargoService) AddPermissionToCargo(cargoID uint, permissaoID uint, empresaID uint) error {
 
-	_, err := s.repo.FindByID(cargoID, empresaID)
+	_, err := s.repo.FindByID(context.Background(), cargoID, empresaID)
 	if err != nil {
 		return err
 	}
