@@ -14,23 +14,7 @@ A **Ponto API** é um backend de alta performance para um sistema de Ponto Eletr
 
 O sistema foi projetado desde o início com uma **arquitetura multi-tenant**, permitindo que múltiplas empresas utilizem a mesma instância da aplicação de forma segura e isolada.
 
----
 
-## 📜 Licenciamento
-
-Este projeto opera sob um modelo de **dual-license**, oferecendo flexibilidade para diferentes tipos de uso:
-
-1.  **Community Edition (Gratuita):**
-    *   **Licença:** [GNU AGPLv3](LICENSE)
-    *   **Ideal para:** Estudantes, startups em estágio inicial e projetos de código aberto.
-    *   **Descrição:** Uma versão funcional e básica, perfeita para aprender e para uso em projetos que também são de código aberto. Requer que quaisquer modificações distribuídas ou usadas em um serviço de rede também sejam de código aberto.
-
-2.  **Enterprise Edition (Comercial):**
-    *   **Licença:** Comercial
-    *   **Ideal para:** Empresas que necessitam de funcionalidades avançadas, suporte prioritário e a flexibilidade de uma licença comercial.
-    *   **Descrição:** Inclui todos os recursos da versão community, além de funcionalidades exclusivas, como integrações avançadas, relatórios personalizados, suporte técnico dedicado e a permissão para manter o código-fonte modificado como proprietário. Para adquirir uma licença comercial, entre em contato.
-
----
 
 ## 🏛️ Conceitos Chave da Arquitetura
 
@@ -151,17 +135,18 @@ O prefixo base para todos os endpoints é `/api/v1`.
 
 ---
 
-## 🗺️ Próximos Passos (Roadmap)
+## 📜 Licenciamento
 
-A fundação está sólida, mas o caminho a seguir é empolgante. As próximas grandes features planejadas são:
+Este projeto opera sob um modelo de **dual-license**, oferecendo flexibilidade para diferentes tipos de uso:
 
--   [ ] **Épico: Motor de Políticas (RBAC):** Transformar a verificação de cargos em um sistema de permissões configurável por empresa.
--   [ ] **Banco de Horas:** Implementar a lógica de cálculo de saldo de horas.
--   [ ] **Gestão de Ponto:** Permitir que administradores editem e adicionem registros de ponto.
--   [ ] **Testes:** Aumentar a cobertura de testes unitários e de integração.
--   [ ] **Documentação Interativa:** Adicionar Swagger para documentar a API.
--   [ ] **Containerização da API:** Criar um `Dockerfile` para a aplicação Go.
+1.  **Community Edition (Gratuita):**
+    *   **Licença:** [GNU AGPLv3](LICENSE)
+    *   **Ideal para:** Estudantes, startups em estágio inicial e projetos de código aberto.
+    *   **Descrição:** Uma versão funcional e básica, perfeita para aprender e para uso em projetos que também são de código aberto. Requer que quaisquer modificações distribuídas ou usadas em um serviço de rede também sejam de código aberto.
 
-## 📄 Licença
+2.  **Enterprise Edition (Comercial):**
+    *   **Licença:** Comercial
+    *   **Ideal para:** Empresas que necessitam de funcionalidades avançadas, suporte prioritário e a flexibilidade de uma licença comercial.
+    *   **Descrição:** Inclui todos os recursos da versão community, além de funcionalidades exclusivas, como integrações avançadas, relatórios personalizados, suporte técnico dedicado e a permissão para manter o código-fonte modificado como proprietário. Para adquirir uma licença comercial, entre em contato.
 
-Este projeto está sob a licença MIT.
+---
