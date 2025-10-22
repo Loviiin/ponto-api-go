@@ -33,7 +33,9 @@ import (
 
 	"github.com/Loviiin/ponto-api-go/pkg/brasilapi"
 	"github.com/Loviiin/ponto-api-go/pkg/cache"
+
 	"github.com/Loviiin/ponto-api-go/pkg/cep"
+	// "github.com/Loviiin/ponto-api-go/pkg/distancematrix"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
@@ -100,6 +102,7 @@ func resetAndSeedDatabase(db *gorm.DB) {
 // --- CONFIGURAÇÃO DE CORS ---
 // Lista explícita de domínios permitidos (mais seguro e legível)
 var allowedOrigins = map[string]bool{
+	"https://nexora-app.vercel.app": 									true,
 	"https://meu-ponto-frontend.vercel.app":                            true,
 	"https://meu-ponto-frontend-git-main-loviins-projects.vercel.app":  true,
 	"https://meu-ponto-frontend-n9lx9odbj-loviins-projects.vercel.app": true,
@@ -215,10 +218,15 @@ func main() {
 	brasilAPIClient := brasilapi.NewClient(cfg.BrasilApiUrl)
 	viacepURL := "https://viacep.com.br/ws"
 	viaCEPClient := viacep.NewClient(viacepURL)
-	cepService := cep.NewService(brasilAPIClient, viaCEPClient)
+	// Mantido apenas BrasilAPI e ViaCEP para compor o geolocation
 
-	// Crie uma instância do serviço de geolocalização usando o serviço de CEP
-	geoService := geolocation.NewService(cfg.OpenCageAPIKey, cepService)
+	// Distance Matrix AI client
+	// dmClient := distancematrix.NewClient(cfg.DistanceMatrixAPIKey) // Removido pois não é mais usado diretamente
+
+	// Serviço de CEP com fallback BrasilAPI + ViaCEP
+	cepService := cep.NewService(brasilAPIClient, viaCEPClient)
+	// Serviço de geolocalização: usa DistanceMatrixAPIKey e o serviço CEP
+	geoService := geolocation.NewService(cfg.DistanceMatrixAPIKey, cepService)
 
 	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo)
 	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, db)
@@ -234,8 +242,8 @@ func main() {
 	// CEP handler para consulta direta por CEP
 	cepHandler := cephandler.NewHandler(geoService)
 
-	// Relatório (espelho de ponto) - após bancoHorasService
-	relatorioService := relatorio.NewService(pontoRepo, usuarioRepo, logBancoHorasRepo, bancoHorasService)
+	// Relatório (espelho de ponto) - após bancoHorasService e justificativaRepo
+	relatorioService := relatorio.NewServiceWithCache(pontoRepo, usuarioRepo, logBancoHorasRepo, justificativaRepo, bancoHorasService, cacheService)
 	relatorioHandler := relatorio.NewHandler(relatorioService, funcoesService)
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, funcoesService)
@@ -263,6 +271,7 @@ func main() {
 	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS)
 	canManageJustificativas := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_JUSTIFICATIVAS)
 	canManageLocalidades := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_LOCALIDADES)
+	canViewRelatoriosGerais := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VISUALIZAR_RELATORIOS_GERAIS)
 
 	// Scheduler controlado por variável de ambiente ENABLE_SCHEDULER=true
 	if enable, err := strconv.ParseBool(os.Getenv("ENABLE_SCHEDULER")); err == nil && enable {
@@ -309,7 +318,6 @@ func main() {
 	apiV1 := router.Group("/api/v1")
 	{
 		// Endpoint público para testar consulta de CEP
-		apiV1.GET("/cep/:cep", cepHandler.GetByCEP)
 		apiV1.GET("/cep/v2/:cep", cepHandler.GetByCEPV2)
 
 		apiV1.GET("/health", func(c *gin.Context) {
@@ -360,6 +368,10 @@ func main() {
 			// Espelho de Ponto
 			rotasProtegidas.GET("/relatorios/ponto/espelho/me", relatorioHandler.GetEspelhoMe)
 			rotasProtegidas.GET("/relatorios/ponto/espelho/usuario/:id", canViewPonto, relatorioHandler.GetEspelhoUsuario)
+
+			// Relatório Geral de Ponto
+			rotasProtegidas.GET("/relatorios/geral", canViewRelatoriosGerais, relatorioHandler.GerarRelatorioGeral)
+			rotasProtegidas.GET("/relatorios/geral/export", canViewRelatoriosGerais, relatorioHandler.ExportarRelatorioGeral)
 
 			// Rotas de Empresa (Ações gerais)
 			rotasProtegidas.GET("/empresas", empresaHandler.GetAllEmpresasHandler)

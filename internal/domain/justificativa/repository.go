@@ -1,6 +1,8 @@
 package justificativa
 
 import (
+	"time"
+
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"gorm.io/gorm"
 )
@@ -9,6 +11,7 @@ type Repository interface {
 	Create(justificativa *model.Justificativa) error
 	FindByID(id uint, empresaID uint) (*model.Justificativa, error)
 	FindByStatus(empresaID uint, status string) ([]model.Justificativa, error)
+	FindByUsuarioIDAndPeriodo(usuarioID uint, empresaID uint, inicio, fim time.Time) ([]model.Justificativa, error)
 	Update(justificativa *model.Justificativa) error
 	WithTransaction(tx *gorm.DB) Repository
 }
@@ -46,4 +49,12 @@ func (r *repository) FindByStatus(empresaID uint, status string) ([]model.Justif
 
 func (r *repository) Update(justificativa *model.Justificativa) error {
 	return r.Db.Save(justificativa).Error
+}
+
+func (r *repository) FindByUsuarioIDAndPeriodo(usuarioID uint, empresaID uint, inicio, fim time.Time) ([]model.Justificativa, error) {
+	var justificativas []model.Justificativa
+	err := r.Db.Where("usuario_id = ? AND empresa_id = ? AND data_ocorrencia BETWEEN ? AND ?",
+		usuarioID, empresaID, inicio, fim).
+		Find(&justificativas).Error
+	return justificativas, err
 }

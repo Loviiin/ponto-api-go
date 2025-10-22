@@ -25,7 +25,7 @@ func NewHandler(s geolocation.Service) *Handler { return &Handler{service: s} }
 // @Success       200  {object}  model.Localidade
 // @Failure       400  {object}  map[string]string
 // @Failure       500  {object}  map[string]string
-// @Router        /cep/{cep} [get]
+// @Router        /cep/v2/{cep} [get]
 func (h *Handler) GetByCEP(c *gin.Context) {
 	cepParam := c.Param("cep")
 	localidade, err := h.service.GetLocationFromCEP(cepParam)

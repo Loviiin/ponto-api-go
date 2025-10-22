@@ -29,6 +29,7 @@ func SeedPermissions(db *gorm.DB) map[string]model.Permissao {
 		{Nome: permissions.GERENCIAR_JUSTIFICATIVAS, Descricao: "Permite gerenciar justificativas de ponto dos funcionários."},
 		{Nome: permissions.GERENCIAR_LOCALIDADES, Descricao: "Permite criar, editar e apagar localidades da empresa."},
 		{Nome: permissions.VER_JUSTIFICATIVAS_PENDENTES, Descricao: "Permite visualizar justificativas pendentes de aprovação."},
+		{Nome: permissions.VISUALIZAR_RELATORIOS_GERAIS, Descricao: "Permite visualizar e exportar relatórios gerais de ponto de todos os funcionários."},
 	}
 
 	for i := range permissoes {
@@ -70,6 +71,7 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.GERENCIAR_JUSTIFICATIVAS],
 		mapaPermissoes[permissions.GERENCIAR_LOCALIDADES],
 		mapaPermissoes[permissions.VER_JUSTIFICATIVAS_PENDENTES],
+		mapaPermissoes[permissions.VISUALIZAR_RELATORIOS_GERAIS],
 	}
 	gerentePerms := []model.Permissao{
 		mapaPermissoes[permissions.GERENCIAR_CARGOS],
@@ -85,6 +87,7 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.VER_JUSTIFICATIVAS_PENDENTES],
 		// Correção: permitir que Gerente gerencie localidades (necessário para cadastro)
 		mapaPermissoes[permissions.GERENCIAR_LOCALIDADES],
+		mapaPermissoes[permissions.VISUALIZAR_RELATORIOS_GERAIS],
 	}
 	colaboradorPerms := []model.Permissao{
 		mapaPermissoes[permissions.EDITAR_PROPRIA_CONTA],
@@ -195,14 +198,15 @@ func SeedSuperAdmin(db *gorm.DB) {
 			NivelHierarquia: 1000000,
 		}
 
-		// Associar todas as permissões ao Super Admin
+		// Criar o cargo primeiro
+		db.Where(model.Cargo{Nome: superCargo.Nome, EmpresaID: empresa.ID}).FirstOrCreate(&superCargo)
+
+		// Depois associar todas as permissões ao Super Admin
 		var todasPermissoes []model.Permissao
 		for _, p := range mapaPermissoes {
 			todasPermissoes = append(todasPermissoes, p)
 		}
 		db.Model(&superCargo).Association("Permissoes").Replace(todasPermissoes)
-
-		db.Where(model.Cargo{Nome: superCargo.Nome, EmpresaID: empresa.ID}).FirstOrCreate(&superCargo)
 
 		c := model.Contrato{
 			UsuarioID:    super.ID,

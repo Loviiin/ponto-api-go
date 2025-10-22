@@ -433,6 +433,17 @@ definitions:
       usuario_id:
         type: integer
     type: object
+  relatorio.JustificativaDTO:
+    properties:
+      descricao:
+        type: string
+      id:
+        type: integer
+      status:
+        type: string
+      tipo:
+        type: string
+    type: object
   relatorio.ParMarcacao:
     properties:
       entrada:
@@ -447,6 +458,76 @@ definitions:
       inicio:
         type: string
     type: object
+  relatorio.RelatorioDiaDTO:
+    properties:
+      carga_esperada_hhmm:
+        type: string
+      carga_esperada_minutos:
+        type: integer
+      data:
+        type: string
+      horas_extras_minutos:
+        description: positivo se trabalhou mais
+        type: integer
+      horas_faltantes_minutos:
+        description: positivo se trabalhou menos
+        type: integer
+      inconsistente:
+        type: boolean
+      justificativa:
+        $ref: '#/definitions/relatorio.JustificativaDTO'
+      marcacoes:
+        items:
+          $ref: '#/definitions/relatorio.ParMarcacao'
+        type: array
+      saldo_banco_horas_minutos:
+        type: integer
+      total_trabalhado_hhmm:
+        type: string
+      total_trabalhado_minutos:
+        type: integer
+    type: object
+  relatorio.RelatorioGeralDTO:
+    properties:
+      periodo:
+        $ref: '#/definitions/relatorio.PeriodoInterval'
+      usuarios:
+        items:
+          $ref: '#/definitions/relatorio.RelatorioUsuarioDTO'
+        type: array
+    type: object
+  relatorio.RelatorioUsuarioDTO:
+    properties:
+      dias:
+        items:
+          $ref: '#/definitions/relatorio.RelatorioDiaDTO'
+        type: array
+      periodo:
+        $ref: '#/definitions/relatorio.PeriodoInterval'
+      resumo:
+        $ref: '#/definitions/relatorio.ResumoUsuarioDTO'
+      usuario:
+        $ref: '#/definitions/relatorio.UsuarioInfoDTO'
+    type: object
+  relatorio.ResumoUsuarioDTO:
+    properties:
+      saldo_banco_horas_final_minutos:
+        type: integer
+      saldo_banco_horas_inicial_minutos:
+        type: integer
+      total_horas_extras_hhmm:
+        type: string
+      total_horas_extras_minutos:
+        type: integer
+      total_horas_faltantes_hhmm:
+        type: string
+      total_horas_faltantes_minutos:
+        type: integer
+      total_horas_trabalhadas_hhmm:
+        type: string
+      total_horas_trabalhadas_minutos:
+        type: integer
+    type: object
   relatorio.TotaisPeriodo:
     properties:
       saldo_final_minutos:
@@ -455,6 +536,19 @@ definitions:
         type: string
       trabalhado_minutos:
         type: integer
+    type: object
+  relatorio.UsuarioInfoDTO:
+    properties:
+      cargo_nome:
+        type: string
+      cpf:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      nome:
+        type: string
     type: object
   usuario.CriarUsuarioRequest:
     properties:
@@ -912,10 +1006,11 @@ paths:
       summary: Adiciona permissão a um cargo
       tags:
       - Cargos
-  /cep/{cep}:
+  /cep/v2/{cep}:
     get:
-      description: Retorna o endereço unificado a partir do CEP informado (8 dígitos,
-        com ou sem hífen).
+      description: Versão 2 do serviço de busca por CEP que inclui latitude e longitude
+        além dos dados básicos. Utiliza múltiplos provedores e enriquecimento via
+        geolocalização.
       parameters:
       - description: CEP
         in: path
@@ -941,9 +1036,9 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Consulta CEP
+      summary: Busca por CEP com múltiplos providers e geolocalização.
       tags:
-      - CEP
+      - CEP V2
   /empresas:
     get:
       description: Retorna uma lista de todas as empresas cadastradas. Requer autenticação.
@@ -1756,6 +1851,140 @@ paths:
       security:
       - BearerAuth: []
       summary: (Admin) Obtém espelho de ponto de um usuário
+      tags:
+      - Relatórios
+  /relatorios/geral:
+    get:
+      description: 'Retorna um relatório detalhado de ponto para um período, incluindo
+        horas trabalhadas, extras, faltantes e banco de horas. A visualização de dados
+        de outros usuários respeita a hierarquia de cargos: usuários só podem visualizar
+        dados de funcionários com nível hierárquico menor. SuperAdmin e usuários com
+        a permissão VISUALIZAR_RELATORIOS_GERAIS podem acessar todos os dados.'
+      parameters:
+      - description: Data inicial (YYYY-MM-DD)
+        in: query
+        name: data_inicio
+        required: true
+        type: string
+      - description: Data final (YYYY-MM-DD)
+        in: query
+        name: data_fim
+        required: true
+        type: string
+      - description: ID do usuário (opcional, se omitido retorna todos os usuários
+          ativos)
+        in: query
+        name: usuario_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/relatorio.RelatorioGeralDTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Sem permissão ou tentativa de acessar usuário com nível hierárquico
+            igual ou superior
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Gera relatório geral de ponto
+      tags:
+      - Relatórios
+  /relatorios/geral/export:
+    get:
+      description: 'Gera um arquivo (CSV ou PDF) com o relatório geral de ponto para
+        um período específico. Suporta paginação para relatórios de múltiplos usuários.
+        A exportação de dados de outros usuários respeita a hierarquia de cargos:
+        usuários só podem exportar dados de funcionários com nível hierárquico menor.
+        SuperAdmin e usuários com a permissão VISUALIZAR_RELATORIOS_GERAIS podem exportar
+        todos os dados.'
+      parameters:
+      - description: Formato do arquivo (csv ou pdf)
+        enum:
+        - csv
+        - pdf
+        in: query
+        name: formato
+        required: true
+        type: string
+      - description: Data inicial (YYYY-MM-DD)
+        in: query
+        name: data_inicio
+        required: true
+        type: string
+      - description: Data final (YYYY-MM-DD)
+        in: query
+        name: data_fim
+        required: true
+        type: string
+      - description: ID do usuário (opcional, se omitido exporta todos)
+        in: query
+        name: usuario_id
+        type: integer
+      - description: 'Limite de usuários por página (padrão: 50)'
+        in: query
+        name: limite
+        type: integer
+      - description: 'Deslocamento para paginação (padrão: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Arquivo gerado
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Sem permissão ou tentativa de acessar usuário com nível hierárquico
+            igual ou superior
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Exporta relatório geral de ponto
       tags:
       - Relatórios
   /usuarios:

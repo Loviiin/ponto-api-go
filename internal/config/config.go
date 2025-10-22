@@ -27,9 +27,9 @@ type Config struct {
 
 	// Chave secreta para assinar os tokens JWT (usaremos mais tarde)
 	JWTSecretKey string `mapstructure:"JWT_SECRET_KEY"`
-	// Chave da API do OpenCage para geocodificação
-	OpenCageAPIKey string `mapstructure:"API_OPENCAGE"`
-	BrasilApiUrl   string `mapstructure:"BRASILAPI_URL"`
+	// Chave da API do Distance Matrix AI para geocodificação
+	DistanceMatrixAPIKey string `mapstructure:"DISTANCEMATRIX_API_KEY"`
+	BrasilApiUrl         string `mapstructure:"BRASILAPI_URL"`
 
 	// Cache: Upstash REST
 	UpstashRedisRestURL   string `mapstructure:"UPSTASH_REDIS_REST_URL"`
@@ -96,8 +96,8 @@ func LoadConfig(path string) (config Config, err error) {
 	if err != nil {
 		return
 	}
-	err = viper.BindEnv("API_OPENCAGE")
-	if err != nil {
+	// Geocoding provider (Distance Matrix AI)
+	if err = viper.BindEnv("DISTANCEMATRIX_API_KEY"); err != nil {
 		return
 	}
 	err = viper.BindEnv("BRASILAPI_URL")

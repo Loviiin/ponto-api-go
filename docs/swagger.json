@@ -612,16 +612,16 @@
                 }
             }
         },
-        "/cep/{cep}": {
+        "/cep/v2/{cep}": {
             "get": {
-                "description": "Retorna o endereço unificado a partir do CEP informado (8 dígitos, com ou sem hífen).",
+                "description": "Versão 2 do serviço de busca por CEP que inclui latitude e longitude além dos dados básicos. Utiliza múltiplos provedores e enriquecimento via geolocalização.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "CEP"
+                    "CEP V2"
                 ],
-                "summary": "Consulta CEP",
+                "summary": "Busca por CEP com múltiplos providers e geolocalização.",
                 "parameters": [
                     {
                         "type": "string",
@@ -1893,6 +1893,192 @@
                 }
             }
         },
+        "/relatorios/geral": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retorna um relatório detalhado de ponto para um período, incluindo horas trabalhadas, extras, faltantes e banco de horas. A visualização de dados de outros usuários respeita a hierarquia de cargos: usuários só podem visualizar dados de funcionários com nível hierárquico menor. SuperAdmin e usuários com a permissão VISUALIZAR_RELATORIOS_GERAIS podem acessar todos os dados.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Relatórios"
+                ],
+                "summary": "Gera relatório geral de ponto",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Data inicial (YYYY-MM-DD)",
+                        "name": "data_inicio",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data final (YYYY-MM-DD)",
+                        "name": "data_fim",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID do usuário (opcional, se omitido retorna todos os usuários ativos)",
+                        "name": "usuario_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/relatorio.RelatorioGeralDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Sem permissão ou tentativa de acessar usuário com nível hierárquico igual ou superior",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/relatorios/geral/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Gera um arquivo (CSV ou PDF) com o relatório geral de ponto para um período específico. Suporta paginação para relatórios de múltiplos usuários. A exportação de dados de outros usuários respeita a hierarquia de cargos: usuários só podem exportar dados de funcionários com nível hierárquico menor. SuperAdmin e usuários com a permissão VISUALIZAR_RELATORIOS_GERAIS podem exportar todos os dados.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Relatórios"
+                ],
+                "summary": "Exporta relatório geral de ponto",
+                "parameters": [
+                    {
+                        "enum": [
+                            "csv",
+                            "pdf"
+                        ],
+                        "type": "string",
+                        "description": "Formato do arquivo (csv ou pdf)",
+                        "name": "formato",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data inicial (YYYY-MM-DD)",
+                        "name": "data_inicio",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data final (YYYY-MM-DD)",
+                        "name": "data_fim",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID do usuário (opcional, se omitido exporta todos)",
+                        "name": "usuario_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limite de usuários por página (padrão: 50)",
+                        "name": "limite",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Deslocamento para paginação (padrão: 0)",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Arquivo gerado"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Sem permissão ou tentativa de acessar usuário com nível hierárquico igual ou superior",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/usuarios": {
             "get": {
                 "security": [
@@ -2813,6 +2999,23 @@
                 }
             }
         },
+        "relatorio.JustificativaDTO": {
+            "type": "object",
+            "properties": {
+                "descricao": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "tipo": {
+                    "type": "string"
+                }
+            }
+        },
         "relatorio.ParMarcacao": {
             "type": "object",
             "properties": {
@@ -2835,6 +3038,112 @@
                 }
             }
         },
+        "relatorio.RelatorioDiaDTO": {
+            "type": "object",
+            "properties": {
+                "carga_esperada_hhmm": {
+                    "type": "string"
+                },
+                "carga_esperada_minutos": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "string"
+                },
+                "horas_extras_minutos": {
+                    "description": "positivo se trabalhou mais",
+                    "type": "integer"
+                },
+                "horas_faltantes_minutos": {
+                    "description": "positivo se trabalhou menos",
+                    "type": "integer"
+                },
+                "inconsistente": {
+                    "type": "boolean"
+                },
+                "justificativa": {
+                    "$ref": "#/definitions/relatorio.JustificativaDTO"
+                },
+                "marcacoes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/relatorio.ParMarcacao"
+                    }
+                },
+                "saldo_banco_horas_minutos": {
+                    "type": "integer"
+                },
+                "total_trabalhado_hhmm": {
+                    "type": "string"
+                },
+                "total_trabalhado_minutos": {
+                    "type": "integer"
+                }
+            }
+        },
+        "relatorio.RelatorioGeralDTO": {
+            "type": "object",
+            "properties": {
+                "periodo": {
+                    "$ref": "#/definitions/relatorio.PeriodoInterval"
+                },
+                "usuarios": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/relatorio.RelatorioUsuarioDTO"
+                    }
+                }
+            }
+        },
+        "relatorio.RelatorioUsuarioDTO": {
+            "type": "object",
+            "properties": {
+                "dias": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/relatorio.RelatorioDiaDTO"
+                    }
+                },
+                "periodo": {
+                    "$ref": "#/definitions/relatorio.PeriodoInterval"
+                },
+                "resumo": {
+                    "$ref": "#/definitions/relatorio.ResumoUsuarioDTO"
+                },
+                "usuario": {
+                    "$ref": "#/definitions/relatorio.UsuarioInfoDTO"
+                }
+            }
+        },
+        "relatorio.ResumoUsuarioDTO": {
+            "type": "object",
+            "properties": {
+                "saldo_banco_horas_final_minutos": {
+                    "type": "integer"
+                },
+                "saldo_banco_horas_inicial_minutos": {
+                    "type": "integer"
+                },
+                "total_horas_extras_hhmm": {
+                    "type": "string"
+                },
+                "total_horas_extras_minutos": {
+                    "type": "integer"
+                },
+                "total_horas_faltantes_hhmm": {
+                    "type": "string"
+                },
+                "total_horas_faltantes_minutos": {
+                    "type": "integer"
+                },
+                "total_horas_trabalhadas_hhmm": {
+                    "type": "string"
+                },
+                "total_horas_trabalhadas_minutos": {
+                    "type": "integer"
+                }
+            }
+        },
         "relatorio.TotaisPeriodo": {
             "type": "object",
             "properties": {
@@ -2846,6 +3155,26 @@
                 },
                 "trabalhado_minutos": {
                     "type": "integer"
+                }
+            }
+        },
+        "relatorio.UsuarioInfoDTO": {
+            "type": "object",
+            "properties": {
+                "cargo_nome": {
+                    "type": "string"
+                },
+                "cpf": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "nome": {
+                    "type": "string"
                 }
             }
         },

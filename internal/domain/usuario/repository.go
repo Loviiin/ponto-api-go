@@ -17,6 +17,7 @@ type UsuarioRepository interface {
 	FindByEmail(email string) (*model.Usuario, error)
 	FindByID(ctx context.Context, id uint, empresaID uint) (*model.Usuario, error)
 	GetAll(empresaID uint) ([]model.Usuario, error)
+	GetAllActive(empresaID uint) ([]model.Usuario, error)
 	Update(id uint, dados map[string]interface{}) error
 	Delete(id uint) error
 	FindAll() ([]model.Usuario, error)
@@ -145,6 +146,16 @@ func (r *usuarioRepository) GetAll(empresaID uint) ([]model.Usuario, error) {
 		}
 	}
 	return usuarios, nil
+}
+
+func (r *usuarioRepository) GetAllActive(empresaID uint) ([]model.Usuario, error) {
+	var usuarios []model.Usuario
+	err := r.Db.Joins("JOIN contratos ON contratos.usuario_id = usuarios.id").
+		Where("contratos.empresa_id = ? AND (contratos.data_demissao IS NULL OR contratos.data_demissao > ?)", empresaID, time.Now()).
+		Order("usuarios.id asc").
+		Preload("Contrato.Cargo").
+		Find(&usuarios).Error
+	return usuarios, err
 }
 
 func (r *usuarioRepository) Update(id uint, dados map[string]interface{}) error {
