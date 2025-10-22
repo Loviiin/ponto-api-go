@@ -1,101 +1,103 @@
 package geolocation
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
+	"log"
+	"strings"
 
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	"github.com/Loviiin/ponto-api-go/pkg/brasilapi"
 	"github.com/Loviiin/ponto-api-go/pkg/cep"
+	"github.com/Loviiin/ponto-api-go/pkg/distancematrix"
 )
-
-// Structs para a resposta do OpenCage
-type OpenCageResponse struct {
-	Results []struct {
-		Geometry struct {
-			Lat float64 `json:"lat"`
-			Lng float64 `json:"lng"`
-		} `json:"geometry"`
-	} `json:"results"`
-}
 
 type Service interface {
 	GetLocationFromCEP(cep string) (*model.Localidade, error)
 }
 
 type service struct {
-	httpClient     *http.Client
-	openCageAPIKey string
-	cepService     cep.Service
+	cepService           cep.Service
+	distanceMatrixClient distancematrix.Client
+	brasilAPIClient      brasilapi.Client
 }
 
-func NewService(apiKey string, cepService cep.Service) Service {
+func NewService(cepService cep.Service, distanceMatrixClient distancematrix.Client, brasilAPIClient brasilapi.Client) Service {
 	return &service{
-		httpClient:     &http.Client{},
-		openCageAPIKey: apiKey,
-		cepService:     cepService,
+		cepService:           cepService,
+		distanceMatrixClient: distanceMatrixClient,
+		brasilAPIClient:      brasilAPIClient,
 	}
 }
 
 func (s *service) GetLocationFromCEP(cep string) (*model.Localidade, error) {
-	// Busca informações do CEP usando o serviço (BrasilAPI + fallback ViaCEP)
-	localidade, err := s.cepService.GetAddressByCEP(cep)
+	// ETAPA 1: Tentativa Primária - ViaCEP + Distance Matrix AI
+	log.Printf("[Geo] CEP %s: Iniciando busca com cadeia primária (ViaCEP + Distance Matrix AI)", cep)
+
+	// 1.1: Buscar endereço textual via cepService (ViaCEP primário, BrasilAPI fallback)
+	localidadeEndereco, err := s.cepService.GetAddressByCEP(cep)
 	if err != nil {
+		// Se cepService falhou completamente, pular para erro final
+		log.Printf("[Geo] CEP %s: Erro ao buscar endereço via cepService: %v", cep, err)
 		return nil, fmt.Errorf("falha ao buscar informações do CEP: %w", err)
 	}
 
-       // Se a BrasilAPI já retornou com coordenadas, não precisa chamar OpenCage
-       if localidade.Latitude != 0 && localidade.Longitude != 0 {
-	       fmt.Printf("[Geo] CEP %s: latitude/longitude da BrasilAPI: lat=%.6f, long=%.6f\n", cep, localidade.Latitude, localidade.Longitude)
-	       return localidade, nil
-       }
+	// 1.2: Construir string de busca otimizada para Distance Matrix AI
+	// Remover strings vazias e evitar duplicatas
+	var parts []string
+	if localidadeEndereco.Logradouro != "" && localidadeEndereco.Logradouro != "Rua" {
+		// Remover prefixo duplicado (ex: "Rua Rua X" -> "Rua X")
+		logradouro := strings.TrimSpace(localidadeEndereco.Logradouro)
+		if strings.HasPrefix(strings.ToLower(logradouro), "rua ") && strings.HasPrefix(strings.ToLower(strings.TrimPrefix(logradouro, "Rua ")), "rua ") {
+			logradouro = strings.TrimPrefix(logradouro, "Rua ")
+		}
+		parts = append(parts, logradouro)
+	}
+	if localidadeEndereco.Bairro != "" {
+		parts = append(parts, strings.TrimSpace(localidadeEndereco.Bairro))
+	}
+	if localidadeEndereco.Cidade != "" {
+		parts = append(parts, strings.TrimSpace(localidadeEndereco.Cidade))
+	}
+	if localidadeEndereco.Estado != "" {
+		parts = append(parts, strings.TrimSpace(localidadeEndereco.Estado))
+	}
+	addressString := strings.Join(parts, ", ") + ", Brasil"
+	log.Printf("[Geo] CEP %s: Endereço obtido, buscando coordenadas via Distance Matrix AI: %s", cep, addressString)
 
-       // Se não tem coordenadas (veio do ViaCEP), busca via OpenCage
-       if err := s.enrichWithOpenCage(localidade); err != nil {
-	       fmt.Printf("[Geo] CEP %s: ViaCEP não retornou coordenadas e OpenCage falhou: %v\n", cep, err)
-	       return nil, fmt.Errorf("falha ao obter coordenadas: %w", err)
-       }
-
-       if localidade.Latitude != 0 && localidade.Longitude != 0 {
-	       fmt.Printf("[Geo] CEP %s: latitude/longitude do OpenCage (ViaCEP): lat=%.6f, long=%.6f\n", cep, localidade.Latitude, localidade.Longitude)
-       } else {
-	       fmt.Printf("[Geo] CEP %s: Nenhuma coordenada encontrada após ViaCEP e OpenCage.\n", cep)
-       }
-       return localidade, nil
-}
-
-// enrichWithOpenCage adiciona coordenadas à localidade usando OpenCage API
-func (s *service) enrichWithOpenCage(localidade *model.Localidade) error {
-	// Montar o endereço para consulta
-	address := fmt.Sprintf("%s, %s, %s, %s, Brasil",
-		localidade.Logradouro, localidade.Bairro, localidade.Cidade, localidade.Estado)
-
-	openCageURL := fmt.Sprintf("https://api.opencagedata.com/geocode/v1/json?q=%s&key=%s",
-		url.QueryEscape(address), s.openCageAPIKey)
-
-	resp, err := s.httpClient.Get(openCageURL)
+	// 1.3: Chamar Distance Matrix AI para obter coordenadas
+	geocodeResp, err := s.distanceMatrixClient.GeocodeAddress(addressString)
 	if err != nil {
-		return fmt.Errorf("falha ao realizar requisição para OpenCage: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("OpenCage retornou status %d", resp.StatusCode)
+		// Falhou na Distance Matrix AI - tentar fallback
+		log.Printf("[Geo] CEP %s: Falha ao obter coordenadas da Distance Matrix AI (%v), tentando fallback com BrasilAPI...", cep, err)
+		goto TentarFallback
 	}
 
-	var openCageData OpenCageResponse
-	if err := json.NewDecoder(resp.Body).Decode(&openCageData); err != nil {
-		return fmt.Errorf("falha ao decodificar resposta da OpenCage: %w", err)
+	// 1.4: Verificar se Distance Matrix AI retornou resultados válidos
+	if geocodeResp.Status != "OK" || len(geocodeResp.Result) == 0 {
+		log.Printf("[Geo] CEP %s: Distance Matrix AI não retornou resultados válidos (status: %s), tentando fallback com BrasilAPI...", cep, geocodeResp.Status)
+		goto TentarFallback
 	}
 
-	if len(openCageData.Results) == 0 {
-		return fmt.Errorf("não foi possível obter as coordenadas para o endereço: %s", address)
+	// 1.5: Sucesso na cadeia primária - combinar dados
+	localidadeEndereco.Latitude = geocodeResp.Result[0].Geometry.Location.Lat
+	localidadeEndereco.Longitude = geocodeResp.Result[0].Geometry.Location.Lng
+	log.Printf("[Geo] CEP %s: Sucesso com cadeia primária! Coordenadas: lat=%.6f, lng=%.6f",
+		cep, localidadeEndereco.Latitude, localidadeEndereco.Longitude)
+	return localidadeEndereco, nil
+
+TentarFallback:
+	// ETAPA 2: Tentativa de Fallback - BrasilAPI Direta
+	log.Printf("[Geo] CEP %s: Tentando fallback direto com BrasilAPI...", cep)
+
+	localidadeBrasilAPI, err := s.brasilAPIClient.GetCEPInfo(cep)
+	if err != nil {
+		// ETAPA 3: Erro Final - todas as tentativas falharam
+		log.Printf("[Geo] CEP %s: Falha no fallback BrasilAPI: %v", cep, err)
+		return nil, fmt.Errorf("não foi possível obter dados de localização para o CEP %s: cadeia primária e fallback falharam", cep)
 	}
 
-	// Atualiza as coordenadas na localidade existente
-	localidade.Latitude = openCageData.Results[0].Geometry.Lat
-	localidade.Longitude = openCageData.Results[0].Geometry.Lng
-
-	return nil
+	// Sucesso no fallback
+	log.Printf("[Geo] CEP %s: Sucesso com fallback BrasilAPI! Coordenadas: lat=%.6f, lng=%.6f",
+		cep, localidadeBrasilAPI.Latitude, localidadeBrasilAPI.Longitude)
+	return localidadeBrasilAPI, nil
 }
