@@ -33,7 +33,7 @@ COPY --from=builder /app/out/ponto-api .
 
 COPY docs ./docs
 
-COPY .env .
+#COPY .env .
 
 # Também precisamos do nosso ficheiro de configuração .env para a aplicação saber
 # como se conectar ao banco de dados, em que porta rodar, etc.
