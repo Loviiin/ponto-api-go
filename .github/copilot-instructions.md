@@ -30,7 +30,7 @@ Build, run and debug
 - Scheduler: set `ENABLE_SCHEDULER=true` to enable the internal scheduler service (used for bancoHoras tasks).
 
 Integration & external services
-- CEP/geolocation: `pkg/cep`, `pkg/brasilapi` and `pkg/viacep` provide address lookup. The geolocation service `pkg/geolocation` composes CEP and OpenCage (OpenCage API key via `API_OPENCAGE`).
+- CEP/geolocation: `pkg/viacep` and `pkg/distancematrix` are used as the primary chain for geolocation (ViaCEP address -> Distance Matrix geocode), with `pkg/brasilapi` as fallback. Distance Matrix API key via `DISTANCEMATRIX_API_KEY`.
 - JWT: implemented in `pkg/jwt` — tokens are HMAC using `JWT_SECRET_KEY` and include `EmpresaID` claim required by middleware.
 
 Safety rules for AI edits (must follow)

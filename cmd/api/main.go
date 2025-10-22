@@ -35,7 +35,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/pkg/cache"
 
 	"github.com/Loviiin/ponto-api-go/pkg/cep"
-	// "github.com/Loviiin/ponto-api-go/pkg/distancematrix"
+	"github.com/Loviiin/ponto-api-go/pkg/distancematrix"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
@@ -102,7 +102,7 @@ func resetAndSeedDatabase(db *gorm.DB) {
 // --- CONFIGURAÇÃO DE CORS ---
 // Lista explícita de domínios permitidos (mais seguro e legível)
 var allowedOrigins = map[string]bool{
-	"https://nexora-app.vercel.app": 									true,
+	"https://nexora-app.vercel.app":                                    true,
 	"https://meu-ponto-frontend.vercel.app":                            true,
 	"https://meu-ponto-frontend-git-main-loviins-projects.vercel.app":  true,
 	"https://meu-ponto-frontend-n9lx9odbj-loviins-projects.vercel.app": true,
@@ -218,15 +218,15 @@ func main() {
 	brasilAPIClient := brasilapi.NewClient(cfg.BrasilApiUrl)
 	viacepURL := "https://viacep.com.br/ws"
 	viaCEPClient := viacep.NewClient(viacepURL)
-	// Mantido apenas BrasilAPI e ViaCEP para compor o geolocation
 
 	// Distance Matrix AI client
-	// dmClient := distancematrix.NewClient(cfg.DistanceMatrixAPIKey) // Removido pois não é mais usado diretamente
+	distanceMatrixClient := distancematrix.NewClient(cfg.DistanceMatrixAPIKey)
 
-	// Serviço de CEP com fallback BrasilAPI + ViaCEP
+	// Serviço de CEP com fallback (ViaCEP primário + BrasilAPI fallback)
 	cepService := cep.NewService(brasilAPIClient, viaCEPClient)
-	// Serviço de geolocalização: usa DistanceMatrixAPIKey e o serviço CEP
-	geoService := geolocation.NewService(cfg.DistanceMatrixAPIKey, cepService)
+
+	// Serviço de geolocalização: usa cadeia ViaCEP+DistanceMatrix primário e BrasilAPI como fallback
+	geoService := geolocation.NewService(cepService, distanceMatrixClient, brasilAPIClient)
 
 	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo)
 	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, db)

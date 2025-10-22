@@ -25,7 +25,7 @@ type service struct {
 }
 
 // NewService cria uma nova instância do serviço de CEP
-// que utiliza BrasilAPI como primário e ViaCEP como fallback
+// que utiliza ViaCEP como primário e BrasilAPI como fallback
 func NewService(brasilAPIClient brasilapi.Client, viaCEPClient viacep.Client) Service {
 	return &service{
 		brasilAPIClient: brasilAPIClient,
@@ -47,35 +47,35 @@ func normalizeCEP(cep string) (string, error) {
 	return onlyDigits, nil
 }
 
-// GetCEPInfo tenta buscar informações do CEP primeiro na BrasilAPI
-// e, em caso de falha, usa o ViaCEP como fallback
+// GetCEPInfo tenta buscar informações do CEP primeiro no ViaCEP
+// e, em caso de falha, usa a BrasilAPI como fallback
 func (s *service) GetCEPInfo(cep string) (*model.Localidade, error) {
 	// Normaliza e valida o CEP antes de chamar provedores externos
 	normalized, err := normalizeCEP(cep)
 	if err != nil {
 		return nil, err
 	}
-	// Tenta primeiro com a BrasilAPI (que já retorna coordenadas quando disponíveis)
-	localidade, err := s.brasilAPIClient.GetCEPInfo(normalized)
+	// Tenta primeiro com ViaCEP (mais rápido e confiável)
+	localidade, err := s.viaCEPClient.GetCEPInfo(normalized)
 	if err == nil && localidade != nil {
-		log.Printf("[CEP] Consulta %s: BrasilAPI (primário) SUCESSO", normalized)
+		log.Printf("[CEP] Consulta %s: ViaCEP (primário) SUCESSO", normalized)
 		return localidade, nil
 	}
 
-	// Se a BrasilAPI falhou, armazena o erro para log
-	brasilAPIError := err
-	log.Printf("[CEP] Consulta %s: BrasilAPI falhou (%v), tentando fallback ViaCEP...", normalized, brasilAPIError)
+	// Se ViaCEP falhou, armazena o erro para log
+	viaCEPError := err
+	log.Printf("[CEP] Consulta %s: ViaCEP falhou (%v), tentando fallback BrasilAPI...", normalized, viaCEPError)
 
-	// Fallback: tenta com ViaCEP
-	localidade, err = s.viaCEPClient.GetCEPInfo(normalized)
+	// Fallback: tenta com BrasilAPI
+	localidade, err = s.brasilAPIClient.GetCEPInfo(normalized)
 	if err != nil {
-		log.Printf("[CEP] Consulta %s: ViaCEP (fallback) também falhou (%v)", normalized, err)
+		log.Printf("[CEP] Consulta %s: BrasilAPI (fallback) também falhou (%v)", normalized, err)
 		// Ambas as APIs falharam
-		return nil, fmt.Errorf("falha ao buscar CEP. BrasilAPI: %v | ViaCEP: %w", brasilAPIError, err)
+		return nil, fmt.Errorf("falha ao buscar CEP. ViaCEP: %v | BrasilAPI: %w", viaCEPError, err)
 	}
 
-	log.Printf("[CEP] Consulta %s: ViaCEP (fallback) SUCESSO", normalized)
-	// ViaCEP retornou com sucesso (mas sem coordenadas)
+	log.Printf("[CEP] Consulta %s: BrasilAPI (fallback) SUCESSO", normalized)
+	// BrasilAPI retornou com sucesso
 	return localidade, nil
 }
 
