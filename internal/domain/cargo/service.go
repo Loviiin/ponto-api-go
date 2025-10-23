@@ -10,10 +10,12 @@ import (
 type CargoService interface {
 	Create(cargo *model.Cargo) error
 	FindByID(id uint, empresaID uint) (*model.Cargo, error)
+	FindByName(nome string, empresaID uint) (*model.Cargo, error)
 	GetAllByEmpresaID(empresaID uint) ([]model.Cargo, error)
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
 	Delete(id uint, empresaID uint) error
 	AddPermissionToCargo(cargoID uint, permissaoID uint, empresaID uint) error
+	HasUsuarios(cargoID uint, empresaID uint) (bool, error)
 }
 
 type cargoService struct {
@@ -30,6 +32,10 @@ func (s *cargoService) Create(cargo *model.Cargo) error {
 
 func (s *cargoService) FindByID(id uint, empresaID uint) (*model.Cargo, error) {
 	return s.repo.FindByID(context.Background(), id, empresaID)
+}
+
+func (s *cargoService) FindByName(nome string, empresaID uint) (*model.Cargo, error) {
+	return s.repo.FindByName(nome, empresaID)
 }
 
 func (s *cargoService) GetAllByEmpresaID(empresaID uint) ([]model.Cargo, error) {
@@ -50,6 +56,11 @@ func (s *cargoService) Delete(id uint, empresaID uint) error {
 		return err
 	}
 	return s.repo.Delete(id, empresaID)
+}
+
+// HasUsuarios verifica se existem usuários associados ao cargo.
+func (s *cargoService) HasUsuarios(cargoID uint, empresaID uint) (bool, error) {
+	return s.repo.HasUsuarios(cargoID, empresaID)
 }
 
 func (s *cargoService) AddPermissionToCargo(cargoID uint, permissaoID uint, empresaID uint) error {

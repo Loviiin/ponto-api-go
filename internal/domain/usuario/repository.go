@@ -15,8 +15,10 @@ import (
 type UsuarioRepository interface {
 	Save(usuario *model.Usuario) error
 	FindByEmail(email string) (*model.Usuario, error)
+	FindByCPF(cpf string) (*model.Usuario, error)
 	FindByID(ctx context.Context, id uint, empresaID uint) (*model.Usuario, error)
 	GetAll(empresaID uint) ([]model.Usuario, error)
+	GetAllPaginated(empresaID uint, page int, limit int) ([]model.Usuario, int64, error)
 	GetAllActive(empresaID uint) ([]model.Usuario, error)
 	Update(id uint, dados map[string]interface{}) error
 	Delete(id uint) error
@@ -58,6 +60,15 @@ func (r *usuarioRepository) FindByEmail(email string) (*model.Usuario, error) {
 	err := r.Db.Where("email = ?", email).
 		Preload("Contrato.Cargo.Permissoes").
 		First(&usuario).Error
+	if err != nil {
+		return nil, err
+	}
+	return &usuario, nil
+}
+
+func (r *usuarioRepository) FindByCPF(cpf string) (*model.Usuario, error) {
+	var usuario model.Usuario
+	err := r.Db.Where("cpf = ?", cpf).First(&usuario).Error
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +142,8 @@ func (r *usuarioRepository) GetAll(empresaID uint) ([]model.Usuario, error) {
 		Where("contratos.empresa_id = ?", empresaID).
 		Order("usuarios.id asc").
 		Preload("Contrato.Cargo").
+		Preload("Contrato.Localidade").
+		Preload("Contrato.Empresa").
 		Find(&usuarios).Error
 	if err != nil {
 		return usuarios, err
@@ -146,6 +159,44 @@ func (r *usuarioRepository) GetAll(empresaID uint) ([]model.Usuario, error) {
 		}
 	}
 	return usuarios, nil
+}
+
+func (r *usuarioRepository) GetAllPaginated(empresaID uint, page int, limit int) ([]model.Usuario, int64, error) {
+	var usuarios []model.Usuario
+	var total int64
+
+	// Contar total de registros
+	err := r.Db.Table("usuarios").
+		Joins("JOIN contratos ON contratos.usuario_id = usuarios.id").
+		Where("contratos.empresa_id = ?", empresaID).
+		Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Se não houver registros, retornar array vazio
+	if total == 0 {
+		return []model.Usuario{}, 0, nil
+	}
+
+	// Calcular offset
+	offset := (page - 1) * limit
+
+	// Buscar registros paginados com preload
+	err = r.Db.Joins("JOIN contratos ON contratos.usuario_id = usuarios.id").
+		Where("contratos.empresa_id = ?", empresaID).
+		Order("usuarios.id asc").
+		Limit(limit).
+		Offset(offset).
+		Preload("Contrato.Cargo").
+		Preload("Contrato.Localidade").
+		Preload("Contrato.Empresa").
+		Find(&usuarios).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return usuarios, total, nil
 }
 
 func (r *usuarioRepository) GetAllActive(empresaID uint) ([]model.Usuario, error) {
@@ -185,17 +236,18 @@ func (r *usuarioRepository) Update(id uint, dados map[string]interface{}) error 
 
 func (r *usuarioRepository) Delete(id uint) error {
 	var empresaID uint
-	// Buscar empresaID antes de apagar contratos (para invalidar caches por empresa)
+	// Buscar empresaID antes de soft delete (para invalidar caches por empresa)
 	var contrato model.Contrato
 	if err := r.Db.Model(&model.Contrato{}).Select("empresa_id").Where("usuario_id = ?", id).First(&contrato).Error; err == nil {
 		empresaID = contrato.EmpresaID
 	}
-	if err := r.Db.Where("usuario_id = ?", id).Delete(&model.Contrato{}).Error; err != nil {
+
+	// Soft delete do usuário (GORM marcará DeletedAt automaticamente)
+	if err := r.Db.Delete(&model.Usuario{}, id).Error; err != nil {
 		return err
 	}
-	if err := r.Db.Unscoped().Delete(&model.Usuario{}, id).Error; err != nil {
-		return err
-	}
+
+	// Invalidar cache
 	if r.cache != nil {
 		if empresaID != 0 {
 			key := fmt.Sprintf("usuario:%d:empresa:%d", id, empresaID)

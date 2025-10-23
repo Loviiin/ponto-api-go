@@ -20,6 +20,7 @@ type CargoRepository interface {
 	Delete(id uint, empresaID uint) error
 	AddPermissionToCargo(cargoID uint, permissaoID uint) error
 	FindByName(nome string, empresaID uint) (*model.Cargo, error)
+	HasUsuarios(cargoID uint, empresaID uint) (bool, error)
 	WithTransaction(tx *gorm.DB) CargoRepository
 }
 
@@ -172,6 +173,23 @@ func (r *cargoRepository) FindByName(nome string, empresaID uint) (*model.Cargo,
 		return nil, err
 	}
 	return &cargo, nil
+}
+
+func (r *cargoRepository) HasUsuarios(cargoID uint, empresaID uint) (bool, error) {
+	var count int64
+
+	// Verifica se há contratos ativos associados a este cargo
+	// Nota: A tabela de junção é usuario_cargos (many-to-many entre Usuario e Cargo)
+	err := r.Db.Table("usuario_cargos").
+		Joins("JOIN usuarios ON usuarios.id = usuario_cargos.usuario_id").
+		Where("usuario_cargos.cargo_id = ? AND usuarios.empresa_id = ?", cargoID, empresaID).
+		Count(&count).Error
+
+	if err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }
 
 func (r *cargoRepository) WithTransaction(tx *gorm.DB) CargoRepository {

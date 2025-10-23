@@ -228,7 +228,7 @@ func main() {
 	// Serviço de geolocalização: usa cadeia ViaCEP+DistanceMatrix primário e BrasilAPI como fallback
 	geoService := geolocation.NewService(cepService, distanceMatrixClient, brasilAPIClient)
 
-	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo)
+	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo, localidadeRepo)
 	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, db)
 	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, localidadeRepo, db)
 
@@ -264,6 +264,7 @@ func main() {
 	// Cada um verifica uma permissão específica.
 	canEditEmpresa := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_EMPRESA)
 	canDeleteEmpresa := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.DELETAR_EMPRESA)
+	canEditUsuario := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_USUARIO)
 	canDeleteUsuario := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.DELETAR_USUARIO)
 	canManageCargos := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_CARGOS)
 	canEditSaldo := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_SALDO_FUNCIONARIOS)
@@ -333,8 +334,6 @@ func main() {
 
 		apiV1.POST("/empresas", empresaHandler.CriarEmpresaHandler)
 		apiV1.GET("/empresas/:id", empresaHandler.GetEmpresaByIDHandler)
-		apiV1.POST("/cargos", cargoHandler.CreateCargo)
-		apiV1.POST("/cargos/:id/permissoes/:permissaoId", cargoHandler.AddPermissionToCargo)
 
 		// Rota para tarefas internas, a ser chamada pelo Cloud Scheduler
 		apiV1.POST("/tasks/fechamento-diario", bancoHorasHandler.ExecutarFechamentoDiario)
@@ -345,14 +344,24 @@ func main() {
 		{
 			// Rotas de Usuário
 			// Criação de usuário precisa estar autenticada para capturar o id do requisitante do token
-			rotasProtegidas.POST("/usuarios", usuarioHandler.CriarUsuarioHandler)
+			// Apenas usuários com permissão EDITAR_USUARIO podem criar novos usuários
+			rotasProtegidas.POST("/usuarios", canEditUsuario, usuarioHandler.CriarUsuarioHandler)
 			rotasProtegidas.GET("/usuarios", usuarioHandler.GetAllUsuariosHandler)
 			rotasProtegidas.GET("/usuarios/:id", usuarioHandler.GetByIdHandler)
-			rotasProtegidas.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler) // Utilizador só pode alterar a si mesmo
+			// Update e Delete já têm validação de permissão interna no handler
+			rotasProtegidas.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler)
 			rotasProtegidas.GET("/usuarios/me", usuarioHandler.GetMeuPerfil)
 
 			// Agora, para apagar um utilizador, é preciso a permissão DELETAR_USUARIO
 			rotasProtegidas.DELETE("/usuarios/:id", canDeleteUsuario, usuarioHandler.DeleteHandler)
+
+			// Gestão de Cargos (criar, listar, atualizar, deletar)
+			rotasProtegidas.POST("/cargos", canManageCargos, cargoHandler.CreateCargo)
+			rotasProtegidas.GET("/cargos", cargoHandler.GetAllCargos)
+			rotasProtegidas.GET("/cargos/:id", cargoHandler.GetCargoByID)
+			rotasProtegidas.PUT("/cargos/:id", canManageCargos, cargoHandler.UpdateCargo)
+			rotasProtegidas.DELETE("/cargos/:id", canManageCargos, cargoHandler.DeleteCargo)
+			rotasProtegidas.POST("/cargos/:id/permissoes/:permissaoId", canManageCargos, cargoHandler.AddPermissionToCargo)
 
 			// Rota de Ponto
 			rotasProtegidas.POST("/pontos", pontoHandler.BaterPonto)
