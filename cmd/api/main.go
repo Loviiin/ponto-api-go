@@ -246,7 +246,7 @@ func main() {
 	relatorioService := relatorio.NewServiceWithCache(pontoRepo, usuarioRepo, logBancoHorasRepo, justificativaRepo, bancoHorasService, cacheService)
 	relatorioHandler := relatorio.NewHandler(relatorioService, funcoesService)
 
-	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, funcoesService)
+	usuarioHandler := usuario.NewUsuarioHandlerWithBancoHoras(usuarioService, bancoHorasService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
 	pontoHandler := ponto.NewPontoHandler(pontoService, justificativaService, bancoHorasService, funcoesService)
 

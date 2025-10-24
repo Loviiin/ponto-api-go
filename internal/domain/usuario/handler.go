@@ -13,15 +13,37 @@ import (
 )
 
 type UsuarioHandler struct {
-	service   UsuarioService
-	converter funcoes.FuncoesInterface
+	service           UsuarioService
+	bancoHorasService BancoHorasService // Opcional: para incluir saldo
+	converter         funcoes.FuncoesInterface
+}
+
+// Interface local para incluir saldo de banco de horas
+type BancoHorasService interface {
+	GetSaldoAtualUsuario(usuarioID uint, empresaID uint) (int, error)
 }
 
 func NewUsuarioHandler(s UsuarioService, f funcoes.FuncoesInterface) *UsuarioHandler {
 	return &UsuarioHandler{
-		service:   s,
-		converter: f,
+		service:           s,
+		bancoHorasService: nil, // Mantém compatibilidade
+		converter:         f,
 	}
+}
+
+// NewUsuarioHandlerWithBancoHoras cria handler com suporte a saldo de banco de horas
+func NewUsuarioHandlerWithBancoHoras(s UsuarioService, bhs BancoHorasService, f funcoes.FuncoesInterface) *UsuarioHandler {
+	return &UsuarioHandler{
+		service:           s,
+		bancoHorasService: bhs,
+		converter:         f,
+	}
+}
+
+// UsuarioComSaldo estende o modelo Usuario para incluir saldo de banco de horas
+type UsuarioComSaldo struct {
+	model.Usuario
+	SaldoBancoHorasMinutos *int `json:"saldo_banco_horas_minutos,omitempty"`
 }
 
 type CriarUsuarioRequest struct {
@@ -94,14 +116,15 @@ func (h *UsuarioHandler) GetByIdHandler(c *gin.Context) {
 }
 
 // @Summary      Lista todos os usuários da empresa
-// @Description  Retorna uma lista de todos os usuários pertencentes à empresa do requisitante. Suporta paginação via query params.
+// @Description  Retorna uma lista de todos os usuários pertencentes à empresa do requisitante. Suporta paginação e inclusão opcional de saldo de banco de horas.
 // @Tags         Usuários
 // @Produce      json
 // @Security     BearerAuth
-// @Param        page   query     int  false  "Número da página (padrão: 1)"
-// @Param        limit  query     int  false  "Itens por página (padrão: 50, máximo: 100)"
+// @Param        page           query     int     false  "Número da página (padrão: 1)"
+// @Param        limit          query     int     false  "Itens por página (padrão: 50, máximo: 100)"
+// @Param        include_saldo  query     bool    false  "Incluir saldo de banco de horas (padrão: false)"
 // @Success      200  {object}  map[string]interface{}  "Lista de usuários com metadados de paginação"
-// @Example 200 {"usuarios":[{"id":1,"nome":"João da Silva","email":"joao@empresa.com","contrato":{"cargo":{"nome":"Desenvolvedor"}}}],"page":1,"limit":50,"total":120}
+// @Example 200 {"usuarios":[{"id":1,"nome":"João da Silva","email":"joao@empresa.com","saldo_banco_horas_minutos":120,"contrato":{"cargo":{"nome":"Desenvolvedor"}}}],"page":1,"limit":50,"total":120}
 // @Failure      400  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
 // @Router       /usuarios [get]
@@ -136,6 +159,9 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 		}
 	}
 
+	// Verificar se deve incluir saldo de banco de horas
+	includeSaldo := c.Query("include_saldo") == "true"
+
 	// Buscar com paginação
 	usuarios, total, err := h.service.GetAllPaginated(empresaID, page, limit)
 	if err != nil {
@@ -152,6 +178,23 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 		totalPages++
 	}
 
+	// Se include_saldo=true e temos o service, enriquecer com saldo
+	var response interface{}
+	if includeSaldo && h.bancoHorasService != nil {
+		usuariosComSaldo := make([]UsuarioComSaldo, 0, len(usuarios))
+		for _, u := range usuarios {
+			usuarioComSaldo := UsuarioComSaldo{Usuario: u}
+			// Buscar saldo (com cache)
+			if saldo, err := h.bancoHorasService.GetSaldoAtualUsuario(u.ID, empresaID); err == nil {
+				usuarioComSaldo.SaldoBancoHorasMinutos = &saldo
+			}
+			usuariosComSaldo = append(usuariosComSaldo, usuarioComSaldo)
+		}
+		response = usuariosComSaldo
+	} else {
+		response = usuarios
+	}
+
 	// Retornar lista vazia se não houver usuários
 	if len(usuarios) == 0 {
 		c.JSON(http.StatusOK, gin.H{
@@ -165,7 +208,7 @@ func (h *UsuarioHandler) GetAllUsuariosHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"usuarios":    usuarios,
+		"usuarios":    response,
 		"page":        page,
 		"limit":       limit,
 		"total":       total,
