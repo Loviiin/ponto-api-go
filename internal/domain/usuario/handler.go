@@ -66,6 +66,13 @@ type UpdateUsuarioRequest struct {
 	Email string `json:"email" binding:"omitempty,email,max=100" example:"joao.dasilva@empresa.com"`
 }
 
+// PatchUsuarioRequest define o corpo do pedido para atualização parcial de um usuário (incluindo cargo).
+type PatchUsuarioRequest struct {
+	Nome    *string `json:"nome" binding:"omitempty,min=2,max=100" example:"João da Silva"`
+	Email   *string `json:"email" binding:"omitempty,email,max=100" example:"joao.dasilva@empresa.com"`
+	CargoID *uint   `json:"cargoId" binding:"omitempty" example:"5"`
+}
+
 // @Summary      Busca um usuário por ID
 // @Description  Retorna os dados de um usuário específico da mesma empresa, incluindo contrato, cargo, localidade.
 // @Tags         Usuários
@@ -437,6 +444,164 @@ func (h *UsuarioHandler) UpdateUsuarioHandler(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error":   "Falha ao atualizar o usuário.",
 				"details": "Ocorreu um erro ao processar a atualização.",
+			})
+		}
+		return
+	}
+
+	// Buscar usuário atualizado para retornar
+	usuarioAtualizado, err := h.service.FindByID(idUrl, empresaID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Usuário atualizado mas falha ao buscar dados.",
+			"details": "O usuário foi atualizado mas não foi possível buscar os dados atualizados.",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, usuarioAtualizado)
+}
+
+// @Summary      Atualiza parcialmente um usuário (PATCH)
+// @Description  Atualiza campos específicos de um usuário (nome, email e/ou cargo). Permite atualização parcial.
+// @Description  Regras: ao alterar cargo, valida hierarquia - requisitante não pode atribuir cargo superior ao seu.
+// @Tags         Usuários
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      int                   true  "ID do Usuário a ser atualizado"
+// @Param        dados    body      PatchUsuarioRequest   true  "Campos para atualização (parcial)"
+// @Success      200      {object}  model.Usuario         "Usuário atualizado com sucesso"
+// @Failure      400      {object}  map[string]string
+// @Failure      403      {object}  map[string]string
+// @Failure      404      {object}  map[string]string
+// @Failure      409      {object}  map[string]string
+// @Router       /usuarios/{id} [patch]
+func (h *UsuarioHandler) PatchUsuarioHandler(c *gin.Context) {
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Erro de autenticação.",
+			"details": "Não foi possível identificar a empresa.",
+		})
+		return
+	}
+
+	idToken, err := h.converter.GetUintIDFromContext(c, "userID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "Erro de autenticação.",
+			"details": "Não foi possível identificar o usuário requisitante.",
+		})
+		return
+	}
+
+	idUrl, err := h.converter.StrParaUint(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "ID do usuário inválido.",
+			"details": "O ID deve ser um número inteiro positivo.",
+		})
+		return
+	}
+
+	// Verificar permissões
+	requester, err := h.service.FindByID(idToken, empresaID)
+	if err != nil || requester.Contrato.ID == 0 || requester.Contrato.Cargo.ID == 0 {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":   "Acesso negado.",
+			"details": "Não foi possível verificar as suas permissões.",
+		})
+		return
+	}
+
+	podeEditar := false
+	if idUrl == idToken {
+		for _, p := range requester.Contrato.Cargo.Permissoes {
+			if p.Nome == permissions.EDITAR_PROPRIA_CONTA {
+				podeEditar = true
+				break
+			}
+		}
+	} else {
+		for _, p := range requester.Contrato.Cargo.Permissoes {
+			if p.Nome == permissions.EDITAR_USUARIO {
+				podeEditar = true
+				break
+			}
+		}
+	}
+
+	if !podeEditar {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":   "Você não tem permissão para editar este usuário.",
+			"details": "Permissões necessárias: EDITAR_USUARIO ou EDITAR_PROPRIA_CONTA.",
+		})
+		return
+	}
+
+	// Parse request (PATCH permite campos opcionais)
+	var request PatchUsuarioRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Dados de requisição inválidos.",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Verificar se há pelo menos um campo para atualizar
+	if request.Nome == nil && request.Email == nil && request.CargoID == nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Nenhum campo para atualizar foi fornecido.",
+			"details": "Forneça pelo menos um campo válido (nome, email ou cargoId).",
+		})
+		return
+	}
+
+	// Construir mapa de dados para atualização
+	dados := make(map[string]interface{})
+	if request.Nome != nil {
+		dados["nome"] = *request.Nome
+	}
+	if request.Email != nil {
+		dados["email"] = *request.Email
+	}
+	if request.CargoID != nil {
+		dados["cargo_id"] = *request.CargoID
+	}
+
+	// Atualizar usuário (service validará hierarquia se cargo for alterado)
+	err = h.service.UpdateWithHierarchy(idUrl, empresaID, idToken, dados)
+	if err != nil {
+		errorMsg := err.Error()
+
+		// Classificar erros
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			c.JSON(http.StatusNotFound, gin.H{
+				"error":   "Usuário não encontrado.",
+				"details": "O usuário especificado não existe ou não pertence a esta empresa.",
+			})
+		case errorMsg == "email já está em uso por outro usuário":
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "Email já está em uso.",
+				"details": "Este endereço de email já está cadastrado para outro usuário.",
+			})
+		case errorMsg == "cargo não encontrado ou não pertence a esta empresa":
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "Cargo inválido.",
+				"details": "O cargo especificado não existe ou não pertence a esta empresa.",
+			})
+		case errorMsg == "acesso negado: você não pode atribuir um cargo com nível hierárquico superior ao seu":
+			c.JSON(http.StatusForbidden, gin.H{
+				"error":   "Acesso negado.",
+				"details": errorMsg,
+			})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Falha ao atualizar o usuário.",
+				"details": errorMsg,
 			})
 		}
 		return

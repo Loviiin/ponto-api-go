@@ -351,9 +351,8 @@ func main() {
 			rotasProtegidas.GET("/usuarios/:id", usuarioHandler.GetByIdHandler)
 			// Update e Delete já têm validação de permissão interna no handler
 			rotasProtegidas.PUT("/usuarios/:id", usuarioHandler.UpdateUsuarioHandler)
-			rotasProtegidas.GET("/usuarios/me", usuarioHandler.GetMeuPerfil)
-
-			// Agora, para apagar um utilizador, é preciso a permissão DELETAR_USUARIO
+			rotasProtegidas.PATCH("/usuarios/:id", usuarioHandler.PatchUsuarioHandler) // Atualização parcial com suporte a cargo
+			rotasProtegidas.GET("/usuarios/me", usuarioHandler.GetMeuPerfil)           // Agora, para apagar um utilizador, é preciso a permissão DELETAR_USUARIO
 			rotasProtegidas.DELETE("/usuarios/:id", canDeleteUsuario, usuarioHandler.DeleteHandler)
 
 			// Gestão de Cargos (criar, listar, atualizar, deletar)

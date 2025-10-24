@@ -23,6 +23,7 @@ type UsuarioRepository interface {
 	Update(id uint, dados map[string]interface{}) error
 	Delete(id uint) error
 	FindAll() ([]model.Usuario, error)
+	InvalidarCacheUsuario(id uint, empresaID uint) // Invalidar cache de um usuário específico
 	WithTransaction(tx *gorm.DB) UsuarioRepository
 }
 
@@ -270,6 +271,32 @@ func (r *usuarioRepository) FindAll() ([]model.Usuario, error) {
 	var usuarios []model.Usuario
 	err := r.Db.Preload("Contrato").Find(&usuarios).Error
 	return usuarios, err
+}
+
+// InvalidarCacheUsuario invalida o cache de um usuário específico e das listas relacionadas
+func (r *usuarioRepository) InvalidarCacheUsuario(id uint, empresaID uint) {
+	if r.cache == nil {
+		return
+	}
+
+	// Invalidar cache do usuário específico
+	key := fmt.Sprintf("usuario:%d:empresa:%d", id, empresaID)
+	if err := r.cache.Delete(context.Background(), key); err != nil {
+		log.Printf("[cache] erro ao invalidar %s: %v", key, err)
+	}
+
+	// Invalidar lista de usuários da empresa
+	listKey := fmt.Sprintf("usuarios:empresa:%d", empresaID)
+	if err := r.cache.Delete(context.Background(), listKey); err != nil {
+		log.Printf("[cache] erro ao invalidar %s: %v", listKey, err)
+	}
+
+	// Invalidar lista global
+	if err := r.cache.Delete(context.Background(), "usuarios:all"); err != nil {
+		log.Printf("[cache] erro ao invalidar 'usuarios:all': %v", err)
+	}
+
+	log.Printf("[cache] Invalidado cache do usuário %d (empresa %d)", id, empresaID)
 }
 
 func (r *usuarioRepository) WithTransaction(tx *gorm.DB) UsuarioRepository {
