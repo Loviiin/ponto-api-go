@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"time"
 
@@ -197,7 +198,7 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 
 // GetDashboardForUsuario retorna o saldo total atual e o histórico de alterações do banco de horas
 // do usuário informado já ordenado por data desc.
-// Cache de 5 minutos pois o dashboard é pesado (busca todos os logs)
+// Cache de 12 horas pois o dashboard é pesado (busca todos os logs) e só muda 1x/dia (scheduler 1h AM)
 func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint) (*DashboardResponse, error) {
 	ctx := context.Background()
 	cacheKey := fmt.Sprintf("bancohoras:dashboard:empresa:%d:usuario:%d", empresaID, usuarioID)
@@ -208,10 +209,13 @@ func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uin
 		if err == nil && cachedValue != "" {
 			var dashboard DashboardResponse
 			if err := json.Unmarshal([]byte(cachedValue), &dashboard); err == nil {
+				log.Printf("[cache] HIT dashboard banco horas - usuário %d empresa %d", usuarioID, empresaID)
 				return &dashboard, nil
 			}
 		}
 	}
+
+	log.Printf("[cache] MISS dashboard banco horas - usuário %d empresa %d", usuarioID, empresaID)
 
 	// a) Buscar o usuário (com contrato)
 	user, err := s.usuarioRepo.FindByID(ctx, usuarioID, empresaID)
@@ -251,10 +255,11 @@ func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uin
 		Historico:         historico,
 	}
 
-	// Armazena no cache por 5 minutos (atualiza apenas no fechamento diário)
+	// Armazena no cache por 12 horas (dados mudam 1x/dia no scheduler às 1h AM)
+	// Cache invalidado automaticamente em ajustes manuais via InvalidarCacheUsuario()
 	if s.cache != nil {
 		dashboardJSON, _ := json.Marshal(resp)
-		_ = s.cache.Set(ctx, cacheKey, string(dashboardJSON), 5*time.Minute)
+		_ = s.cache.Set(ctx, cacheKey, string(dashboardJSON), 12*time.Hour)
 	}
 
 	return resp, nil
