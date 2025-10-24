@@ -235,7 +235,7 @@ func main() {
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
 	permissaoService := permissao.NewService(permissaoRepo)
-	bancoHorasService := bancohoras.NewBancoHorasService(pontoRepo, usuarioRepo, logBancoHorasRepo, db)
+	bancoHorasService := bancohoras.NewBancoHorasServiceWithCache(pontoRepo, usuarioRepo, logBancoHorasRepo, db, cacheService)
 	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, db)
 	localidadeService := localidade.NewService(localidadeRepo, geoService)
 
@@ -248,7 +248,7 @@ func main() {
 
 	usuarioHandler := usuario.NewUsuarioHandler(usuarioService, funcoesService)
 	authHandler := auth.NewAuthHandler(authService)
-	pontoHandler := ponto.NewPontoHandler(pontoService, justificativaService, funcoesService)
+	pontoHandler := ponto.NewPontoHandler(pontoService, justificativaService, bancoHorasService, funcoesService)
 
 	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, db)
 	cargoHandler := cargo.NewCargoHandler(cargoService, funcoesService)
@@ -267,6 +267,7 @@ func main() {
 	canEditUsuario := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_USUARIO)
 	canDeleteUsuario := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.DELETAR_USUARIO)
 	canManageCargos := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_CARGOS)
+	canViewSaldo := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VER_SALDO_FUNCIONARIOS)
 	canEditSaldo := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_SALDO_FUNCIONARIOS)
 	canViewPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VISUALIZAR_PONTO_FUNCIONARIOS)
 	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS)
@@ -393,6 +394,8 @@ func main() {
 			rotasProtegidas.POST("/bancohoras/fechamento/usuario/:id", canEditSaldo, bancoHorasHandler.FecharDia)
 			// Dashboard de banco de horas do usuário autenticado
 			rotasProtegidas.GET("/bancohoras/dashboard/me", bancoHorasHandler.GetDashboard)
+			// Saldo de banco de horas de um usuário específico (requer permissão VER_SALDO_FUNCIONARIOS)
+			rotasProtegidas.GET("/bancohoras/dashboard/:userId", canViewSaldo, bancoHorasHandler.GetSaldoUsuario)
 
 			// --- NOVAS ROTAS DE JUSTIFICATIVAS ---
 			// Rota para o funcionário criar uma solicitação

@@ -2,11 +2,14 @@ package bancohoras
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
+	"github.com/Loviiin/ponto-api-go/pkg/cache"
 	"gorm.io/gorm"
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
@@ -18,6 +21,9 @@ type BancoHorasService interface {
 	CalcularSaldoParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (int, error)
 	FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Contrato, error)
 	GetDashboardForUsuario(usuarioID uint, empresaID uint) (*DashboardResponse, error)
+	GetSaldoAtualUsuario(usuarioID uint, empresaID uint) (int, error)
+	InvalidarCacheDia(usuarioID uint, empresaID uint, dia time.Time)
+	InvalidarCacheUsuario(usuarioID uint, empresaID uint)
 }
 
 type bancoHorasService struct {
@@ -25,6 +31,7 @@ type bancoHorasService struct {
 	usuarioRepo usuario.UsuarioRepository
 	logRepo     logbancohoras.Repository
 	db          *gorm.DB
+	cache       cache.Service
 }
 
 func NewBancoHorasService(
@@ -38,11 +45,45 @@ func NewBancoHorasService(
 		usuarioRepo: userRepo,
 		logRepo:     logRepo,
 		db:          db,
+		cache:       nil, // Mantém compatibilidade com código existente
 	}
 }
 
+func NewBancoHorasServiceWithCache(
+	pontoRepo ponto.RegistroPontoRepository,
+	userRepo usuario.UsuarioRepository,
+	logRepo logbancohoras.Repository,
+	db *gorm.DB,
+	cacheService cache.Service,
+) BancoHorasService {
+	return &bancoHorasService{
+		pontoRepo:   pontoRepo,
+		usuarioRepo: userRepo,
+		logRepo:     logRepo,
+		db:          db,
+		cache:       cacheService,
+	}
+}
+
+// CalcularSaldoParaUsuario calcula o saldo de horas de um dia específico para um usuário
+// Cache de 30 minutos: após o dia terminar, os pontos não mudam mais (exceto ajustes manuais)
 func (s *bancoHorasService) CalcularSaldoParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (int, error) {
-	user, err := s.usuarioRepo.FindByID(context.Background(), usuarioID, empresaID)
+	ctx := context.Background()
+	diaFormatado := dia.Format("2006-01-02")
+	cacheKey := fmt.Sprintf("bancohoras:saldodia:empresa:%d:usuario:%d:dia:%s", empresaID, usuarioID, diaFormatado)
+
+	// Tenta buscar do cache se disponível
+	if s.cache != nil {
+		cachedValue, err := s.cache.Get(ctx, cacheKey)
+		if err == nil && cachedValue != "" {
+			var saldo int
+			if err := json.Unmarshal([]byte(cachedValue), &saldo); err == nil {
+				return saldo, nil
+			}
+		}
+	}
+
+	user, err := s.usuarioRepo.FindByID(ctx, usuarioID, empresaID)
 	if err != nil {
 		return 0, err
 	}
@@ -59,6 +100,12 @@ func (s *bancoHorasService) CalcularSaldoParaUsuario(usuarioID uint, empresaID u
 	doDia, err := CalcularSaldoDoDia(pontos, user.Contrato.Cargo)
 	if err != nil {
 		return 0, err
+	}
+
+	// Armazena no cache por 30 minutos (dias passados não mudam, mas pode haver ajustes)
+	if s.cache != nil {
+		saldoJSON, _ := json.Marshal(doDia)
+		_ = s.cache.Set(ctx, cacheKey, string(saldoJSON), 30*time.Minute)
 	}
 
 	return doDia, err
@@ -132,6 +179,17 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 		return nil, err
 	}
 
+	// Invalida todos os caches relacionados ao banco de horas do usuário após atualização
+	if s.cache != nil {
+		ctx := context.Background()
+		// Invalida cache do saldo simples
+		cacheKeySaldo := fmt.Sprintf("bancohoras:saldo:empresa:%d:usuario:%d", empresaID, usuarioID)
+		_ = s.cache.Delete(ctx, cacheKeySaldo)
+		// Invalida cache do dashboard completo (com histórico)
+		cacheKeyDashboard := fmt.Sprintf("bancohoras:dashboard:empresa:%d:usuario:%d", empresaID, usuarioID)
+		_ = s.cache.Delete(ctx, cacheKeyDashboard)
+	}
+
 	// Retorna o contrato atualizado
 	usuarioAtual.Contrato.SaldoBancoHorasMinutos = novoSaldoTotal
 	return &usuarioAtual.Contrato, nil
@@ -139,9 +197,24 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 
 // GetDashboardForUsuario retorna o saldo total atual e o histórico de alterações do banco de horas
 // do usuário informado já ordenado por data desc.
+// Cache de 5 minutos pois o dashboard é pesado (busca todos os logs)
 func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint) (*DashboardResponse, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("bancohoras:dashboard:empresa:%d:usuario:%d", empresaID, usuarioID)
+
+	// Tenta buscar do cache se disponível
+	if s.cache != nil {
+		cachedValue, err := s.cache.Get(ctx, cacheKey)
+		if err == nil && cachedValue != "" {
+			var dashboard DashboardResponse
+			if err := json.Unmarshal([]byte(cachedValue), &dashboard); err == nil {
+				return &dashboard, nil
+			}
+		}
+	}
+
 	// a) Buscar o usuário (com contrato)
-	user, err := s.usuarioRepo.FindByID(context.Background(), usuarioID, empresaID)
+	user, err := s.usuarioRepo.FindByID(ctx, usuarioID, empresaID)
 	if err != nil {
 		return nil, err
 	}
@@ -177,5 +250,75 @@ func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uin
 		SaldoTotalMinutos: saldoTotal,
 		Historico:         historico,
 	}
+
+	// Armazena no cache por 5 minutos (atualiza apenas no fechamento diário)
+	if s.cache != nil {
+		dashboardJSON, _ := json.Marshal(resp)
+		_ = s.cache.Set(ctx, cacheKey, string(dashboardJSON), 5*time.Minute)
+	}
+
 	return resp, nil
+}
+
+// GetSaldoAtualUsuario retorna o saldo atual do banco de horas de um usuário
+// com cache de 5 minutos para melhorar performance
+func (s *bancoHorasService) GetSaldoAtualUsuario(usuarioID uint, empresaID uint) (int, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("bancohoras:saldo:empresa:%d:usuario:%d", empresaID, usuarioID)
+
+	// Tenta buscar do cache se disponível
+	if s.cache != nil {
+		cachedValue, err := s.cache.Get(ctx, cacheKey)
+		if err == nil && cachedValue != "" {
+			var saldo int
+			if err := json.Unmarshal([]byte(cachedValue), &saldo); err == nil {
+				return saldo, nil
+			}
+		}
+	}
+
+	// Se não encontrou no cache ou cache não disponível, busca do banco
+	user, err := s.usuarioRepo.FindByID(ctx, usuarioID, empresaID)
+	if err != nil {
+		return 0, err
+	}
+
+	if user.Contrato.ID == 0 {
+		return 0, errors.New("usuário não possui contrato ativo")
+	}
+
+	saldo := user.Contrato.SaldoBancoHorasMinutos
+
+	// Armazena no cache por 5 minutos (saldo muda apenas no fechamento diário)
+	if s.cache != nil {
+		saldoJSON, _ := json.Marshal(saldo)
+		_ = s.cache.Set(ctx, cacheKey, string(saldoJSON), 5*time.Minute)
+	}
+
+	return saldo, nil
+}
+
+// InvalidarCacheDia invalida o cache de saldo de um dia específico
+// Usado quando há ajustes manuais de ponto
+func (s *bancoHorasService) InvalidarCacheDia(usuarioID uint, empresaID uint, dia time.Time) {
+	if s.cache != nil {
+		ctx := context.Background()
+		diaFormatado := dia.Format("2006-01-02")
+		cacheKey := fmt.Sprintf("bancohoras:saldodia:empresa:%d:usuario:%d:dia:%s", empresaID, usuarioID, diaFormatado)
+		_ = s.cache.Delete(ctx, cacheKey)
+	}
+}
+
+// InvalidarCacheUsuario invalida todos os caches relacionados a um usuário
+// Útil para operações que afetam múltiplos aspectos do banco de horas
+func (s *bancoHorasService) InvalidarCacheUsuario(usuarioID uint, empresaID uint) {
+	if s.cache != nil {
+		ctx := context.Background()
+		// Invalida cache do saldo atual
+		cacheKeySaldo := fmt.Sprintf("bancohoras:saldo:empresa:%d:usuario:%d", empresaID, usuarioID)
+		_ = s.cache.Delete(ctx, cacheKeySaldo)
+		// Invalida cache do dashboard completo
+		cacheKeyDashboard := fmt.Sprintf("bancohoras:dashboard:empresa:%d:usuario:%d", empresaID, usuarioID)
+		_ = s.cache.Delete(ctx, cacheKeyDashboard)
+	}
 }

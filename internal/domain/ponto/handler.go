@@ -15,6 +15,7 @@ import (
 type PontoHandler struct {
 	service              PontoService
 	justificativaService JustificativaService // Usa interface local para quebrar ciclo
+	bancoHorasService    BancoHorasService    // Para invalidar cache quando há ajustes
 	converter            funcoes.FuncoesInterface
 }
 
@@ -23,11 +24,18 @@ type JustificativaService interface {
 	SolicitarAjuste(j *model.Justificativa) error
 }
 
+// Interface local para invalidar cache de banco de horas
+type BancoHorasService interface {
+	InvalidarCacheDia(usuarioID uint, empresaID uint, dia time.Time)
+	InvalidarCacheUsuario(usuarioID uint, empresaID uint)
+}
+
 // 3. Receber o serviço de justificativa no construtor
-func NewPontoHandler(service PontoService, justificativaService JustificativaService, converter funcoes.FuncoesInterface) *PontoHandler {
+func NewPontoHandler(service PontoService, justificativaService JustificativaService, bancoHorasService BancoHorasService, converter funcoes.FuncoesInterface) *PontoHandler {
 	return &PontoHandler{
 		service:              service,
 		justificativaService: justificativaService,
+		bancoHorasService:    bancoHorasService,
 		converter:            converter,
 	}
 }
@@ -238,6 +246,14 @@ func (h *PontoHandler) AjustarPonto(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao ajustar o ponto: " + err.Error()})
 		return
 	}
+
+	// 3. Invalidar cache do banco de horas para o dia ajustado
+	if h.bancoHorasService != nil {
+		h.bancoHorasService.InvalidarCacheDia(req.UsuarioID, empresaID, req.Timestamp)
+		// Também invalida o dashboard e saldo geral (podem ter mudado)
+		h.bancoHorasService.InvalidarCacheUsuario(req.UsuarioID, empresaID)
+	}
+
 	c.JSON(http.StatusCreated, novoPonto)
 }
 
@@ -311,6 +327,16 @@ func (h *PontoHandler) EditarPonto(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao editar o ponto: " + err.Error()})
 		return
+	}
+
+	// Invalidar cache do banco de horas para os dias afetados (original e novo)
+	if h.bancoHorasService != nil {
+		// Invalida o dia original do ponto
+		h.bancoHorasService.InvalidarCacheDia(pontoOriginal.UsuarioID, empresaID, pontoOriginal.Timestamp)
+		// Invalida o novo dia (caso seja diferente)
+		h.bancoHorasService.InvalidarCacheDia(pontoOriginal.UsuarioID, empresaID, req.Timestamp)
+		// Invalida dashboard e saldo geral
+		h.bancoHorasService.InvalidarCacheUsuario(pontoOriginal.UsuarioID, empresaID)
 	}
 
 	c.JSON(http.StatusOK, pontoAtualizado)

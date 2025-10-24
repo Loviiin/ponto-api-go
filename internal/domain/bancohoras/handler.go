@@ -57,6 +57,49 @@ func (h *Handler) GetDashboard(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// GetSaldoUsuario retorna o saldo atual do banco de horas de um usuário específico
+// @Summary      Saldo de Banco de Horas de um Funcionário
+// @Description  Retorna o saldo atual do banco de horas de um usuário específico. Requer permissão 'VER_SALDO_FUNCIONARIOS'.
+// @Tags         Banco de Horas
+// @Produce      json
+// @Security     BearerAuth
+// @Param        userId   path      int  true  "ID do Usuário"
+// @Success      200  {object}  map[string]int
+// @Failure      400  {object}  map[string]string
+// @Failure      401  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /bancohoras/dashboard/{userId} [get]
+func (h *Handler) GetSaldoUsuario(c *gin.Context) {
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "empresa não encontrada no token"})
+		return
+	}
+
+	userID, err := h.converter.StrParaUint(c.Param("userId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID do usuário inválido"})
+		return
+	}
+
+	// Busca o saldo usando o service (com cache)
+	saldo, err := h.service.GetSaldoAtualUsuario(userID, empresaID)
+	if err != nil {
+		if err.Error() == "usuário não possui contrato ativo" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"saldo_atual_minutos": saldo,
+	})
+}
+
 // @Summary      Consulta saldo de horas do dia
 // @Description  Retorna o saldo de horas (positivo ou negativo) de um usuário para um dia específico. Requer permissão 'VER_SALDO_FUNCIONARIOS' se o ID consultado não for o do próprio usuário.
 // @Tags         Banco de Horas

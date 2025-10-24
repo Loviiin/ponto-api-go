@@ -111,6 +111,15 @@ func (m *mockBancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID u
 func (m *mockBancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint) (*bancohoras.DashboardResponse, error) {
 	return &bancohoras.DashboardResponse{}, nil
 }
+func (m *mockBancoHorasService) GetSaldoAtualUsuario(usuarioID uint, empresaID uint) (int, error) {
+	return 0, nil
+}
+func (m *mockBancoHorasService) InvalidarCacheDia(usuarioID uint, empresaID uint, dia time.Time) {
+	// Mock não faz nada
+}
+func (m *mockBancoHorasService) InvalidarCacheUsuario(usuarioID uint, empresaID uint) {
+	// Mock não faz nada
+}
 
 func buildService(regs []model.RegistroPonto, carga int) Service {
 	return NewService(&mockPontoRepo{regs: regs}, &mockUserRepo{carga: carga}, &mockLogRepo{}, &mockBancoHorasService{carga: carga})
