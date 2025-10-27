@@ -130,7 +130,9 @@ func CalcularSaldoDoDia(pontosDoDia []model.RegistroPonto, cargoDoUsuario model.
 		totalTrabalhadoEmMinutos += duracao
 	}
 
-	saldo := totalTrabalhadoEmMinutos - float64(cargoDoUsuario.CargaHorariaDiariaMinutos)
+	// Usa o helper para obter a carga horária (respeita hierarquia Contrato > Cargo > Padrão)
+	cargaHorariaDiaria := float64(cargoDoUsuario.CargaHorariaDiariaMinutos)
+	saldo := totalTrabalhadoEmMinutos - cargaHorariaDiaria
 
 	return int(saldo), nil
 }

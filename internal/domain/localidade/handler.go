@@ -88,3 +88,35 @@ func (h *Handler) GetAllByEmpresa(c *gin.Context) {
 
 	c.JSON(http.StatusOK, localidades)
 }
+
+// @Summary      Lista as localidades da empresa do usuário autenticado
+// @Description  Retorna uma lista de todas as localidades da empresa do usuário logado (empresaID extraído do JWT). Requer permissão 'GERENCIAR_LOCALIDADES'.
+// @Tags         Localidades
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   model.Localidade
+// @Failure      401  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
+// @Router       /localidades [get]
+func (h *Handler) ListarLocalidades(c *gin.Context) {
+	// Extrai empresaID do contexto (setado pelo middleware de autenticação)
+	empresaIDInterface, exists := c.Get("empresaID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Empresa ID não encontrado no token."})
+		return
+	}
+
+	empresaID, ok := empresaIDInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Empresa ID inválido no token."})
+		return
+	}
+
+	localidades, err := h.service.FindAllByEmpresaID(empresaID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar localidades."})
+		return
+	}
+
+	c.JSON(http.StatusOK, localidades)
+}

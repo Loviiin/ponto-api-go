@@ -404,8 +404,9 @@ func main() {
 			rotasProtegidas.GET("/justificativas/pendentes", canManageJustificativas, justificativaHandler.ListarPendentes)
 			rotasProtegidas.POST("/justificativas/:id/processar", canManageJustificativas, justificativaHandler.AprovarReprovar)
 
-			//rotas de localodade
+			//rotas de localidade
 			rotasProtegidas.POST("/localidades", canManageLocalidades, localidadeHandler.Create)
+			rotasProtegidas.GET("/localidades", canManageLocalidades, localidadeHandler.ListarLocalidades)
 			rotasProtegidas.GET("/empresas/:id/localidades", canManageLocalidades, localidadeHandler.GetAllByEmpresa)
 		}
 	}

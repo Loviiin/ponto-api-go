@@ -58,6 +58,12 @@ type CriarUsuarioRequest struct {
 	CargoID      uint      `json:"cargo_id" binding:"required" example:"5"`
 	Salario      float64   `json:"salario" binding:"required,gt=0" example:"3500"`
 	DataAdmissao time.Time `json:"data_admissao" binding:"required" example:"2025-10-09T00:00:00Z"`
+
+	// Carga horária personalizada (opcional - se omitido, usa padrão do Cargo)
+	CargaHorariaDiariaMinutos  *uint  `json:"carga_horaria_diaria_minutos,omitempty" example:"480"`   // Ex: 480 = 8h
+	CargaHorariaSemanalMinutos *uint  `json:"carga_horaria_semanal_minutos,omitempty" example:"2640"` // Ex: 2640 = 44h
+	DiasTrabalhadosSemana      *uint  `json:"dias_trabalhados_semana,omitempty" example:"5"`          // Ex: 5 = seg-sex
+	TipoContrato               string `json:"tipo_contrato,omitempty" example:"CLT"`                  // CLT, PJ, Estagiário, Part-time
 }
 
 // UpdateUsuarioRequest define o corpo do pedido para atualizar um usuário.
@@ -672,6 +678,12 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 		Senha: request.Senha,
 	}
 
+	// Tipo de contrato padrão CLT se não informado
+	tipoContrato := "CLT"
+	if request.TipoContrato != "" {
+		tipoContrato = request.TipoContrato
+	}
+
 	contrato := &model.Contrato{
 		// Ignora o empresa_id do payload e utiliza o do token
 		EmpresaID:    empresaIDToken,
@@ -679,6 +691,12 @@ func (h *UsuarioHandler) CriarUsuarioHandler(c *gin.Context) {
 		CargoID:      request.CargoID,
 		Salario:      request.Salario,
 		DataAdmissao: request.DataAdmissao,
+
+		// Carga horária personalizada (opcional)
+		CargaHorariaDiariaMinutos:  request.CargaHorariaDiariaMinutos,
+		CargaHorariaSemanalMinutos: request.CargaHorariaSemanalMinutos,
+		DiasTrabalhadosSemana:      request.DiasTrabalhadosSemana,
+		TipoContrato:               tipoContrato,
 	}
 
 	err = h.service.CriarUsuarioEContrato(usuario, contrato, idRequisitante)
