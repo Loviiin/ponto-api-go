@@ -75,6 +75,15 @@ func (m *mockJustificativaRepo) FindByID(id uint, empresaID uint) (*model.Justif
 func (m *mockJustificativaRepo) FindByStatus(empresaID uint, status string) ([]model.Justificativa, error) {
 	return nil, nil
 }
+func (m *mockJustificativaRepo) FindByUsuarioID(usuarioID uint, empresaID uint) ([]model.Justificativa, error) {
+	var result []model.Justificativa
+	for _, j := range m.justificativas {
+		if j.UsuarioID == usuarioID {
+			result = append(result, j)
+		}
+	}
+	return result, nil
+}
 func (m *mockJustificativaRepo) FindByUsuarioIDAndPeriodo(usuarioID uint, empresaID uint, inicio, fim time.Time) ([]model.Justificativa, error) {
 	var result []model.Justificativa
 	for _, j := range m.justificativas {
@@ -85,6 +94,12 @@ func (m *mockJustificativaRepo) FindByUsuarioIDAndPeriodo(usuarioID uint, empres
 	return result, nil
 }
 func (m *mockJustificativaRepo) Update(j *model.Justificativa) error { return nil }
+func (m *mockJustificativaRepo) InvalidarCacheEmpresa(empresaID uint) {
+	// Mock não faz nada
+}
+func (m *mockJustificativaRepo) InvalidarCacheUsuario(usuarioID uint, empresaID uint) {
+	// Mock não faz nada
+}
 func (m *mockJustificativaRepo) WithTransaction(tx *gorm.DB) justificativa.Repository {
 	return m
 }

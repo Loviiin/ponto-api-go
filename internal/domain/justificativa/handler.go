@@ -127,3 +127,63 @@ func (h *Handler) AprovarReprovar(c *gin.Context) {
 
 	c.JSON(http.StatusOK, justificativa)
 }
+
+// @Summary      Lista minhas justificativas
+// @Description  Retorna todas as solicitações de ajuste de ponto do usuário autenticado (independente do status).
+// @Tags         Justificativas
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {array}   model.Justificativa  "Lista de justificativas do usuário"
+// @Failure      500  {object}  map[string]string
+// @Router       /justificativas/minhas [get]
+func (h *Handler) ListarMinhas(c *gin.Context) {
+	userID, _ := h.converter.GetUintIDFromContext(c, "userID")
+	empresaID, _ := h.converter.GetUintIDFromContext(c, "empresaID")
+
+	minhas, err := h.service.ListarPorUsuario(userID, empresaID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar suas justificativas"})
+		return
+	}
+	c.JSON(http.StatusOK, minhas)
+}
+
+// @Summary      Cancela uma solicitação própria
+// @Description  Permite que o usuário cancele sua própria solicitação de ajuste que ainda está pendente.
+// @Tags         Justificativas
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      int  true  "ID da Justificativa a ser cancelada"
+// @Success      200  {object}  map[string]string  "Solicitação cancelada com sucesso"
+// @Failure      400  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /justificativas/{id}/cancelar [delete]
+func (h *Handler) CancelarSolicitacao(c *gin.Context) {
+	userID, _ := h.converter.GetUintIDFromContext(c, "userID")
+	empresaID, _ := h.converter.GetUintIDFromContext(c, "empresaID")
+
+	justificativaID, err := h.converter.StrParaUint(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID da justificativa inválido"})
+		return
+	}
+
+	err = h.service.CancelarSolicitacao(justificativaID, empresaID, userID)
+	if err != nil {
+		errorMsg := err.Error()
+		switch errorMsg {
+		case "justificativa não encontrada":
+			c.JSON(http.StatusNotFound, gin.H{"error": "Justificativa não encontrada"})
+		case "você só pode cancelar suas próprias solicitações":
+			c.JSON(http.StatusForbidden, gin.H{"error": errorMsg})
+		case "apenas solicitações pendentes podem ser canceladas":
+			c.JSON(http.StatusBadRequest, gin.H{"error": errorMsg})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao cancelar solicitação"})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Solicitação cancelada com sucesso"})
+}

@@ -11,7 +11,9 @@ import (
 type Service interface {
 	SolicitarAjuste(solicitacao *model.Justificativa) error
 	ListarPendentes(empresaID uint) ([]model.Justificativa, error)
+	ListarPorUsuario(usuarioID uint, empresaID uint) ([]model.Justificativa, error)
 	AprovarReprovar(justificativaID, empresaID, aprovadorID uint, aprovado bool, motivoReprovacao string) (*model.Justificativa, error)
+	CancelarSolicitacao(justificativaID, empresaID, usuarioID uint) error
 }
 
 type service struct {
@@ -36,6 +38,10 @@ func (s *service) SolicitarAjuste(solicitacao *model.Justificativa) error {
 
 func (s *service) ListarPendentes(empresaID uint) ([]model.Justificativa, error) {
 	return s.justificativaRepo.FindByStatus(empresaID, "PENDENTE")
+}
+
+func (s *service) ListarPorUsuario(usuarioID uint, empresaID uint) ([]model.Justificativa, error) {
+	return s.justificativaRepo.FindByUsuarioID(usuarioID, empresaID)
 }
 
 func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, aprovado bool, motivoReprovacao string) (*model.Justificativa, error) {
@@ -89,4 +95,32 @@ func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, 
 	})
 
 	return justificativaProcessada, err
+}
+
+// CancelarSolicitacao permite que o próprio usuário cancele sua solicitação pendente
+func (s *service) CancelarSolicitacao(justificativaID, empresaID, usuarioID uint) error {
+	justificativa, err := s.justificativaRepo.FindByID(justificativaID, empresaID)
+	if err != nil {
+		return errors.New("justificativa não encontrada")
+	}
+
+	// Validar que é o próprio usuário tentando cancelar
+	if justificativa.UsuarioID != usuarioID {
+		return errors.New("você só pode cancelar suas próprias solicitações")
+	}
+
+	// Validar que está pendente
+	if justificativa.Status != "PENDENTE" {
+		return errors.New("apenas solicitações pendentes podem ser canceladas")
+	}
+
+	// Atualizar status para CANCELADO
+	justificativa.Status = "CANCELADO"
+	justificativa.ObservacaoAprovador = "Cancelado pelo próprio usuário"
+
+	if err := s.justificativaRepo.Update(justificativa); err != nil {
+		return errors.New("erro ao cancelar solicitação")
+	}
+
+	return nil
 }

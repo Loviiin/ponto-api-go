@@ -16,7 +16,16 @@ type Justificativa struct {
 
 	ObservacaoAprovador string `json:"observacao_aprovador,omitempty"` // Para feedback ou motivo da reprovação
 
-	Usuario   Usuario `json:"-"`
-	Aprovador Usuario `gorm:"foreignKey:AprovadorID" json:"-"`
-	Empresa   Empresa `json:"-"`
+	// Relacionamentos - expõe dados básicos do usuário no JSON
+	Usuario   *UsuarioBasico `gorm:"foreignKey:UsuarioID" json:"usuario,omitempty"`
+	Aprovador *UsuarioBasico `gorm:"foreignKey:AprovadorID" json:"aprovador,omitempty"`
+	Empresa   Empresa        `json:"-"`
+}
+
+// UsuarioBasico contém apenas campos essenciais para exibição em justificativas
+type UsuarioBasico struct {
+	ID    uint   `json:"id"`
+	Nome  string `json:"nome"`
+	Email string `json:"email"`
+	CPF   string `json:"cpf"`
 }

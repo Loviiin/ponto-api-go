@@ -209,7 +209,7 @@ func main() {
 	empresaRepo := empresa.NewEmpresaRepository(db, cacheService)
 	cargoRepo := cargo.NewCargoRepository(db, cacheService)
 	permissaoRepo := permissao.NewRepository(db, cacheService)
-	justificativaRepo := justificativa.NewRepository(db)
+	justificativaRepo := justificativa.NewRepository(db, cacheService)
 	logBancoHorasRepo := logbancohoras.NewRepository(db)
 	contratoRepo := contrato.NewContratoRepository(db)
 	localidadeRepo := localidade.NewRepository(db)
@@ -399,6 +399,10 @@ func main() {
 			// --- NOVAS ROTAS DE JUSTIFICATIVAS ---
 			// Rota para o funcionário criar uma solicitação
 			rotasProtegidas.POST("/justificativas", justificativaHandler.SolicitarAjuste)
+			// Rota para o funcionário ver suas próprias justificativas
+			rotasProtegidas.GET("/justificativas/minhas", justificativaHandler.ListarMinhas)
+			// Rota para o funcionário cancelar sua própria solicitação pendente
+			rotasProtegidas.DELETE("/justificativas/:id/cancelar", justificativaHandler.CancelarSolicitacao)
 
 			// Rotas para o admin/gestor gerir as solicitações
 			rotasProtegidas.GET("/justificativas/pendentes", canManageJustificativas, justificativaHandler.ListarPendentes)
