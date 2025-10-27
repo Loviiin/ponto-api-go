@@ -230,7 +230,7 @@ func main() {
 
 	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo, localidadeRepo)
 	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, db)
-	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, localidadeRepo, db)
+	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, localidadeRepo, empresaRepo, db)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)

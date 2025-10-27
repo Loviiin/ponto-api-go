@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
 	"github.com/Loviiin/ponto-api-go/internal/domain/localidade"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -27,11 +28,13 @@ type PontoService interface {
 }
 
 var ErrFormatoInvalido = errors.New("formato inválido; use 'csv' ou 'pdf'")
+var ErrGeofencingViolation = errors.New("geofencing violation")
 
 type pontoService struct {
 	pontoRepo      RegistroPontoRepository
 	userRepo       usuario.UsuarioRepository
 	localidadeRepo localidade.Repository
+	empresaRepo    empresa.EmpresaRepository
 	db             *gorm.DB
 }
 
@@ -39,12 +42,14 @@ func NewPontoService(
 	pontoRepo RegistroPontoRepository,
 	userRepo usuario.UsuarioRepository,
 	localidadeRepo localidade.Repository,
+	empresaRepo empresa.EmpresaRepository,
 	db *gorm.DB,
 ) PontoService {
 	return &pontoService{
 		pontoRepo:      pontoRepo,
 		userRepo:       userRepo,
 		localidadeRepo: localidadeRepo,
+		empresaRepo:    empresaRepo,
 		db:             db,
 	}
 }
@@ -77,10 +82,27 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 	distanciaEmMetros := km * 1000
 
 	var tipoBatida string
-	if distanciaEmMetros > localidade.RaioGeofenceMetros {
-		tipoBatida = "Remoto"
-	} else {
+	dentroDoRaio := distanciaEmMetros <= localidade.RaioGeofenceMetros
+	
+	if dentroDoRaio {
 		tipoBatida = "Presencial"
+	} else {
+		tipoBatida = "Remoto"
+	}
+
+	// Verificar se a empresa requer que batidas presenciais sejam dentro do raio
+	empresa, err := s.empresaRepo.FindByID(context.Background(), empresaID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("empresa não encontrada")
+		}
+		return nil, err
+	}
+
+	// Se a restrição está ativa e o usuário está fora do raio, rejeitar a batida
+	// (independente da tentativa ser presencial ou remota - a regra bloqueia qualquer batida fora do raio)
+	if empresa.PresencialRestritoAoRaio && !dentroDoRaio {
+		return nil, fmt.Errorf("%w: você está fora do raio permitido (%.2fm de distância, raio máximo: %.2fm)", ErrGeofencingViolation, distanciaEmMetros, localidade.RaioGeofenceMetros)
 	}
 
 	loc, err := time.LoadLocation("America/Sao_Paulo")
