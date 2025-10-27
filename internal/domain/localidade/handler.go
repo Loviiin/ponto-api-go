@@ -99,16 +99,24 @@ func (h *Handler) GetAllByEmpresa(c *gin.Context) {
 // @Failure      500  {object}  map[string]string
 // @Router       /localidades [get]
 func (h *Handler) ListarLocalidades(c *gin.Context) {
-	// Extrai empresaID do contexto (setado pelo middleware de autenticação)
+	// Extrai empresaID do contexto (setado pelo middleware de autenticação como string)
 	empresaIDInterface, exists := c.Get("empresaID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Empresa ID não encontrado no token."})
 		return
 	}
 
-	empresaID, ok := empresaIDInterface.(uint)
+	// O middleware seta empresaID como string, então precisamos converter
+	empresaIDStr, ok := empresaIDInterface.(string)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Empresa ID inválido no token."})
+		return
+	}
+
+	// Converte string para uint
+	empresaID, err := h.converter.StrParaUint(empresaIDStr)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Empresa ID inválido no formato."})
 		return
 	}
 

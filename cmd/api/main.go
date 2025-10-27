@@ -237,7 +237,7 @@ func main() {
 	permissaoService := permissao.NewService(permissaoRepo)
 	bancoHorasService := bancohoras.NewBancoHorasServiceWithCache(pontoRepo, usuarioRepo, logBancoHorasRepo, db, cacheService)
 	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, db)
-	localidadeService := localidade.NewService(localidadeRepo, geoService)
+	localidadeService := localidade.NewService(localidadeRepo, geoService, cacheService)
 
 	// CEP handler para consulta direta por CEP
 	cepHandler := cephandler.NewHandler(geoService)
