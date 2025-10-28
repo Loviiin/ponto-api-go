@@ -39,6 +39,9 @@ type Config struct {
 	RedisAddr     string `mapstructure:"REDIS_ADDR"`
 	RedisPassword string `mapstructure:"REDIS_PASSWORD"`
 	RedisDB       int    `mapstructure:"REDIS_DB"`
+
+	// Cloudinary para upload de avatares
+	CloudinaryURL string `mapstructure:"CLOUDINARY_URL"`
 }
 
 // --- FUNÇÃO LoadConfig COMPLETAMENTE NOVA ---
@@ -119,6 +122,10 @@ func LoadConfig(path string) (config Config, err error) {
 		return
 	}
 	if err = viper.BindEnv("REDIS_DB"); err != nil {
+		return
+	}
+	// Cloudinary
+	if err = viper.BindEnv("CLOUDINARY_URL"); err != nil {
 		return
 	}
 	// --- FIM DA CORREÇÃO ---

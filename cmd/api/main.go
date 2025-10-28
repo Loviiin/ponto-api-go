@@ -29,10 +29,12 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/localidade"
 	"github.com/Loviiin/ponto-api-go/internal/domain/permissao"
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
+	"github.com/Loviiin/ponto-api-go/internal/domain/profile"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 
 	"github.com/Loviiin/ponto-api-go/pkg/brasilapi"
 	"github.com/Loviiin/ponto-api-go/pkg/cache"
+	"github.com/Loviiin/ponto-api-go/pkg/cloudinary"
 
 	"github.com/Loviiin/ponto-api-go/pkg/cep"
 	"github.com/Loviiin/ponto-api-go/pkg/distancematrix"
@@ -257,6 +259,17 @@ func main() {
 	justificativaHandler := justificativa.NewHandler(justificativaService, funcoesService)
 	localidadeHandler := localidade.NewHandler(localidadeService, funcoesService)
 
+	// Cloudinary Service - Upload de avatares
+	cloudinaryService, err := cloudinary.NewService(cfg.CloudinaryURL)
+	if err != nil {
+		log.Printf("AVISO: Cloudinary não inicializado: %v (upload de avatares desabilitado)", err)
+	}
+
+	// Profile - Handler de perfil de usuário
+	profileRepo := profile.NewRepository(db, cacheService)
+	profileService := profile.NewService(profileRepo, db, cacheService)
+	profileHandler := profile.NewHandler(profileService, cloudinaryService)
+
 	// --- Middlewares ---
 	authMiddleware := auth.AuthMiddleware(jwtService)
 
@@ -412,6 +425,21 @@ func main() {
 			rotasProtegidas.POST("/localidades", canManageLocalidades, localidadeHandler.Create)
 			rotasProtegidas.GET("/localidades", canManageLocalidades, localidadeHandler.ListarLocalidades)
 			rotasProtegidas.GET("/empresas/:id/localidades", canManageLocalidades, localidadeHandler.GetAllByEmpresa)
+
+			// --- ROTAS DE PERFIL ---
+			// Perfil do usuário autenticado
+			rotasProtegidas.GET("/profile/me", profileHandler.GetMyProfile)
+			rotasProtegidas.PUT("/profile/me", profileHandler.UpdateProfile)
+			rotasProtegidas.PUT("/profile/me/password", profileHandler.ChangePassword)
+			rotasProtegidas.POST("/profile/me/avatar", profileHandler.UploadAvatar)
+
+			// Estatísticas e permissões
+			rotasProtegidas.GET("/profile/me/stats", profileHandler.GetMyStats)
+			rotasProtegidas.GET("/profile/me/permissions", profileHandler.GetMyPermissions)
+
+			// Calendário e atividades recentes
+			rotasProtegidas.GET("/profile/me/calendar", profileHandler.GetCalendar)
+			rotasProtegidas.GET("/profile/me/recent-activity", profileHandler.GetRecentActivity)
 		}
 	}
 

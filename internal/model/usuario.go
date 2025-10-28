@@ -12,6 +12,8 @@ type Usuario struct {
 	CPF       string         `gorm:"unique;not null" json:"cpf"`
 	Email     string         `gorm:"unique;not null" json:"email"`
 	Senha     string         `gorm:"not null" json:"-"`
+	Telefone  string         `json:"telefone,omitempty"`
+	Avatar    string         `json:"avatar,omitempty"`
 	CreatedAt time.Time      `gorm:"column:data_criacao" json:"data_criacao"`
 	UpdatedAt time.Time      `gorm:"column:data_atualizacao" json:"data_atualizacao"`
 	DeletedAt gorm.DeletedAt `gorm:"index;column:deleted_at" json:"-"`
