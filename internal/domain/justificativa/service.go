@@ -2,6 +2,7 @@ package justificativa
 
 import (
 	"errors"
+	"time"
 
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -10,6 +11,7 @@ import (
 
 type Service interface {
 	SolicitarAjuste(solicitacao *model.Justificativa) error
+	SolicitarCorrecaoPonto(pontoID uint, novaDataHora time.Time, descricao string, usuarioID, empresaID uint) error
 	ListarPendentes(empresaID uint) ([]model.Justificativa, error)
 	ListarPorUsuario(usuarioID uint, empresaID uint) ([]model.Justificativa, error)
 	AprovarReprovar(justificativaID, empresaID, aprovadorID uint, aprovado bool, motivoReprovacao string) (*model.Justificativa, error)
@@ -32,8 +34,44 @@ func NewService(repo Repository, pontoRepo ponto.RegistroPontoRepository, db *go
 }
 
 func (s *service) SolicitarAjuste(solicitacao *model.Justificativa) error {
+	// Validação: PONTO_FALTANTE não deve ter ponto_id
+	if solicitacao.Tipo == "PONTO_FALTANTE" && solicitacao.PontoID != nil {
+		return errors.New("justificativa do tipo PONTO_FALTANTE não pode ter ponto_id")
+	}
+
+	// Validação: CORRECAO_PONTO deve ter ponto_id
+	if solicitacao.Tipo == "CORRECAO_PONTO" && solicitacao.PontoID == nil {
+		return errors.New("justificativa do tipo CORRECAO_PONTO deve ter ponto_id")
+	}
+
 	solicitacao.Status = "PENDENTE"
 	return s.justificativaRepo.Create(solicitacao)
+}
+
+// SolicitarCorrecaoPonto cria uma justificativa específica para correção de ponto existente
+func (s *service) SolicitarCorrecaoPonto(pontoID uint, novaDataHora time.Time, descricao string, usuarioID, empresaID uint) error {
+	// Validar se o ponto existe e pertence ao usuário
+	ponto, err := s.pontoRepo.FindPontoByID(pontoID, empresaID)
+	if err != nil {
+		return errors.New("ponto não encontrado")
+	}
+
+	if ponto.UsuarioID != usuarioID {
+		return errors.New("você não tem permissão para corrigir este ponto")
+	}
+
+	// Criar justificativa do tipo CORRECAO_PONTO
+	justificativa := &model.Justificativa{
+		Tipo:           "CORRECAO_PONTO",
+		PontoID:        &pontoID,
+		DataOcorrencia: novaDataHora,
+		Descricao:      descricao,
+		UsuarioID:      usuarioID,
+		EmpresaID:      empresaID,
+		Status:         "PENDENTE",
+	}
+
+	return s.justificativaRepo.Create(justificativa)
 }
 
 func (s *service) ListarPendentes(empresaID uint) ([]model.Justificativa, error) {
@@ -45,7 +83,7 @@ func (s *service) ListarPorUsuario(usuarioID uint, empresaID uint) ([]model.Just
 }
 
 func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, aprovado bool, motivoReprovacao string) (*model.Justificativa, error) {
-	// Usamos uma transação para garantir que a atualização da justificativa e a criação do ponto
+	// Usamos uma transação para garantir que a atualização da justificativa e a criação/atualização do ponto
 	var justificativaProcessada *model.Justificativa
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -65,18 +103,40 @@ func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, 
 		if aprovado {
 			justificativa.Status = "APROVADO"
 
-			// Lógica de criação do ponto movida para cá
 			pontoRepoTx := s.pontoRepo.WithTransaction(tx)
-			pontoRegistrado := &model.RegistroPonto{
-				UsuarioID:       justificativa.UsuarioID,
-				EmpresaID:       empresaID,
-				Timestamp:       justificativa.DataOcorrencia,
-				Metodo:          "AJUSTE_APROVADO",
-				Localizacao:     "N/A",
-				JustificativaID: &justificativa.ID,
-			}
-			if err := pontoRepoTx.SavePonto(pontoRegistrado); err != nil {
-				return err
+
+			// LÓGICA DIFERENCIADA POR TIPO DE JUSTIFICATIVA
+			if justificativa.Tipo == "CORRECAO_PONTO" && justificativa.PontoID != nil {
+				// Tipo 1: CORREÇÃO DE PONTO EXISTENTE
+				// Buscar o ponto que será corrigido
+				pontoExistente, err := pontoRepoTx.FindPontoByID(*justificativa.PontoID, empresaID)
+				if err != nil {
+					return errors.New("ponto a ser corrigido não encontrado")
+				}
+
+				// Atualizar o timestamp do ponto existente
+				pontoExistente.Timestamp = justificativa.DataOcorrencia
+				pontoExistente.Metodo = "AJUSTE_APROVADO"
+				pontoExistente.JustificativaID = &justificativa.ID
+
+				if err := pontoRepoTx.UpdatePonto(pontoExistente); err != nil {
+					return errors.New("erro ao atualizar ponto: " + err.Error())
+				}
+
+			} else {
+				// Tipo 2: PONTO FALTANTE (comportamento original)
+				// Criar um novo ponto
+				pontoRegistrado := &model.RegistroPonto{
+					UsuarioID:       justificativa.UsuarioID,
+					EmpresaID:       empresaID,
+					Timestamp:       justificativa.DataOcorrencia,
+					Metodo:          "AJUSTE_APROVADO",
+					Localizacao:     "N/A",
+					JustificativaID: &justificativa.ID,
+				}
+				if err := pontoRepoTx.SavePonto(pontoRegistrado); err != nil {
+					return err
+				}
 			}
 
 		} else {

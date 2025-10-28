@@ -231,7 +231,7 @@ func main() {
 	geoService := geolocation.NewService(cepService, distanceMatrixClient, brasilAPIClient)
 
 	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo, localidadeRepo)
-	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, db)
+	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, cacheService, db)
 	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, localidadeRepo, db)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
@@ -410,8 +410,10 @@ func main() {
 			rotasProtegidas.GET("/bancohoras/dashboard/:userId", canViewSaldo, bancoHorasHandler.GetSaldoUsuario)
 
 			// --- NOVAS ROTAS DE JUSTIFICATIVAS ---
-			// Rota para o funcionário criar uma solicitação
+			// Rota para o funcionário criar uma solicitação de ponto faltante
 			rotasProtegidas.POST("/justificativas", justificativaHandler.SolicitarAjuste)
+			// Rota para o funcionário solicitar correção de ponto existente
+			rotasProtegidas.POST("/justificativas/solicitar-correcao", justificativaHandler.SolicitarCorrecaoPonto)
 			// Rota para o funcionário ver suas próprias justificativas
 			rotasProtegidas.GET("/justificativas/minhas", justificativaHandler.ListarMinhas)
 			// Rota para o funcionário cancelar sua própria solicitação pendente

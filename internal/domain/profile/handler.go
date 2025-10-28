@@ -24,6 +24,48 @@ func NewHandler(service Service, cloudinaryService cloudinary.Service) *Handler 
 	}
 }
 
+// Helper function to convert string userID from context to uint
+func getUserIDFromContext(c *gin.Context) (uint, error) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		return 0, fmt.Errorf("usuário não autenticado")
+	}
+
+	// userID is stored as string in the context by auth middleware
+	userIDStr, ok := userID.(string)
+	if !ok {
+		return 0, fmt.Errorf("formato de userID inválido")
+	}
+
+	userIDUint, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("erro ao converter userID: %v", err)
+	}
+
+	return uint(userIDUint), nil
+}
+
+// Helper function to convert string empresaID from context to uint
+func getEmpresaIDFromContext(c *gin.Context) (uint, error) {
+	empresaID, exists := c.Get("empresaID")
+	if !exists {
+		return 0, fmt.Errorf("empresa não identificada")
+	}
+
+	// empresaID is stored as string in the context by auth middleware
+	empresaIDStr, ok := empresaID.(string)
+	if !ok {
+		return 0, fmt.Errorf("formato de empresaID inválido")
+	}
+
+	empresaIDUint, err := strconv.ParseUint(empresaIDStr, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("erro ao converter empresaID: %v", err)
+	}
+
+	return uint(empresaIDUint), nil
+}
+
 // GetMyProfile godoc
 // @Summary Obter meu perfil
 // @Description Retorna todas as informações do perfil do usuário autenticado
@@ -35,13 +77,13 @@ func NewHandler(service Service, cloudinaryService cloudinary.Service) *Handler 
 // @Failure 500 {object} map[string]string
 // @Router /profile/me [get]
 func (h *Handler) GetMyProfile(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	profile, err := h.service.GetMyProfile(userID.(uint))
+	profile, err := h.service.GetMyProfile(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -64,9 +106,9 @@ func (h *Handler) GetMyProfile(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /profile/me [put]
 func (h *Handler) UpdateProfile(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -76,7 +118,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	profile, err := h.service.UpdateProfile(userID.(uint), req)
+	profile, err := h.service.UpdateProfile(userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -99,9 +141,9 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /profile/me/password [put]
 func (h *Handler) ChangePassword(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -111,7 +153,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.ChangePassword(userID.(uint), req); err != nil {
+	if err := h.service.ChangePassword(userID, req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -130,19 +172,19 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /profile/me/stats [get]
 func (h *Handler) GetMyStats(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	empresaID, exists := c.Get("empresaID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "empresa não identificada"})
+	empresaID, err := getEmpresaIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	stats, err := h.service.GetMyStats(userID.(uint), empresaID.(uint))
+	stats, err := h.service.GetMyStats(userID, empresaID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -162,13 +204,13 @@ func (h *Handler) GetMyStats(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /profile/me/permissions [get]
 func (h *Handler) GetMyPermissions(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
-	permissions, err := h.service.GetMyPermissions(userID.(uint))
+	permissions, err := h.service.GetMyPermissions(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -190,9 +232,9 @@ func (h *Handler) GetMyPermissions(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /profile/me/recent-activity [get]
 func (h *Handler) GetRecentActivity(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -203,7 +245,7 @@ func (h *Handler) GetRecentActivity(c *gin.Context) {
 		}
 	}
 
-	activity, err := h.service.GetRecentActivity(userID.(uint), limit)
+	activity, err := h.service.GetRecentActivity(userID, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -226,9 +268,9 @@ func (h *Handler) GetRecentActivity(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /profile/me/calendar [get]
 func (h *Handler) GetCalendar(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -250,7 +292,7 @@ func (h *Handler) GetCalendar(c *gin.Context) {
 		}
 	}
 
-	calendar, err := h.service.GetCalendar(userID.(uint), month, year)
+	calendar, err := h.service.GetCalendar(userID, month, year)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -273,9 +315,9 @@ func (h *Handler) GetCalendar(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /profile/me/avatar [post]
 func (h *Handler) UploadAvatar(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário não autenticado"})
+	userID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -306,21 +348,21 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 	}
 
 	// Obter avatar antigo para deletar depois
-	profile, err := h.service.GetMyProfile(userID.(uint))
+	profile, err := h.service.GetMyProfile(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "erro ao obter perfil atual"})
 		return
 	}
 
 	// Upload para Cloudinary
-	avatarURL, err := h.cloudinaryService.UploadAvatar(file, userID.(uint), header.Filename)
+	avatarURL, err := h.cloudinaryService.UploadAvatar(file, userID, header.Filename)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("erro ao fazer upload: %v", err)})
 		return
 	}
 
 	// Atualizar campo Avatar no banco de dados
-	if err := h.service.UpdateAvatar(userID.(uint), avatarURL); err != nil {
+	if err := h.service.UpdateAvatar(userID, avatarURL); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "erro ao atualizar avatar no perfil"})
 		return
 	}

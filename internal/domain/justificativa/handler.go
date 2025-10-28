@@ -21,8 +21,15 @@ func NewHandler(s Service, f funcoes.FuncoesInterface) *Handler {
 
 type solicitarAjusteRequest struct {
 	DataOcorrencia time.Time `json:"data_ocorrencia" binding:"required" example:"2025-09-10T09:00:00Z"`
-	Tipo           string    `json:"tipo" binding:"required" example:"ENTRADA_ESQUECIDA"`
+	Tipo           string    `json:"tipo" binding:"required" example:"PONTO_FALTANTE"`
 	Descricao      string    `json:"descricao" binding:"required" example:"Esqueci de bater o ponto na entrada."`
+	PontoID        *uint     `json:"ponto_id,omitempty" example:"123"` // Apenas para tipo CORRECAO_PONTO
+}
+
+type solicitarCorrecaoRequest struct {
+	PontoID      uint      `json:"ponto_id" binding:"required" example:"123"`
+	NovaDataHora time.Time `json:"nova_data_hora" binding:"required" example:"2025-09-10T08:00:00Z"`
+	Descricao    string    `json:"descricao" binding:"required" example:"Bati o ponto com atraso devido ao trânsito intenso."`
 }
 
 type aprovarReprovarRequest struct {
@@ -57,14 +64,49 @@ func (h *Handler) SolicitarAjuste(c *gin.Context) {
 		DataOcorrencia: req.DataOcorrencia,
 		Tipo:           req.Tipo,
 		Descricao:      req.Descricao,
+		PontoID:        req.PontoID, // Adicionado suporte ao campo PontoID
 	}
 
 	if err := h.service.SolicitarAjuste(&justificativa); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao criar solicitação"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusCreated, justificativa)
+}
+
+// @Summary      Solicita correção de ponto existente
+// @Description  Funcionário solicita correção de um ponto que já foi batido (com horário incorreto/atrasado).
+// @Tags         Justificativas
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        correcao  body      solicitarCorrecaoRequest  true  "Dados da solicitação de correção"
+// @Success      201       {object}  map[string]string
+// @Failure      400       {object}  map[string]string
+// @Failure      404       {object}  map[string]string
+// @Router       /justificativas/solicitar-correcao [post]
+func (h *Handler) SolicitarCorrecaoPonto(c *gin.Context) {
+	userID, _ := h.converter.GetUintIDFromContext(c, "userID")
+	empresaID, _ := h.converter.GetUintIDFromContext(c, "empresaID")
+
+	var req solicitarCorrecaoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := h.service.SolicitarCorrecaoPonto(req.PontoID, req.NovaDataHora, req.Descricao, userID, empresaID)
+	if err != nil {
+		if err.Error() == "ponto não encontrado" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Solicitação de correção criada com sucesso"})
 }
 
 // @Summary      (Admin) Lista justificativas pendentes
