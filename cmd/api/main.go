@@ -82,23 +82,23 @@ func resetAndSeedDatabase(db *gorm.DB) {
 		// 1. Tabelas base sem dependências
 		&model.Empresa{},
 		&model.Permissao{},
-		
+
 		// 2. Tabelas que dependem de Empresa
 		&model.Cargo{},
 		&model.Localidade{},
-		
+
 		// 3. Usuário (depende de nada, mas é referenciado)
 		&model.Usuario{},
-		
+
 		// 4. Contrato (depende de Usuario, Cargo, Localidade)
 		&model.Contrato{},
-		
+
 		// 5. RegistroPonto (depende de Usuario e Empresa)
 		&model.RegistroPonto{},
-		
+
 		// 6. Justificativa (depende de Usuario, Empresa e RegistroPonto)
 		&model.Justificativa{},
-		
+
 		// 7. LogBancoHoras (depende de Usuario)
 		&model.LogBancoHoras{},
 	)
