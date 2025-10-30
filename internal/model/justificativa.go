@@ -18,17 +18,9 @@ type Justificativa struct {
 
 	ObservacaoAprovador string `json:"observacao_aprovador,omitempty"` // Para feedback ou motivo da reprovação
 
-	// Relacionamentos - expõe dados básicos do usuário no JSON
-	Usuario   *UsuarioBasico `gorm:"foreignKey:UsuarioID" json:"usuario,omitempty"`
-	Aprovador *UsuarioBasico `gorm:"foreignKey:AprovadorID" json:"aprovador,omitempty"`
-	Empresa   Empresa        `json:"-"`
-	Ponto     *RegistroPonto `gorm:"foreignKey:PontoID" json:"ponto,omitempty"` // Ponto referenciado (se tipo CORRECAO_PONTO)
-}
-
-// UsuarioBasico contém apenas campos essenciais para exibição em justificativas
-type UsuarioBasico struct {
-	ID    uint   `json:"id"`
-	Nome  string `json:"nome"`
-	Email string `json:"email"`
-	CPF   string `json:"cpf"`
+	// Relacionamentos - referencia diretamente a tabela usuarios
+	Usuario   *Usuario       `gorm:"foreignKey:UsuarioID;references:ID" json:"usuario,omitempty"`
+	Aprovador *Usuario       `gorm:"foreignKey:AprovadorID;references:ID" json:"aprovador,omitempty"`
+	Empresa   Empresa        `gorm:"foreignKey:EmpresaID;references:ID" json:"-"`
+	Ponto     *RegistroPonto `gorm:"foreignKey:PontoID;references:ID" json:"ponto,omitempty"` // Ponto referenciado (se tipo CORRECAO_PONTO)
 }
