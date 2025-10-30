@@ -193,7 +193,7 @@ func (r *repository) GetLatestBancoHoras(userID, empresaID uint) (*model.LogBanc
 	var log model.LogBancoHoras
 	err := r.db.
 		Where("usuario_id = ? AND empresa_id = ?", userID, empresaID).
-		Order("data_atualizacao DESC").
+		Order("data DESC").
 		First(&log).Error
 
 	if err != nil {
