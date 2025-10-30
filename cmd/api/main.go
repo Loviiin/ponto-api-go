@@ -284,7 +284,8 @@ func main() {
 	canEditSaldo := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_SALDO_FUNCIONARIOS)
 	canViewPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VISUALIZAR_PONTO_FUNCIONARIOS)
 	canAdjustPonto := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.AJUSTAR_PONTO_FUNCIONARIOS)
-	canManageJustificativas := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_JUSTIFICATIVAS)
+	canCreateJustificativa := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.CRIAR_JUSTIFICATIVA_PROPRIA)
+	canAprovarJustificativas := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.APROVAR_JUSTIFICATIVAS)
 	canManageLocalidades := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.GERENCIAR_LOCALIDADES)
 	canViewRelatoriosGerais := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.VISUALIZAR_RELATORIOS_GERAIS)
 
@@ -374,7 +375,11 @@ func main() {
 			rotasProtegidas.GET("/cargos/:id", cargoHandler.GetCargoByID)
 			rotasProtegidas.PUT("/cargos/:id", canManageCargos, cargoHandler.UpdateCargo)
 			rotasProtegidas.DELETE("/cargos/:id", canManageCargos, cargoHandler.DeleteCargo)
+
+			// Gestão de Permissões de Cargos
+			rotasProtegidas.GET("/cargos/:id/permissoes", cargoHandler.GetPermissionsByCargo)
 			rotasProtegidas.POST("/cargos/:id/permissoes/:permissaoId", canManageCargos, cargoHandler.AddPermissionToCargo)
+			rotasProtegidas.DELETE("/cargos/:id/permissoes/:permissaoId", canManageCargos, cargoHandler.RemovePermissionFromCargo)
 
 			// Rota de Ponto
 			rotasProtegidas.POST("/pontos", pontoHandler.BaterPonto)
@@ -410,18 +415,18 @@ func main() {
 			rotasProtegidas.GET("/bancohoras/dashboard/:userId", canViewSaldo, bancoHorasHandler.GetSaldoUsuario)
 
 			// --- NOVAS ROTAS DE JUSTIFICATIVAS ---
-			// Rota para o funcionário criar uma solicitação de ponto faltante
-			rotasProtegidas.POST("/justificativas", justificativaHandler.SolicitarAjuste)
-			// Rota para o funcionário solicitar correção de ponto existente
-			rotasProtegidas.POST("/justificativas/solicitar-correcao", justificativaHandler.SolicitarCorrecaoPonto)
-			// Rota para o funcionário ver suas próprias justificativas
+			// Rota para o funcionário criar uma solicitação de ponto faltante (requer permissão CRIAR_JUSTIFICATIVA_PROPRIA)
+			rotasProtegidas.POST("/justificativas", canCreateJustificativa, justificativaHandler.SolicitarAjuste)
+			// Rota para o funcionário solicitar correção de ponto existente (requer permissão CRIAR_JUSTIFICATIVA_PROPRIA)
+			rotasProtegidas.POST("/justificativas/solicitar-correcao", canCreateJustificativa, justificativaHandler.SolicitarCorrecaoPonto)
+			// Rota para o funcionário ver suas próprias justificativas (não requer permissão especial, apenas autenticação)
 			rotasProtegidas.GET("/justificativas/minhas", justificativaHandler.ListarMinhas)
-			// Rota para o funcionário cancelar sua própria solicitação pendente
+			// Rota para o funcionário cancelar sua própria solicitação pendente (não requer permissão especial)
 			rotasProtegidas.DELETE("/justificativas/:id/cancelar", justificativaHandler.CancelarSolicitacao)
 
-			// Rotas para o admin/gestor gerir as solicitações
-			rotasProtegidas.GET("/justificativas/pendentes", canManageJustificativas, justificativaHandler.ListarPendentes)
-			rotasProtegidas.POST("/justificativas/:id/processar", canManageJustificativas, justificativaHandler.AprovarReprovar)
+			// Rotas para o admin/gestor gerir as solicitações (requer permissão APROVAR_JUSTIFICATIVAS)
+			rotasProtegidas.GET("/justificativas/pendentes", canAprovarJustificativas, justificativaHandler.ListarPendentes)
+			rotasProtegidas.POST("/justificativas/:id/processar", canAprovarJustificativas, justificativaHandler.AprovarReprovar)
 
 			//rotas de localidade
 			rotasProtegidas.POST("/localidades", canManageLocalidades, localidadeHandler.Create)

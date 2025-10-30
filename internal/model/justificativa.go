@@ -4,11 +4,12 @@ package model
 import "time"
 
 type Justificativa struct {
-	ID             uint      `gorm:"primaryKey" json:"id"`
-	DataOcorrencia time.Time `gorm:"not null" json:"data_ocorrencia"`
-	Tipo           string    `gorm:"not null" json:"tipo"` // PONTO_FALTANTE | CORRECAO_PONTO
-	Descricao      string    `gorm:"not null" json:"descricao"`
-	Status         string    `gorm:"not null;default:'PENDENTE'" json:"status"`
+	ID             uint       `gorm:"primaryKey" json:"id"`
+	DataOcorrencia time.Time  `gorm:"not null" json:"data_ocorrencia"`
+	Tipo           string     `gorm:"not null" json:"tipo"` // PONTO_FALTANTE | CORRECAO_PONTO
+	Descricao      string     `gorm:"not null" json:"descricao"`
+	Status         string     `gorm:"not null;default:'PENDENTE'" json:"status"`
+	NovoHorario    *time.Time `json:"novo_horario,omitempty"` // Horário corrigido solicitado (para CORRECAO_PONTO)
 
 	UsuarioID   uint  `gorm:"not null" json:"usuario_id"`
 	AprovadorID *uint `json:"aprovador_id"`

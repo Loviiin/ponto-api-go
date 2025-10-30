@@ -19,6 +19,8 @@ type CargoRepository interface {
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
 	Delete(id uint, empresaID uint) error
 	AddPermissionToCargo(cargoID uint, permissaoID uint) error
+	RemovePermissionFromCargo(cargoID uint, permissaoID uint) error
+	GetPermissionsByCargo(cargoID uint, empresaID uint) ([]model.Permissao, error)
 	FindByName(nome string, empresaID uint) (*model.Cargo, error)
 	HasUsuarios(cargoID uint, empresaID uint) (bool, error)
 	WithTransaction(tx *gorm.DB) CargoRepository
@@ -163,7 +165,81 @@ func (r *cargoRepository) AddPermissionToCargo(cargoID uint, permissaoID uint) e
 	if err := r.Db.First(&permissao, permissaoID).Error; err != nil {
 		return err
 	}
-	return r.Db.Model(&cargo).Association("Permissoes").Append(&permissao)
+
+	err := r.Db.Model(&cargo).Association("Permissoes").Append(&permissao)
+
+	// Invalidar cache do cargo após adicionar permissão
+	if r.cache != nil {
+		cargoKey := fmt.Sprintf("cargo:%d:empresa:%d", cargoID, cargo.EmpresaID)
+		listKey := fmt.Sprintf("cargos:empresa:%d", cargo.EmpresaID)
+		_ = r.cache.Delete(context.Background(), cargoKey)
+		_ = r.cache.Delete(context.Background(), listKey)
+		log.Printf("[cache] Invalidado cache após adicionar permissão ao cargo %d", cargoID)
+	}
+
+	return err
+}
+
+func (r *cargoRepository) RemovePermissionFromCargo(cargoID uint, permissaoID uint) error {
+	var cargo model.Cargo
+	var permissao model.Permissao
+
+	if err := r.Db.First(&cargo, cargoID).Error; err != nil {
+		return err
+	}
+	if err := r.Db.First(&permissao, permissaoID).Error; err != nil {
+		return err
+	}
+
+	err := r.Db.Model(&cargo).Association("Permissoes").Delete(&permissao)
+
+	// Invalidar cache do cargo após remover permissão
+	if r.cache != nil {
+		cargoKey := fmt.Sprintf("cargo:%d:empresa:%d", cargoID, cargo.EmpresaID)
+		listKey := fmt.Sprintf("cargos:empresa:%d", cargo.EmpresaID)
+		_ = r.cache.Delete(context.Background(), cargoKey)
+		_ = r.cache.Delete(context.Background(), listKey)
+		log.Printf("[cache] Invalidado cache após remover permissão do cargo %d", cargoID)
+	}
+
+	return err
+}
+
+func (r *cargoRepository) GetPermissionsByCargo(cargoID uint, empresaID uint) ([]model.Permissao, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("cargo:%d:permissoes:empresa:%d", cargoID, empresaID)
+
+	// Tentar buscar do cache
+	if r.cache != nil {
+		if cached, err := r.cache.Get(ctx, cacheKey); err == nil && cached != "" {
+			var permissoes []model.Permissao
+			if errUM := json.Unmarshal([]byte(cached), &permissoes); errUM == nil {
+				log.Printf("[cache] HIT permissões do cargo %d", cargoID)
+				return permissoes, nil
+			}
+		}
+	}
+
+	log.Printf("[cache] MISS permissões do cargo %d", cargoID)
+
+	var cargo model.Cargo
+	if err := r.Db.Where("id = ? AND empresa_id = ?", cargoID, empresaID).First(&cargo).Error; err != nil {
+		return nil, err
+	}
+
+	var permissoes []model.Permissao
+	if err := r.Db.Model(&cargo).Association("Permissoes").Find(&permissoes); err != nil {
+		return nil, err
+	}
+
+	// Armazenar no cache (30 minutos)
+	if r.cache != nil {
+		if b, mErr := json.Marshal(&permissoes); mErr == nil {
+			_ = r.cache.Set(ctx, cacheKey, string(b), 30*time.Minute)
+		}
+	}
+
+	return permissoes, nil
 }
 
 func (r *cargoRepository) FindByName(nome string, empresaID uint) (*model.Cargo, error) {

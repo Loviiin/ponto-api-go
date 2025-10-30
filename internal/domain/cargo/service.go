@@ -15,6 +15,8 @@ type CargoService interface {
 	Update(id uint, empresaID uint, dados map[string]interface{}) error
 	Delete(id uint, empresaID uint) error
 	AddPermissionToCargo(cargoID uint, permissaoID uint, empresaID uint) error
+	RemovePermissionFromCargo(cargoID uint, permissaoID uint, empresaID uint) error
+	GetPermissionsByCargo(cargoID uint, empresaID uint) ([]model.Permissao, error)
 	HasUsuarios(cargoID uint, empresaID uint) (bool, error)
 }
 
@@ -64,10 +66,21 @@ func (s *cargoService) HasUsuarios(cargoID uint, empresaID uint) (bool, error) {
 }
 
 func (s *cargoService) AddPermissionToCargo(cargoID uint, permissaoID uint, empresaID uint) error {
-
 	_, err := s.repo.FindByID(context.Background(), cargoID, empresaID)
 	if err != nil {
 		return err
 	}
 	return s.repo.AddPermissionToCargo(cargoID, permissaoID)
+}
+
+func (s *cargoService) RemovePermissionFromCargo(cargoID uint, permissaoID uint, empresaID uint) error {
+	_, err := s.repo.FindByID(context.Background(), cargoID, empresaID)
+	if err != nil {
+		return err
+	}
+	return s.repo.RemovePermissionFromCargo(cargoID, permissaoID)
+}
+
+func (s *cargoService) GetPermissionsByCargo(cargoID uint, empresaID uint) ([]model.Permissao, error) {
+	return s.repo.GetPermissionsByCargo(cargoID, empresaID)
 }

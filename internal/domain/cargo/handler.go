@@ -409,3 +409,84 @@ func (h *CargoHandler) AddPermissionToCargo(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+// @Summary      Remove permissão de um cargo
+// @Description  Remove uma permissão específica de um cargo da empresa. Requer permissão GERENCIAR_CARGOS.
+// @Tags         Cargos
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id           path  int  true  "ID do Cargo"
+// @Param        permissaoId  path  int  true  "ID da Permissão"
+// @Success      204          "No Content"
+// @Failure      400          {object}  map[string]string
+// @Failure      403          {object}  map[string]string
+// @Failure      404          {object}  map[string]string
+// @Router       /cargos/{id}/permissoes/{permissaoId} [delete]
+func (h *CargoHandler) RemovePermissionFromCargo(c *gin.Context) {
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	cargoID, err := h.converter.StrParaUint(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID do cargo inválido."})
+		return
+	}
+
+	permissaoID, err := h.converter.StrParaUint(c.Param("permissaoId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID da permissão inválido."})
+		return
+	}
+
+	err = h.service.RemovePermissionFromCargo(cargoID, permissaoID, empresaID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Cargo ou Permissão não encontrado."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao remover permissão do cargo."})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// @Summary      Lista permissões de um cargo
+// @Description  Retorna todas as permissões associadas a um cargo específico.
+// @Tags         Cargos
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path      int  true  "ID do Cargo"
+// @Success      200 {array}   model.Permissao
+// @Failure      400 {object}  map[string]string
+// @Failure      404 {object}  map[string]string
+// @Router       /cargos/{id}/permissoes [get]
+func (h *CargoHandler) GetPermissionsByCargo(c *gin.Context) {
+	empresaID, err := h.converter.GetUintIDFromContext(c, "empresaID")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	cargoID, err := h.converter.StrParaUint(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID do cargo inválido."})
+		return
+	}
+
+	permissoes, err := h.service.GetPermissionsByCargo(cargoID, empresaID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Cargo não encontrado."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar permissões do cargo."})
+		return
+	}
+
+	c.JSON(http.StatusOK, permissoes)
+}

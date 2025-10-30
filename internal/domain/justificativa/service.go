@@ -114,9 +114,16 @@ func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, 
 					return errors.New("ponto a ser corrigido não encontrado")
 				}
 
+				// Usar NovoHorario se disponível, senão DataOcorrencia
+				novoTimestamp := justificativa.DataOcorrencia
+				if justificativa.NovoHorario != nil {
+					novoTimestamp = *justificativa.NovoHorario
+				}
+
 				// Atualizar o timestamp do ponto existente
-				pontoExistente.Timestamp = justificativa.DataOcorrencia
+				pontoExistente.Timestamp = novoTimestamp
 				pontoExistente.Metodo = "AJUSTE_APROVADO"
+				pontoExistente.Status = "APROVADO"
 				pontoExistente.JustificativaID = &justificativa.ID
 
 				if err := pontoRepoTx.UpdatePonto(pontoExistente); err != nil {
@@ -125,13 +132,19 @@ func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, 
 
 			} else {
 				// Tipo 2: PONTO FALTANTE (comportamento original)
-				// Criar um novo ponto
+				// Criar um novo ponto com status APROVADO
+				timestampNovo := justificativa.DataOcorrencia
+				if justificativa.NovoHorario != nil {
+					timestampNovo = *justificativa.NovoHorario
+				}
+
 				pontoRegistrado := &model.RegistroPonto{
 					UsuarioID:       justificativa.UsuarioID,
 					EmpresaID:       empresaID,
-					Timestamp:       justificativa.DataOcorrencia,
+					Timestamp:       timestampNovo,
 					Metodo:          "AJUSTE_APROVADO",
 					Localizacao:     "N/A",
+					Status:          "APROVADO",
 					JustificativaID: &justificativa.ID,
 				}
 				if err := pontoRepoTx.SavePonto(pontoRegistrado); err != nil {

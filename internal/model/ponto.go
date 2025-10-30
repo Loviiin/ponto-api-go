@@ -13,6 +13,7 @@ type RegistroPonto struct {
 
 	Localizacao string `json:"localizacao"`
 	Metodo      string `json:"metodo"`
+	Status      string `gorm:"default:'CONFIRMADO'" json:"status"` // CONFIRMADO | PENDENTE_APROVACAO | APROVADO | REPROVADO
 
 	JustificativaID *uint          `json:"justificativa_id,omitempty"`
 	Justificativa   *Justificativa `json:"justificativa,omitempty"` // Opcional, para carregar os dados se necessário

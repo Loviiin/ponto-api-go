@@ -20,10 +20,11 @@ func NewHandler(s Service, f funcoes.FuncoesInterface) *Handler {
 }
 
 type solicitarAjusteRequest struct {
-	DataOcorrencia time.Time `json:"data_ocorrencia" binding:"required" example:"2025-09-10T09:00:00Z"`
-	Tipo           string    `json:"tipo" binding:"required" example:"PONTO_FALTANTE"`
-	Descricao      string    `json:"descricao" binding:"required" example:"Esqueci de bater o ponto na entrada."`
-	PontoID        *uint     `json:"ponto_id,omitempty" example:"123"` // Apenas para tipo CORRECAO_PONTO
+	DataOcorrencia time.Time  `json:"data_ocorrencia" binding:"required" example:"2025-09-10T09:00:00Z"`
+	Tipo           string     `json:"tipo" binding:"required,oneof=PONTO_FALTANTE CORRECAO_PONTO" example:"PONTO_FALTANTE"`
+	Descricao      string     `json:"descricao" binding:"required,min=10" example:"Esqueci de bater o ponto na entrada."`
+	PontoID        *uint      `json:"ponto_id,omitempty" example:"123"`                      // Obrigatório para CORRECAO_PONTO
+	NovoHorario    *time.Time `json:"novo_horario,omitempty" example:"2025-09-10T08:00:00Z"` // Obrigatório para PONTO_FALTANTE
 }
 
 type solicitarCorrecaoRequest struct {
@@ -58,13 +59,37 @@ func (h *Handler) SolicitarAjuste(c *gin.Context) {
 		return
 	}
 
+	// Validações customizadas
+	if req.Tipo == "CORRECAO_PONTO" {
+		if req.PontoID == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "CORRECAO_PONTO requer ponto_id"})
+			return
+		}
+		if req.NovoHorario == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "CORRECAO_PONTO requer novo_horario"})
+			return
+		}
+	}
+
+	if req.Tipo == "PONTO_FALTANTE" {
+		if req.NovoHorario == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "PONTO_FALTANTE requer novo_horario"})
+			return
+		}
+		if req.PontoID != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "PONTO_FALTANTE não deve ter ponto_id"})
+			return
+		}
+	}
+
 	justificativa := model.Justificativa{
 		UsuarioID:      userID,
 		EmpresaID:      empresaID,
 		DataOcorrencia: req.DataOcorrencia,
 		Tipo:           req.Tipo,
 		Descricao:      req.Descricao,
-		PontoID:        req.PontoID, // Adicionado suporte ao campo PontoID
+		PontoID:        req.PontoID,
+		NovoHorario:    req.NovoHorario,
 	}
 
 	if err := h.service.SolicitarAjuste(&justificativa); err != nil {

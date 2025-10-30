@@ -29,6 +29,8 @@ func SeedPermissions(db *gorm.DB) map[string]model.Permissao {
 		{Nome: permissions.GERENCIAR_JUSTIFICATIVAS, Descricao: "Permite gerenciar justificativas de ponto dos funcionários."},
 		{Nome: permissions.GERENCIAR_LOCALIDADES, Descricao: "Permite criar, editar e apagar localidades da empresa."},
 		{Nome: permissions.VER_JUSTIFICATIVAS_PENDENTES, Descricao: "Permite visualizar justificativas pendentes de aprovação."},
+		{Nome: permissions.CRIAR_JUSTIFICATIVA_PROPRIA, Descricao: "Permite que o funcionário crie justificativas para seus próprios pontos."},
+		{Nome: permissions.APROVAR_JUSTIFICATIVAS, Descricao: "Permite aprovar ou reprovar justificativas de ponto dos funcionários."},
 		{Nome: permissions.VISUALIZAR_RELATORIOS_GERAIS, Descricao: "Permite visualizar e exportar relatórios gerais de ponto de todos os funcionários."},
 	}
 
@@ -71,6 +73,8 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.GERENCIAR_JUSTIFICATIVAS],
 		mapaPermissoes[permissions.GERENCIAR_LOCALIDADES],
 		mapaPermissoes[permissions.VER_JUSTIFICATIVAS_PENDENTES],
+		mapaPermissoes[permissions.CRIAR_JUSTIFICATIVA_PROPRIA],
+		mapaPermissoes[permissions.APROVAR_JUSTIFICATIVAS],
 		mapaPermissoes[permissions.VISUALIZAR_RELATORIOS_GERAIS],
 	}
 	gerentePerms := []model.Permissao{
@@ -85,6 +89,8 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 		mapaPermissoes[permissions.AJUSTAR_PONTO_FUNCIONARIOS],
 		mapaPermissoes[permissions.GERENCIAR_JUSTIFICATIVAS],
 		mapaPermissoes[permissions.VER_JUSTIFICATIVAS_PENDENTES],
+		mapaPermissoes[permissions.CRIAR_JUSTIFICATIVA_PROPRIA],
+		mapaPermissoes[permissions.APROVAR_JUSTIFICATIVAS],
 		// Correção: permitir que Gerente gerencie localidades (necessário para cadastro)
 		mapaPermissoes[permissions.GERENCIAR_LOCALIDADES],
 		mapaPermissoes[permissions.VISUALIZAR_RELATORIOS_GERAIS],
@@ -92,6 +98,7 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 	colaboradorPerms := []model.Permissao{
 		mapaPermissoes[permissions.EDITAR_PROPRIA_CONTA],
 		mapaPermissoes[permissions.DELETAR_PROPRIA_CONTA],
+		mapaPermissoes[permissions.CRIAR_JUSTIFICATIVA_PROPRIA],
 	}
 
 	db.Model(&dono).Association("Permissoes").Replace(donoPerms)
