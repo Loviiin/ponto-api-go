@@ -172,8 +172,10 @@ func (r *cargoRepository) AddPermissionToCargo(cargoID uint, permissaoID uint) e
 	if r.cache != nil {
 		cargoKey := fmt.Sprintf("cargo:%d:empresa:%d", cargoID, cargo.EmpresaID)
 		listKey := fmt.Sprintf("cargos:empresa:%d", cargo.EmpresaID)
+		permissoesKey := fmt.Sprintf("cargo:%d:permissoes:empresa:%d", cargoID, cargo.EmpresaID)
 		_ = r.cache.Delete(context.Background(), cargoKey)
 		_ = r.cache.Delete(context.Background(), listKey)
+		_ = r.cache.Delete(context.Background(), permissoesKey)
 		log.Printf("[cache] Invalidado cache após adicionar permissão ao cargo %d", cargoID)
 	}
 
@@ -197,8 +199,10 @@ func (r *cargoRepository) RemovePermissionFromCargo(cargoID uint, permissaoID ui
 	if r.cache != nil {
 		cargoKey := fmt.Sprintf("cargo:%d:empresa:%d", cargoID, cargo.EmpresaID)
 		listKey := fmt.Sprintf("cargos:empresa:%d", cargo.EmpresaID)
+		permissoesKey := fmt.Sprintf("cargo:%d:permissoes:empresa:%d", cargoID, cargo.EmpresaID)
 		_ = r.cache.Delete(context.Background(), cargoKey)
 		_ = r.cache.Delete(context.Background(), listKey)
+		_ = r.cache.Delete(context.Background(), permissoesKey)
 		log.Printf("[cache] Invalidado cache após remover permissão do cargo %d", cargoID)
 	}
 
