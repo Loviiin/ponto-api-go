@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Loviiin/ponto-api-go/internal/config"
@@ -164,8 +165,8 @@ func (s *authService) SignUp(
 		}
 
 		// 3. Configurar Cargos e Permissões e obter os cargos padrão
-		permissoes := config.SeedPermissions(tx)
-		donoCargo, _, _ := config.SetupDefaultRolesAndPermissions(tx, empresaReq.ID, permissoes)
+		permissoes := config.SeedPermissions(tx, slog.Default())
+		donoCargo, _, _ := config.SetupDefaultRolesAndPermissions(tx, empresaReq.ID, permissoes, slog.Default())
 
 		// 4. Preparar os dados do utilizador antes de o criar
 		// Nota: Empresa e Cargo agora pertencem ao Contrato; o usuário não possui mais esses campos.

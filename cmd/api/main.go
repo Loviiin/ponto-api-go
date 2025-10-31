@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
@@ -41,6 +41,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
+	"github.com/Loviiin/ponto-api-go/pkg/logger"
 	"github.com/Loviiin/ponto-api-go/pkg/scheduler"
 	"github.com/Loviiin/ponto-api-go/pkg/viacep"
 
@@ -53,8 +54,8 @@ import (
 )
 
 // NOVO: Função para resetar e popular o banco de dados
-func resetAndSeedDatabase(db *gorm.DB) {
-	log.Println("Iniciando reset do banco de dados...")
+func resetAndSeedDatabase(db *gorm.DB, log *slog.Logger) {
+	log.Info("Iniciando reset do banco de dados...")
 
 	// Apaga as tabelas na ordem correta para evitar problemas de chave estrangeira
 	err := db.Migrator().DropTable(
@@ -72,12 +73,13 @@ func resetAndSeedDatabase(db *gorm.DB) {
 	)
 
 	if err != nil {
-		log.Fatalf("Falha ao apagar tabelas: %v", err)
+		log.Error("Falha ao apagar tabelas", slog.Any("error", err))
+		os.Exit(1)
 	}
-	log.Println("Tabelas antigas removidas.")
+	log.Info("Tabelas antigas removidas.")
 
 	// Recria as tabelas (ordem importa: dependências primeiro!)
-	log.Println("Recriando tabelas com AutoMigrate...")
+	log.Info("Recriando tabelas com AutoMigrate...")
 	err = db.AutoMigrate(
 		// 1. Tabelas base sem dependências
 		&model.Empresa{},
@@ -103,15 +105,16 @@ func resetAndSeedDatabase(db *gorm.DB) {
 		&model.LogBancoHoras{},
 	)
 	if err != nil {
-		log.Fatal("Falha ao rodar a migração: ", err)
+		log.Error("Falha ao rodar a migração", slog.Any("error", err))
+		os.Exit(1)
 	}
-	log.Println("Tabelas recriadas com sucesso.")
+	log.Info("Tabelas recriadas com sucesso.")
 
 	// Popula com dados iniciais (seeding)
-	log.Println("Populando o banco de dados com dados iniciais...")
-	config.SeedPermissions(db)
-	config.SeedSuperAdmin(db)
-	log.Println("Banco de dados resetado e populado com sucesso!")
+	log.Info("Populando o banco de dados com dados iniciais...")
+	config.SeedPermissions(db, log)
+	config.SeedSuperAdmin(db, log)
+	log.Info("Banco de dados resetado e populado com sucesso!")
 }
 
 // --- CONFIGURAÇÃO DE CORS ---
@@ -149,9 +152,17 @@ var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
 // @description "Digite 'Bearer' seguido de um espaço e o seu token."
 // @type apiKey
 func main() {
+	// Initialize structured logger
+	isProduction := os.Getenv("ENVIRONMENT") == "production"
+	log := logger.NewLogger(isProduction)
+	logger.SetDefault(log)
+
+	log.Info("Starting Ponto API", slog.Bool("production", isProduction))
+
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
-		log.Fatal("Não foi possível carregar as configurações: ", err)
+		log.Error("Não foi possível carregar as configurações", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	var dsn string
@@ -166,22 +177,24 @@ func main() {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Falha ao conectar ao banco de dados: ", err)
+		log.Error("Falha ao conectar ao banco de dados", slog.Any("error", err))
+		os.Exit(1)
 	}
-	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
+	log.Info("Conexão com o banco de dados estabelecida com sucesso.")
 
 	resetDB := os.Getenv("RESET_DB_ON_START") == "true"
 	if resetDB {
-		resetAndSeedDatabase(db)
+		resetAndSeedDatabase(db, log)
 	} else {
 		// Adicionámos o &model.Permissao{} para a migração automática
 		err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{}, &model.Contrato{}, &model.Localidade{})
 		if err != nil {
-			log.Fatal("Falha ao rodar a migração: ", err)
+			log.Error("Falha ao rodar a migração", slog.Any("error", err))
+			os.Exit(1)
 		}
-		log.Println("Migração do banco de dados executada com sucesso.")
-		config.SeedPermissions(db)
-		config.SeedSuperAdmin(db)
+		log.Info("Migração do banco de dados executada com sucesso.")
+		config.SeedPermissions(db, log)
+		config.SeedSuperAdmin(db, log)
 	}
 
 	// --- Inicialização de Serviços e Repositórios ---
@@ -195,29 +208,31 @@ func main() {
 	if upstashURL != "" && upstashToken != "" {
 		cs, cErr := cache.NewUpstashService(upstashURL, upstashToken)
 		if cErr != nil {
-			log.Panicf("Falha ao inicializar Upstash REST: %v", cErr)
+			log.Error("Falha ao inicializar Upstash REST", slog.Any("error", cErr))
+			os.Exit(1)
 		}
 		cacheService = cs
-		log.Println("Cache: usando Upstash REST API")
+		log.Info("Cache: usando Upstash REST API")
 	} else {
 		cs, cErr := cache.NewRedisService(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 		if cErr != nil {
-			log.Panicf("Falha ao conectar ao Redis: %v", cErr)
+			log.Error("Falha ao conectar ao Redis", slog.Any("error", cErr))
+			os.Exit(1)
 		}
 		cacheService = cs
-		log.Println("Cache: usando Redis nativo")
+		log.Info("Cache: usando Redis nativo")
 	}
 
 	// Se resetDB == true, limpa também o cache se o provider suportar.
 	if resetDB {
 		if flusher, ok := cacheService.(cache.Flusher); ok {
 			if err := flusher.FlushAll(context.Background()); err != nil {
-				log.Printf("[cache] falha ao limpar cache após reset DB: %v", err)
+				log.Warn("cache: falha ao limpar cache após reset DB", slog.Any("error", err))
 			} else {
-				log.Println("[cache] cache limpo após reset DB")
+				log.Info("cache: cache limpo após reset DB")
 			}
 		} else {
-			log.Println("[cache] provider não suporta FlushAll; considere invalidar por prefixo")
+			log.Warn("cache: provider não suporta FlushAll; considere invalidar por prefixo")
 		}
 	}
 
@@ -277,7 +292,7 @@ func main() {
 	// Cloudinary Service - Upload de avatares
 	cloudinaryService, err := cloudinary.NewService(cfg.CloudinaryURL)
 	if err != nil {
-		log.Printf("AVISO: Cloudinary não inicializado: %v (upload de avatares desabilitado)", err)
+		log.Warn("AVISO: Cloudinary não inicializado (upload de avatares desabilitado)", slog.Any("error", err))
 	}
 
 	// Profile - Handler de perfil de usuário
@@ -306,15 +321,18 @@ func main() {
 
 	// Scheduler controlado por variável de ambiente ENABLE_SCHEDULER=true
 	if enable, err := strconv.ParseBool(os.Getenv("ENABLE_SCHEDULER")); err == nil && enable {
-		log.Println("Scheduler habilitado via ENABLE_SCHEDULER=true")
-		scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService)
+		log.Info("Scheduler habilitado via ENABLE_SCHEDULER=true")
+		scheduler := scheduler.NewScheduler(bancoHorasService, usuarioService, log)
 		scheduler.Start()
 	} else {
-		log.Println("Scheduler desabilitado (defina ENABLE_SCHEDULER=true para ativar)")
+		log.Info("Scheduler desabilitado (defina ENABLE_SCHEDULER=true para ativar)")
 	}
 
 	// --- Rotas da API ---
 	router := gin.Default()
+
+	// Add structured logging middleware
+	router.Use(logger.Middleware(log))
 
 	router.SetTrustedProxies(nil)
 
@@ -469,9 +487,10 @@ func main() {
 	if port == "" {
 		port = cfg.APIPort
 	}
-	log.Printf("Servidor iniciado e ouvindo na porta %s", port)
+	log.Info("Servidor iniciado e ouvindo na porta", slog.String("port", port))
 	err = router.Run(":" + port)
 	if err != nil {
-		log.Fatal("Falha ao iniciar o servidor: ", err)
+		log.Error("Falha ao iniciar o servidor", slog.Any("error", err))
+		os.Exit(1)
 	}
 }

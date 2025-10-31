@@ -2,6 +2,7 @@ package empresa
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -82,8 +83,9 @@ func (h *EmpresaHandler) CriarEmpresaHandler(c *gin.Context) {
 		return
 	}
 
-	permissoes := config.SeedPermissions(h.Db)
-	config.SetupDefaultRolesAndPermissions(h.Db, empresa.ID, permissoes)
+	// Use slog default logger for seeding operations
+	permissoes := config.SeedPermissions(h.Db, slog.Default())
+	config.SetupDefaultRolesAndPermissions(h.Db, empresa.ID, permissoes, slog.Default())
 	c.JSON(http.StatusCreated, empresa)
 }
 

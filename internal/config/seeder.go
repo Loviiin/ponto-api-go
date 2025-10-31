@@ -2,7 +2,7 @@ package config
 
 import (
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/Loviiin/ponto-api-go/pkg/password"
@@ -13,7 +13,7 @@ import (
 )
 
 // SeedPermissions cria as permissões padrão no sistema se elas não existirem.
-func SeedPermissions(db *gorm.DB) map[string]model.Permissao {
+func SeedPermissions(db *gorm.DB, logger *slog.Logger) map[string]model.Permissao {
 	permissoes := []model.Permissao{
 		{Nome: permissions.EDITAR_EMPRESA, Descricao: "Permite editar os dados da própria empresa."},
 		{Nome: permissions.DELETAR_EMPRESA, Descricao: "Permite deletar a própria empresa."},
@@ -37,7 +37,7 @@ func SeedPermissions(db *gorm.DB) map[string]model.Permissao {
 	for i := range permissoes {
 		db.FirstOrCreate(&permissoes[i], model.Permissao{Nome: permissoes[i].Nome})
 	}
-	log.Println("Permissões padrão verificadas/criadas.")
+	logger.Info("Permissões padrão verificadas/criadas.")
 
 	mapaPermissoes := make(map[string]model.Permissao)
 	for _, p := range permissoes {
@@ -46,7 +46,7 @@ func SeedPermissions(db *gorm.DB) map[string]model.Permissao {
 	return mapaPermissoes
 }
 
-func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes map[string]model.Permissao) (dono model.Cargo, gerente model.Cargo, colaborador model.Cargo) {
+func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes map[string]model.Permissao, logger *slog.Logger) (dono model.Cargo, gerente model.Cargo, colaborador model.Cargo) {
 	// Criação dos cargos
 	dono = model.Cargo{Nome: "Dono", EmpresaID: empresaID, NivelHierarquia: 100}
 	db.Where(model.Cargo{Nome: dono.Nome, EmpresaID: empresaID}).FirstOrCreate(&dono)
@@ -105,11 +105,11 @@ func SetupDefaultRolesAndPermissions(db *gorm.DB, empresaID uint, mapaPermissoes
 	db.Model(&gerente).Association("Permissoes").Replace(gerentePerms)
 	db.Model(&colaborador).Association("Permissoes").Replace(colaboradorPerms)
 
-	log.Printf("Cargos e permissões padrão configurados para a empresa %d.", empresaID)
+	logger.Info("Cargos e permissões padrão configurados para a empresa", slog.Uint64("empresa_id", uint64(empresaID)))
 	return
 }
 
-func SeedSuperAdmin(db *gorm.DB) {
+func SeedSuperAdmin(db *gorm.DB, logger *slog.Logger) {
 	// Garantir empresa e localidade padrão
 	empresa := model.Empresa{
 		NomeFantasia: "Empresa Padrão",
@@ -131,8 +131,8 @@ func SeedSuperAdmin(db *gorm.DB) {
 	db.Where(model.Localidade{EmpresaID: empresa.ID, Nome: "Matriz Padrão"}).FirstOrCreate(&localidade)
 
 	// Permissões e cargos padrão
-	mapaPermissoes := SeedPermissions(db)
-	donoCargo, gerenteCargo, colaboradorCargo := SetupDefaultRolesAndPermissions(db, empresa.ID, mapaPermissoes)
+	mapaPermissoes := SeedPermissions(db, logger)
+	donoCargo, gerenteCargo, colaboradorCargo := SetupDefaultRolesAndPermissions(db, empresa.ID, mapaPermissoes, logger)
 
 	// Helper para criar usuário e contrato se necessário
 	createUserWithContract := func(nome, email, cpf, senha string, cargoID uint) {
@@ -148,11 +148,11 @@ func SeedSuperAdmin(db *gorm.DB) {
 				Senha: hash,
 			}
 			if e := db.Create(&u).Error; e != nil {
-				log.Printf("Falha ao criar usuário %s: %v", email, e)
+				logger.Error("Falha ao criar usuário", slog.String("email", email), slog.Any("error", e))
 				return
 			}
 		} else if err != nil {
-			log.Printf("Erro ao buscar usuário %s: %v", email, err)
+			logger.Error("Erro ao buscar usuário", slog.String("email", email), slog.Any("error", err))
 			return
 		}
 
@@ -169,11 +169,11 @@ func SeedSuperAdmin(db *gorm.DB) {
 				Salario:      0,
 			}
 			if e := db.Create(&c).Error; e != nil {
-				log.Printf("Falha ao criar contrato para %s: %v", email, e)
+				logger.Error("Falha ao criar contrato", slog.String("email", email), slog.Any("error", e))
 				return
 			}
 		} else if err != nil {
-			log.Printf("Erro ao buscar contrato do usuário %s: %v", email, err)
+			logger.Error("Erro ao buscar contrato do usuário", slog.String("email", email), slog.Any("error", err))
 			return
 		}
 	}
@@ -195,7 +195,7 @@ func SeedSuperAdmin(db *gorm.DB) {
 			Senha: hash,
 		}
 		if e := db.Create(&super).Error; e != nil {
-			log.Printf("Falha ao criar Super Admin: %v", e)
+			logger.Error("Falha ao criar Super Admin", slog.Any("error", e))
 			return
 		}
 
@@ -224,11 +224,11 @@ func SeedSuperAdmin(db *gorm.DB) {
 			Salario:      99999.0,
 		}
 		if e := db.Create(&c).Error; e != nil {
-			log.Printf("Falha ao criar contrato do Super Admin: %v", e)
+			logger.Error("Falha ao criar contrato do Super Admin", slog.Any("error", e))
 			return
 		}
-		log.Println("Usuário Super Admin criado com sucesso.")
+		logger.Info("Usuário Super Admin criado com sucesso.")
 	} else if err != nil {
-		log.Printf("Erro ao buscar Super Admin: %v", err)
+		logger.Error("Erro ao buscar Super Admin", slog.Any("error", err))
 	}
 }
