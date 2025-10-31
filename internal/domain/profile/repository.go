@@ -191,13 +191,20 @@ func (r *repository) GetTotalPontosCount(userID uint) (int64, error) {
 // GetLatestBancoHoras retorna o último registro de banco de horas
 func (r *repository) GetLatestBancoHoras(userID, empresaID uint) (*model.LogBancoHoras, error) {
 	var log model.LogBancoHoras
-	err := r.db.
+	// Usar Find + Limit(1) evita erro/LOG "record not found" do GORM quando não há linhas
+	tx := r.db.
 		Where("usuario_id = ? AND empresa_id = ?", userID, empresaID).
 		Order("data DESC").
-		First(&log).Error
+		Limit(1).
+		Find(&log)
 
-	if err != nil {
-		return nil, err
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
+	if tx.RowsAffected == 0 || log.ID == 0 {
+		// Sem registros para este usuário/empresa
+		return nil, nil
 	}
 
 	return &log, nil
@@ -217,7 +224,8 @@ func (r *repository) GetJustificativasCount(userID, empresaID uint) (int64, erro
 func (r *repository) GetJustificativasPendentesCount(userID, empresaID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&model.Justificativa{}).
-		Where("usuario_id = ? AND empresa_id = ? AND status = ?", userID, empresaID, "pendente").
+		// Status no modelo usa caixa alta por padrão ("PENDENTE")
+		Where("usuario_id = ? AND empresa_id = ? AND status = ?", userID, empresaID, "PENDENTE").
 		Count(&count).Error
 
 	return count, err
