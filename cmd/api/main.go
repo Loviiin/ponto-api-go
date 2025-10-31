@@ -247,7 +247,7 @@ func main() {
 
 	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo, localidadeRepo)
 	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, cacheService, db)
-	pontoService := ponto.NewPontoService(pontoRepo, usuarioRepo, localidadeRepo, db)
+	pontoService := ponto.NewPontoServiceWithCache(pontoRepo, usuarioRepo, localidadeRepo, db, cacheService)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)

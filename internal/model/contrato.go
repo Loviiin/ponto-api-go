@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Contrato struct {
 	ID                     uint       `gorm:"primaryKey" json:"id"`
@@ -24,4 +27,32 @@ type Contrato struct {
 	Empresa    Empresa    `json:"empresa,omitempty"`
 	Localidade Localidade `json:"localidade,omitempty"`
 	Cargo      Cargo      `json:"cargo,omitempty"`
+}
+
+// MarshalJSON customiza a serialização JSON para converter timestamps para o fuso horário do Brasil
+func (c Contrato) MarshalJSON() ([]byte, error) {
+	// Carrega o fuso horário do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback para timezone local do servidor
+	}
+
+	// Cria um tipo auxiliar para evitar recursão infinita
+	type Alias Contrato
+	aux := &struct {
+		*Alias
+		DataAdmissao time.Time  `json:"data_admissao"`
+		DataDemissao *time.Time `json:"data_demissao,omitempty"`
+	}{
+		Alias:        (*Alias)(&c),
+		DataAdmissao: c.DataAdmissao.In(loc),
+	}
+
+	// Converte DataDemissao se não for nil
+	if c.DataDemissao != nil {
+		converted := c.DataDemissao.In(loc)
+		aux.DataDemissao = &converted
+	}
+
+	return json.Marshal(aux)
 }

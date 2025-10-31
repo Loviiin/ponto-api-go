@@ -49,12 +49,19 @@ func (h *Handler) GetEspelhoMe(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Parâmetros data_inicio e data_fim são obrigatórios"})
 		return
 	}
-	inicio, err := time.Parse("2006-01-02", inicioStr)
+
+	// Carrega o timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback
+	}
+
+	inicio, err := time.ParseInLocation("2006-01-02", inicioStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_inicio inválida"})
 		return
 	}
-	fim, err := time.Parse("2006-01-02", fimStr)
+	fim, err := time.ParseInLocation("2006-01-02", fimStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_fim inválida"})
 		return
@@ -100,12 +107,19 @@ func (h *Handler) GetEspelhoUsuario(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Parâmetros data_inicio e data_fim são obrigatórios"})
 		return
 	}
-	inicio, err := time.Parse("2006-01-02", inicioStr)
+
+	// Carrega o timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback
+	}
+
+	inicio, err := time.ParseInLocation("2006-01-02", inicioStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_inicio inválida"})
 		return
 	}
-	fim, err := time.Parse("2006-01-02", fimStr)
+	fim, err := time.ParseInLocation("2006-01-02", fimStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_fim inválida"})
 		return
@@ -155,13 +169,19 @@ func (h *Handler) GerarRelatorioGeral(c *gin.Context) {
 		return
 	}
 
-	dataInicio, err := time.Parse("2006-01-02", inicioStr)
+	// Carrega o timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback
+	}
+
+	dataInicio, err := time.ParseInLocation("2006-01-02", inicioStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_inicio inválida (use formato YYYY-MM-DD)"})
 		return
 	}
 
-	dataFim, err := time.Parse("2006-01-02", fimStr)
+	dataFim, err := time.ParseInLocation("2006-01-02", fimStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_fim inválida (use formato YYYY-MM-DD)"})
 		return
@@ -238,14 +258,20 @@ func (h *Handler) ExportarRelatorioGeral(c *gin.Context) {
 		return
 	}
 
+	// Carrega o timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback
+	}
+
 	// Validar datas
-	dataInicio, err := time.Parse("2006-01-02", inicioStr)
+	dataInicio, err := time.ParseInLocation("2006-01-02", inicioStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_inicio inválida (use formato YYYY-MM-DD)"})
 		return
 	}
 
-	dataFim, err := time.Parse("2006-01-02", fimStr)
+	dataFim, err := time.ParseInLocation("2006-01-02", fimStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_fim inválida (use formato YYYY-MM-DD)"})
 		return

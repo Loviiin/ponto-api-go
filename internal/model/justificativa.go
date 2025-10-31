@@ -1,7 +1,10 @@
 // internal/model/justificativa.go
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Justificativa struct {
 	ID             uint       `gorm:"primaryKey" json:"id"`
@@ -23,4 +26,32 @@ type Justificativa struct {
 	Aprovador *Usuario       `gorm:"foreignKey:AprovadorID;references:ID" json:"aprovador,omitempty"`
 	Empresa   Empresa        `gorm:"foreignKey:EmpresaID;references:ID" json:"-"`
 	Ponto     *RegistroPonto `gorm:"foreignKey:PontoID;references:ID" json:"ponto,omitempty"` // Ponto referenciado (se tipo CORRECAO_PONTO)
+}
+
+// MarshalJSON customiza a serialização JSON para converter timestamps para o fuso horário do Brasil
+func (j Justificativa) MarshalJSON() ([]byte, error) {
+	// Carrega o fuso horário do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback para timezone local do servidor
+	}
+
+	// Cria um tipo auxiliar para evitar recursão infinita
+	type Alias Justificativa
+	aux := &struct {
+		*Alias
+		DataOcorrencia time.Time  `json:"data_ocorrencia"`
+		NovoHorario    *time.Time `json:"novo_horario,omitempty"`
+	}{
+		Alias:          (*Alias)(&j),
+		DataOcorrencia: j.DataOcorrencia.In(loc),
+	}
+
+	// Converte NovoHorario se não for nil
+	if j.NovoHorario != nil {
+		converted := j.NovoHorario.In(loc)
+		aux.NovoHorario = &converted
+	}
+
+	return json.Marshal(aux)
 }

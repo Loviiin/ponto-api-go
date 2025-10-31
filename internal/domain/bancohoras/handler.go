@@ -125,7 +125,14 @@ func (h *Handler) GetSaldoDoDia(c *gin.Context) {
 	}
 
 	diaString := c.Query("dia")
-	diaTime, err := time.Parse("2006-01-02", diaString)
+
+	// Carrega o timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback
+	}
+
+	diaTime, err := time.ParseInLocation("2006-01-02", diaString, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data inválido. Use AAAA-MM-DD."})
 		return
@@ -196,7 +203,14 @@ func (h *Handler) FecharDia(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "O parâmetro 'dia' é obrigatório. Use o formato AAAA-MM-DD."})
 		return
 	}
-	diaTime, err := time.Parse("2006-01-02", diaString)
+
+	// Carrega o timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback
+	}
+
+	diaTime, err := time.ParseInLocation("2006-01-02", diaString, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data inválido. Use AAAA-MM-DD."})
 		return

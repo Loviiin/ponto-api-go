@@ -135,10 +135,18 @@ func (h *PontoHandler) GetRegistosPorUsuarioID(c *gin.Context) {
 	}
 	diaQuery := c.Query("dia")
 	var dia time.Time
+
+	// Carrega o timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback
+	}
+
 	if diaQuery == "" {
-		dia = time.Now()
+		dia = time.Now().In(loc)
 	} else {
-		dia, err = time.Parse("2006-01-02", diaQuery)
+		// Parse a data no timezone do Brasil, não em UTC
+		dia, err = time.ParseInLocation("2006-01-02", diaQuery, loc)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data inválido."})
 			return
@@ -175,10 +183,17 @@ func (h *PontoHandler) GetMeusRegistos(c *gin.Context) {
 	diaQuery := c.Query("dia")
 	var dia time.Time
 
+	// Carrega o timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback
+	}
+
 	if diaQuery == "" {
-		dia = time.Now()
+		dia = time.Now().In(loc)
 	} else {
-		dia, err = time.Parse("2006-01-02", diaQuery)
+		// Parse a data no timezone do Brasil, não em UTC
+		dia, err = time.ParseInLocation("2006-01-02", diaQuery, loc)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data inválido. Use AAAA-MM-DD."})
 			return
@@ -369,12 +384,18 @@ func (h *PontoHandler) ExportarRelatorio(c *gin.Context) {
 		return
 	}
 
-	inicio, err := time.Parse("2006-01-02", dataInicioStr)
+	// Carrega o timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback
+	}
+
+	inicio, err := time.ParseInLocation("2006-01-02", dataInicioStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_inicio inválida. Use AAAA-MM-DD"})
 		return
 	}
-	fim, err := time.Parse("2006-01-02", dataFimStr)
+	fim, err := time.ParseInLocation("2006-01-02", dataFimStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "data_fim inválida. Use AAAA-MM-DD"})
 		return

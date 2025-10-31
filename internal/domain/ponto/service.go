@@ -12,6 +12,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/localidade"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	"github.com/Loviiin/ponto-api-go/pkg/cache"
 	"github.com/jung-kurt/gofpdf"
 	"github.com/umahmood/haversine"
 	"gorm.io/gorm"
@@ -33,6 +34,7 @@ type pontoService struct {
 	userRepo       usuario.UsuarioRepository
 	localidadeRepo localidade.Repository
 	db             *gorm.DB
+	cache          cache.Service
 }
 
 func NewPontoService(
@@ -46,6 +48,24 @@ func NewPontoService(
 		userRepo:       userRepo,
 		localidadeRepo: localidadeRepo,
 		db:             db,
+		cache:          nil, // Não obrigatório
+	}
+}
+
+// NewPontoServiceWithCache cria um serviço de ponto com suporte a cache
+func NewPontoServiceWithCache(
+	pontoRepo RegistroPontoRepository,
+	userRepo usuario.UsuarioRepository,
+	localidadeRepo localidade.Repository,
+	db *gorm.DB,
+	cacheService cache.Service,
+) PontoService {
+	return &pontoService{
+		pontoRepo:      pontoRepo,
+		userRepo:       userRepo,
+		localidadeRepo: localidadeRepo,
+		db:             db,
+		cache:          cacheService,
 	}
 }
 
@@ -101,6 +121,9 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 		return nil, err
 	}
 
+	// Invalidar cache de relatórios
+	s.invalidarCacheRelatorio(empresaID, usuarioID, registroPonto.Timestamp)
+
 	return registroPonto, nil
 }
 
@@ -130,6 +153,9 @@ func (s *pontoService) AjustarPonto(usuarioID, empresaID, adminID uint, timestam
 		return nil, err
 	}
 
+	// Invalidar cache de relatórios
+	s.invalidarCacheRelatorio(empresaID, usuarioID, timestamp)
+
 	return pontoRegistrado, nil
 }
 
@@ -142,12 +168,19 @@ func (s *pontoService) EditarPonto(pontoID, empresaID uint, novoTimestamp time.T
 		return nil, err
 	}
 
+	timestampAntigo := pontoParaEditar.Timestamp
 	pontoParaEditar.Timestamp = novoTimestamp
 	pontoParaEditar.Metodo = "EDICAO_MANUAL_ADMIN"
 	pontoParaEditar.JustificativaID = justificativaID
 
 	if err := s.pontoRepo.UpdatePonto(pontoParaEditar); err != nil {
 		return nil, err
+	}
+
+	// Invalidar cache de relatórios (tanto do dia antigo quanto do novo)
+	s.invalidarCacheRelatorio(empresaID, pontoParaEditar.UsuarioID, timestampAntigo)
+	if !timestampAntigo.Truncate(24 * time.Hour).Equal(novoTimestamp.Truncate(24 * time.Hour)) {
+		s.invalidarCacheRelatorio(empresaID, pontoParaEditar.UsuarioID, novoTimestamp)
 	}
 
 	return pontoParaEditar, nil
@@ -371,4 +404,33 @@ func gerarSlugNome(nome string) string {
 		nome = nome[:40]
 	}
 	return nome
+}
+
+// invalidarCacheRelatorio invalida o cache de relatórios para um usuário/empresa em uma data específica
+func (s *pontoService) invalidarCacheRelatorio(empresaID, usuarioID uint, timestamp time.Time) {
+	if s.cache == nil {
+		return
+	}
+
+	// Invalida cache do dia específico e dias adjacentes (para cobrir casos de edge)
+	for offset := -1; offset <= 1; offset++ {
+		dia := timestamp.AddDate(0, 0, offset)
+
+		// Cache específico do usuário
+		keyUsuario := fmt.Sprintf("relatorio_geral:e%d:u%d:%s:%s",
+			empresaID,
+			usuarioID,
+			dia.Format("20060102"),
+			dia.Format("20060102"),
+		)
+		_ = s.cache.Delete(context.Background(), keyUsuario)
+
+		// Cache de relatório geral (todos os usuários)
+		keyGeral := fmt.Sprintf("relatorio_geral:e%d:todos:%s:%s",
+			empresaID,
+			dia.Format("20060102"),
+			dia.Format("20060102"),
+		)
+		_ = s.cache.Delete(context.Background(), keyGeral)
+	}
 }

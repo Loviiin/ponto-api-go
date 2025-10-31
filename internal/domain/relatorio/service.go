@@ -147,7 +147,11 @@ func (s *service) GerarEspelhoPonto(userID uint, empresaID uint, inicio, fim tim
 		trabalhadoTotal += totalMinutos
 		// Reutiliza a lógica do serviço de banco de horas para calcular o saldo do dia
 		// Convertendo diaStr de volta para time.Time
-		diaTime, _ := time.Parse("2006-01-02", diaStr)
+		loc, _ := time.LoadLocation("America/Sao_Paulo")
+		if loc == nil {
+			loc = time.Local // fallback
+		}
+		diaTime, _ := time.ParseInLocation("2006-01-02", diaStr, loc)
 		saldoDia, errSaldo := s.bancoHorasService.CalcularSaldoParaUsuario(usr.ID, usr.Contrato.EmpresaID, diaTime)
 		if errSaldo != nil {
 			// fallback para cálculo local caso dê erro (ex.: marcações ímpares)
@@ -718,8 +722,6 @@ func escaparCSV(s string) string {
 	}
 	return s
 }
-
-
 
 // gerarCacheKeyRelatorio gera uma chave única para cache de relatórios
 func gerarCacheKeyRelatorio(empresaID uint, usuarioID *uint, dataInicio, dataFim time.Time) string {

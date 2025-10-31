@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type RegistroPonto struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
@@ -21,4 +24,25 @@ type RegistroPonto struct {
 	Usuario   Usuario `json:"-"`
 	EmpresaID uint    `gorm:"not null" json:"empresa_id"`
 	Empresa   Empresa `json:"-"`
+}
+
+// MarshalJSON customiza a serialização JSON para converter timestamps para o fuso horário do Brasil
+func (r RegistroPonto) MarshalJSON() ([]byte, error) {
+	// Carrega o fuso horário do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback para timezone local do servidor
+	}
+
+	// Cria um tipo auxiliar para evitar recursão infinita
+	type Alias RegistroPonto
+	return json.Marshal(&struct {
+		*Alias
+		Timestamp time.Time `json:"timestamp"`
+		CreatedAt time.Time `json:"data_criacao"`
+	}{
+		Alias:     (*Alias)(&r),
+		Timestamp: r.Timestamp.In(loc),
+		CreatedAt: r.CreatedAt.In(loc),
+	})
 }

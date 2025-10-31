@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type LogBancoHoras struct {
 	ID                   uint      `gorm:"primaryKey" json:"id"`
@@ -16,4 +19,23 @@ type LogBancoHoras struct {
 	Usuario Usuario `json:"-"`
 	Autor   Usuario `gorm:"foreignKey:AutorID" json:"-"`
 	Empresa Empresa `json:"-"`
+}
+
+// MarshalJSON customiza a serialização JSON para converter timestamps para o fuso horário do Brasil
+func (l LogBancoHoras) MarshalJSON() ([]byte, error) {
+	// Carrega o fuso horário do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local // fallback para timezone local do servidor
+	}
+
+	// Cria um tipo auxiliar para evitar recursão infinita
+	type Alias LogBancoHoras
+	return json.Marshal(&struct {
+		*Alias
+		Data time.Time `json:"data"`
+	}{
+		Alias: (*Alias)(&l),
+		Data:  l.Data.In(loc),
+	})
 }
