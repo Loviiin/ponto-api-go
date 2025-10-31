@@ -37,6 +37,8 @@ func (s *Scheduler) Start() {
 
 	_, err = c.AddFunc("0 1 * * *", s.executarFechamentoDiario)
 	if err != nil {
+		// Fatal error during startup: scheduler is critical for banco de horas
+		// This happens only during app initialization, so os.Exit is appropriate
 		s.logger.Error("Erro ao agendar a tarefa de fechamento diário", slog.Any("error", err))
 		os.Exit(1)
 	}

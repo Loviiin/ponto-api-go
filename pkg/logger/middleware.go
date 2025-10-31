@@ -37,8 +37,10 @@ func Middleware(logger *slog.Logger) gin.HandlerFunc {
 			for _, e := range c.Errors {
 				logger.Error("request error",
 					slog.String("error", e.Error()),
+					slog.Int("error_type", int(e.Type)),
 					slog.String("method", method),
 					slog.String("path", path),
+					slog.Int("status", statusCode),
 				)
 			}
 		}
