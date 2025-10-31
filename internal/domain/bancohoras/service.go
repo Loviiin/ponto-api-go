@@ -245,44 +245,43 @@ func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uin
 		})
 	}
 
-	// d) Saldo total vem do contrato do usuário
+	// d) Saldo total vem do contrato do usuário (saldo até ontem)
 	saldoTotal := 0
 	if user != nil {
 		saldoTotal = user.Contrato.SaldoBancoHorasMinutos
 	}
 
-	// e) Montar resposta
+	// e) Adiciona o saldo do dia atual (se houver pontos hoje)
+	loc, _ := time.LoadLocation("America/Sao_Paulo")
+	if loc == nil {
+		loc = time.Local
+	}
+	hoje := time.Now().In(loc)
+	saldoHoje, err := s.CalcularSaldoParaUsuario(usuarioID, empresaID, hoje)
+	if err == nil {
+		// Se conseguiu calcular o saldo de hoje, adiciona ao total
+		saldoTotal += saldoHoje
+	} else {
+		// Se não conseguiu (ex: número ímpar de marcações), ignora e só mostra até ontem
+		log.Printf("Não foi possível calcular saldo de hoje para usuário %d: %v", usuarioID, err)
+	}
+
+	// f) Montar resposta
 	resp := &DashboardResponse{
 		SaldoTotalMinutos: saldoTotal,
 		Historico:         historico,
 	}
 
-	// Armazena no cache por 12 horas (dados mudam 1x/dia no scheduler às 1h AM)
-	// Cache invalidado automaticamente em ajustes manuais via InvalidarCacheUsuario()
-	if s.cache != nil {
-		dashboardJSON, _ := json.Marshal(resp)
-		_ = s.cache.Set(ctx, cacheKey, string(dashboardJSON), 12*time.Hour)
-	}
+	// NÃO armazena no cache pois o saldo inclui o dia atual que muda constantemente
+	// O cache continua sendo útil para os logs (histórico) mas não para o saldo total
 
 	return resp, nil
 }
 
 // GetSaldoAtualUsuario retorna o saldo atual do banco de horas de um usuário
-// com cache de 5 minutos para melhorar performance
+// Inclui o saldo acumulado até ontem + saldo do dia atual em tempo real
 func (s *bancoHorasService) GetSaldoAtualUsuario(usuarioID uint, empresaID uint) (int, error) {
 	ctx := context.Background()
-	cacheKey := fmt.Sprintf("bancohoras:saldo:empresa:%d:usuario:%d", empresaID, usuarioID)
-
-	// Tenta buscar do cache se disponível
-	if s.cache != nil {
-		cachedValue, err := s.cache.Get(ctx, cacheKey)
-		if err == nil && cachedValue != "" {
-			var saldo int
-			if err := json.Unmarshal([]byte(cachedValue), &saldo); err == nil {
-				return saldo, nil
-			}
-		}
-	}
 
 	// Se não encontrou no cache ou cache não disponível, busca do banco
 	user, err := s.usuarioRepo.FindByID(ctx, usuarioID, empresaID)
@@ -294,15 +293,23 @@ func (s *bancoHorasService) GetSaldoAtualUsuario(usuarioID uint, empresaID uint)
 		return 0, errors.New("usuário não possui contrato ativo")
 	}
 
-	saldo := user.Contrato.SaldoBancoHorasMinutos
+	// Saldo até ontem (armazenado no contrato)
+	saldoTotal := user.Contrato.SaldoBancoHorasMinutos
 
-	// Armazena no cache por 5 minutos (saldo muda apenas no fechamento diário)
-	if s.cache != nil {
-		saldoJSON, _ := json.Marshal(saldo)
-		_ = s.cache.Set(ctx, cacheKey, string(saldoJSON), 5*time.Minute)
+	// Adiciona o saldo do dia atual (se houver pontos hoje)
+	loc, _ := time.LoadLocation("America/Sao_Paulo")
+	if loc == nil {
+		loc = time.Local
 	}
+	hoje := time.Now().In(loc)
+	saldoHoje, err := s.CalcularSaldoParaUsuario(usuarioID, empresaID, hoje)
+	if err == nil {
+		// Se conseguiu calcular o saldo de hoje, adiciona ao total
+		saldoTotal += saldoHoje
+	}
+	// Se não conseguiu (ex: número ímpar de marcações), ignora e só mostra até ontem
 
-	return saldo, nil
+	return saldoTotal, nil
 }
 
 // InvalidarCacheDia invalida o cache de saldo de um dia específico

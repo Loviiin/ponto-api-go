@@ -22,22 +22,37 @@ func NewScheduler(bancohorasService bancohoras.BancoHorasService, usuarioService
 }
 
 func (s *Scheduler) Start() {
-	c := cron.New()
+	// Carrega o timezone do Brasil para o scheduler
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		log.Printf("AVISO: Não foi possível carregar timezone America/Sao_Paulo, usando Local: %v", err)
+		loc = time.Local
+	}
 
-	_, err := c.AddFunc("0 1 * * *", s.executarFechamentoDiario)
+	// Cria o cron com timezone Brasil
+	c := cron.New(cron.WithLocation(loc))
+
+	_, err = c.AddFunc("0 1 * * *", s.executarFechamentoDiario)
 	if err != nil {
 		log.Fatalf("Erro ao agendar a tarefa de fechamento diário: %v", err)
 	}
 
 	c.Start()
 
-	log.Println("Agendador de tarefas iniciado. O fechamento diário será executado à 01:00.")
+	log.Printf("Agendador de tarefas iniciado com timezone %s. O fechamento diário será executado à 01:00 BRT.", loc.String())
 }
 
 func (s *Scheduler) executarFechamentoDiario() {
 	log.Println("Iniciando tarefa agendada: Fechamento diário do banco de horas...")
 
-	diaAnterior := time.Now().AddDate(0, 0, -1)
+	// Usa o timezone Brasil para calcular o dia anterior
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local
+	}
+	
+	agora := time.Now().In(loc)
+	diaAnterior := agora.AddDate(0, 0, -1)
 
 	usuarios, err := s.usuarioService.FindAll()
 	if err != nil {
