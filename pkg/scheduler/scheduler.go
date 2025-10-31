@@ -50,7 +50,7 @@ func (s *Scheduler) executarFechamentoDiario() {
 	if err != nil {
 		loc = time.Local
 	}
-	
+
 	agora := time.Now().In(loc)
 	diaAnterior := agora.AddDate(0, 0, -1)
 

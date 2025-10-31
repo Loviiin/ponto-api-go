@@ -21,7 +21,7 @@ import (
 type BancoHorasService interface {
 	CalcularSaldoParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (int, error)
 	FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Contrato, error)
-	GetDashboardForUsuario(usuarioID uint, empresaID uint) (*DashboardResponse, error)
+	GetDashboardForUsuario(usuarioID uint, empresaID uint, dataInicio *time.Time, dataFim *time.Time) (*DashboardResponse, error)
 	GetSaldoAtualUsuario(usuarioID uint, empresaID uint) (int, error)
 	InvalidarCacheDia(usuarioID uint, empresaID uint, dia time.Time)
 	InvalidarCacheUsuario(usuarioID uint, empresaID uint)
@@ -188,9 +188,9 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 		// Invalida cache do saldo simples
 		cacheKeySaldo := fmt.Sprintf("bancohoras:saldo:empresa:%d:usuario:%d", empresaID, usuarioID)
 		_ = s.cache.Delete(ctx, cacheKeySaldo)
-		// Invalida cache do dashboard completo (com histórico)
-		cacheKeyDashboard := fmt.Sprintf("bancohoras:dashboard:empresa:%d:usuario:%d", empresaID, usuarioID)
-		_ = s.cache.Delete(ctx, cacheKeyDashboard)
+		// Invalida cache do histórico
+		cacheKeyHistorico := fmt.Sprintf("bancohoras:historico:empresa:%d:usuario:%d", empresaID, usuarioID)
+		_ = s.cache.Delete(ctx, cacheKeyHistorico)
 	}
 
 	// Retorna o contrato atualizado
@@ -200,24 +200,41 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 
 // GetDashboardForUsuario retorna o saldo total atual e o histórico de alterações do banco de horas
 // do usuário informado já ordenado por data desc.
-// Cache de 12 horas pois o dashboard é pesado (busca todos os logs) e só muda 1x/dia (scheduler 1h AM)
-func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint) (*DashboardResponse, error) {
+// Usa cache de 2 horas para o histórico (logs) que muda pouco, e recalcula o saldo atual sempre
+// Permite filtrar o histórico por dataInicio e dataFim (opcional)
+func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint, dataInicio *time.Time, dataFim *time.Time) (*DashboardResponse, error) {
 	ctx := context.Background()
-	cacheKey := fmt.Sprintf("bancohoras:dashboard:empresa:%d:usuario:%d", empresaID, usuarioID)
+	cacheKeyHistorico := fmt.Sprintf("bancohoras:historico:empresa:%d:usuario:%d", empresaID, usuarioID)
 
-	// Tenta buscar do cache se disponível
+	var logs []model.LogBancoHoras
+	var err error
+
+	// Tenta buscar o histórico do cache
+	cacheHit := false
 	if s.cache != nil {
-		cachedValue, err := s.cache.Get(ctx, cacheKey)
-		if err == nil && cachedValue != "" {
-			var dashboard DashboardResponse
-			if err := json.Unmarshal([]byte(cachedValue), &dashboard); err == nil {
-				log.Printf("[cache] HIT dashboard banco horas - usuário %d empresa %d", usuarioID, empresaID)
-				return &dashboard, nil
+		cachedValue, errCache := s.cache.Get(ctx, cacheKeyHistorico)
+		if errCache == nil && cachedValue != "" {
+			if errUnmarshal := json.Unmarshal([]byte(cachedValue), &logs); errUnmarshal == nil {
+				cacheHit = true
+				log.Printf("[cache] HIT histórico banco horas - usuário %d empresa %d", usuarioID, empresaID)
 			}
 		}
 	}
 
-	log.Printf("[cache] MISS dashboard banco horas - usuário %d empresa %d", usuarioID, empresaID)
+	// Se não encontrou no cache, busca do banco
+	if !cacheHit {
+		log.Printf("[cache] MISS histórico banco horas - usuário %d empresa %d", usuarioID, empresaID)
+		logs, err = s.logRepo.GetAllByUsuarioAndEmpresa(usuarioID, empresaID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Armazena no cache por 2 horas
+		if s.cache != nil {
+			logsJSON, _ := json.Marshal(logs)
+			_ = s.cache.Set(ctx, cacheKeyHistorico, string(logsJSON), 2*time.Hour)
+		}
+	}
 
 	// a) Buscar o usuário (com contrato)
 	user, err := s.usuarioRepo.FindByID(ctx, usuarioID, empresaID)
@@ -225,18 +242,21 @@ func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uin
 		return nil, err
 	}
 
-	// b) Buscar todos os logs do usuário ordenados por data desc
-	logs, err := s.logRepo.GetAllByUsuarioAndEmpresa(usuarioID, empresaID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Mesmo com a query ordenada, garantimos ordenação desc por segurança
 	sort.SliceStable(logs, func(i, j int) bool { return logs[i].Data.After(logs[j].Data) })
 
-	// c) Mapear para DTO
+	// c) Mapear para DTO e aplicar filtros de data se fornecidos
 	historico := make([]HistoricoDia, 0, len(logs))
 	for _, l := range logs {
+		// Aplica filtro de data_inicio se fornecido
+		if dataInicio != nil && l.Data.Before(*dataInicio) {
+			continue
+		}
+		// Aplica filtro de data_fim se fornecido
+		if dataFim != nil && l.Data.After(*dataFim) {
+			continue
+		}
+
 		historico = append(historico, HistoricoDia{
 			Data:                   l.Data.Format("2006-01-02"),
 			ValorAlteradoMinutos:   l.ValorAlteradoMinutos,
@@ -261,6 +281,30 @@ func (s *bancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uin
 	if err == nil {
 		// Se conseguiu calcular o saldo de hoje, adiciona ao total
 		saldoTotal += saldoHoje
+
+		// Adiciona uma entrada no histórico para o dia atual (saldo provisório)
+		// Verifica se já não existe um log para hoje
+		hojeFormatado := hoje.Format("2006-01-02")
+		jaExisteHoje := false
+		for _, h := range historico {
+			if h.Data == hojeFormatado {
+				jaExisteHoje = true
+				break
+			}
+		}
+
+		if !jaExisteHoje && saldoHoje != 0 {
+			// Insere no início (mais recente)
+			historicoComHoje := make([]HistoricoDia, 0, len(historico)+1)
+			historicoComHoje = append(historicoComHoje, HistoricoDia{
+				Data:                   hojeFormatado,
+				ValorAlteradoMinutos:   saldoHoje,
+				SaldoResultanteMinutos: saldoTotal,
+				Motivo:                 "Saldo provisório do dia atual (em tempo real)",
+			})
+			historicoComHoje = append(historicoComHoje, historico...)
+			historico = historicoComHoje
+		}
 	} else {
 		// Se não conseguiu (ex: número ímpar de marcações), ignora e só mostra até ontem
 		log.Printf("Não foi possível calcular saldo de hoje para usuário %d: %v", usuarioID, err)
@@ -331,8 +375,8 @@ func (s *bancoHorasService) InvalidarCacheUsuario(usuarioID uint, empresaID uint
 		// Invalida cache do saldo atual
 		cacheKeySaldo := fmt.Sprintf("bancohoras:saldo:empresa:%d:usuario:%d", empresaID, usuarioID)
 		_ = s.cache.Delete(ctx, cacheKeySaldo)
-		// Invalida cache do dashboard completo
-		cacheKeyDashboard := fmt.Sprintf("bancohoras:dashboard:empresa:%d:usuario:%d", empresaID, usuarioID)
-		_ = s.cache.Delete(ctx, cacheKeyDashboard)
+		// Invalida cache do histórico
+		cacheKeyHistorico := fmt.Sprintf("bancohoras:historico:empresa:%d:usuario:%d", empresaID, usuarioID)
+		_ = s.cache.Delete(ctx, cacheKeyHistorico)
 	}
 }

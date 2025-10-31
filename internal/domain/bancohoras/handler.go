@@ -29,11 +29,14 @@ func NewBancoHorasHandler(s BancoHorasService, u usuario.UsuarioService, f funco
 
 // GetDashboard retorna saldo total e histórico do banco de horas do usuário autenticado
 // @Summary      Meu Banco de Horas - Dashboard
-// @Description  Retorna, em uma única chamada, o saldo total do banco de horas e o histórico de lançamentos já calculados para o usuário autenticado.
+// @Description  Retorna, em uma única chamada, o saldo total do banco de horas e o histórico de lançamentos já calculados para o usuário autenticado. Permite filtrar o histórico por data_inicio e data_fim.
 // @Tags         Banco de Horas
 // @Produce      json
 // @Security     BearerAuth
+// @Param        data_inicio  query     string  false  "Data inicial do histórico (formato: YYYY-MM-DD)"  example("2025-10-01")
+// @Param        data_fim     query     string  false  "Data final do histórico (formato: YYYY-MM-DD)"    example("2025-10-31")
 // @Success      200  {object}  bancohoras.DashboardResponse
+// @Failure      400  {object}  map[string]string
 // @Failure      401  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
 // @Router       /bancohoras/dashboard/me [get]
@@ -49,7 +52,36 @@ func (h *Handler) GetDashboard(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.GetDashboardForUsuario(userID, empresaID)
+	// Carrega timezone do Brasil
+	loc, err := time.LoadLocation("America/Sao_Paulo")
+	if err != nil {
+		loc = time.Local
+	}
+
+	// Parâmetros opcionais de filtro
+	var dataInicio, dataFim *time.Time
+
+	dataInicioStr := c.Query("data_inicio")
+	if dataInicioStr != "" {
+		di, err := time.ParseInLocation("2006-01-02", dataInicioStr, loc)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data_inicio inválido. Use YYYY-MM-DD."})
+			return
+		}
+		dataInicio = &di
+	}
+
+	dataFimStr := c.Query("data_fim")
+	if dataFimStr != "" {
+		df, err := time.ParseInLocation("2006-01-02", dataFimStr, loc)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de data_fim inválido. Use YYYY-MM-DD."})
+			return
+		}
+		dataFim = &df
+	}
+
+	resp, err := h.service.GetDashboardForUsuario(userID, empresaID, dataInicio, dataFim)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
