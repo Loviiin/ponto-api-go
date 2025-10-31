@@ -117,6 +117,8 @@ func resetAndSeedDatabase(db *gorm.DB) {
 // --- CONFIGURAÇÃO DE CORS ---
 // Lista explícita de domínios permitidos (mais seguro e legível)
 var allowedOrigins = map[string]bool{
+	"http://localhost:3000/":                                           true,
+	"http://localhost:3000":                                            true,
 	"https://nexora-app.vercel.app":                                    true,
 	"https://meu-ponto-frontend.vercel.app":                            true,
 	"https://meu-ponto-frontend-git-main-loviins-projects.vercel.app":  true,
