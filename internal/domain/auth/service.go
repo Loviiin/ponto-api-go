@@ -18,6 +18,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
 	"github.com/Loviiin/ponto-api-go/pkg/password"
+	"github.com/Loviiin/ponto-api-go/pkg/validator"
 	"gorm.io/gorm"
 )
 
@@ -69,6 +70,9 @@ func NewAuthService(
 
 func (s *authService) Authenticate(email string, passwordStr string) (string, error) {
 	ctx := context.Background()
+
+	// SECURITY FIX: Normalizar email (lowercase + trim) para evitar problemas case-sensitive
+	email = password.NormalizarEmail(email)
 
 	// 1. CACHE: Verificar se usuário já está em cache (após login bem-sucedido)
 	cacheKey := fmt.Sprintf("auth:user:%s", email)
@@ -134,6 +138,26 @@ func (s *authService) SignUp(
 	usuarioReq *model.Usuario,
 	dadosContrato *model.Contrato,
 ) (*model.Usuario, string, error) {
+	// SECURITY FIX: Normalizar email antes de qualquer validação
+	usuarioReq.Email = password.NormalizarEmail(usuarioReq.Email)
+
+	// SECURITY FIX: Validar força da senha
+	if err := password.ValidarForcaSenha(usuarioReq.Senha); err != nil {
+		return nil, "", err
+	}
+
+	// DATA VALIDATION: Sanitizar e validar CPF
+	usuarioReq.CPF = validator.SanitizarCPF(usuarioReq.CPF)
+	if err := validator.ValidarCPF(usuarioReq.CPF); err != nil {
+		return nil, "", err
+	}
+
+	// DATA VALIDATION: Sanitizar e validar CNPJ
+	empresaReq.CNPJ = validator.SanitizarCNPJ(empresaReq.CNPJ)
+	if err := validator.ValidarCNPJ(empresaReq.CNPJ); err != nil {
+		return nil, "", err
+	}
+
 	_, err := s.usuarioRepo.FindByEmail(usuarioReq.Email)
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, "", errors.New("e-mail já cadastrado")

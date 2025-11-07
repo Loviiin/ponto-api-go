@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	"github.com/Loviiin/ponto-api-go/pkg/audit"
 	"github.com/Loviiin/ponto-api-go/pkg/cache"
 	"github.com/Loviiin/ponto-api-go/pkg/password"
+	"github.com/Loviiin/ponto-api-go/pkg/validator"
 	"gorm.io/gorm"
 )
 
@@ -16,9 +18,10 @@ import (
 type Service interface {
 	// Perfil
 	GetMyProfile(userID uint) (*ProfileResponse, error)
-	UpdateProfile(userID uint, req UpdateProfileRequest) (*ProfileResponse, error)
-	ChangePassword(userID uint, req ChangePasswordRequest) error
+	UpdateProfile(userID uint, req UpdateProfileRequest, ip, userAgent string) (*ProfileResponse, error)
+	ChangePassword(userID uint, req ChangePasswordRequest, ip, userAgent string) error
 	UpdateAvatar(userID uint, avatarURL string) error
+	UpdateCPF(adminID, targetUserID uint, req UpdateCPFRequest, ip, userAgent string) error
 
 	// Estatísticas
 	GetMyStats(userID, empresaID uint) (*StatsResponse, error)
@@ -32,17 +35,19 @@ type Service interface {
 }
 
 type service struct {
-	repo  Repository
-	db    *gorm.DB
-	cache cache.Service
+	repo        Repository
+	db          *gorm.DB
+	cache       cache.Service
+	auditLogger audit.Service
 }
 
 // NewService cria uma nova instância do service
-func NewService(repo Repository, db *gorm.DB, cache cache.Service) Service {
+func NewService(repo Repository, db *gorm.DB, cache cache.Service, auditLogger audit.Service) Service {
 	return &service{
-		repo:  repo,
-		db:    db,
-		cache: cache,
+		repo:        repo,
+		db:          db,
+		cache:       cache,
+		auditLogger: auditLogger,
 	}
 }
 
@@ -136,7 +141,9 @@ func (s *service) GetMyProfile(userID uint) (*ProfileResponse, error) {
 }
 
 // UpdateProfile atualiza os dados editáveis do perfil
-func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest) (*ProfileResponse, error) {
+// IMPORTANTE: Este método usa PATCH semântico - apenas atualiza campos enviados
+// A senha NUNCA é tocada aqui (tem endpoint separado)
+func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userAgent string) (*ProfileResponse, error) {
 	user, err := s.repo.GetUserByID(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -145,18 +152,70 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest) (*Profile
 		return nil, err
 	}
 
-	// Atualizar apenas campos permitidos
+	// Guardar dados antigos para audit log
+	dadosAntigos := map[string]interface{}{
+		"nome":     user.Nome,
+		"email":    user.Email,
+		"telefone": user.Telefone,
+	}
+
+	// CRITICAL: Atualizar APENAS campos enviados (PATCH semântico)
+	// Senha NUNCA deve ser alterada aqui!
+	
 	if req.Nome != nil && *req.Nome != "" {
 		user.Nome = *req.Nome
 	}
 
 	if req.Telefone != nil {
-		user.Telefone = *req.Telefone
+		// DATA VALIDATION: Sanitizar e validar telefone brasileiro
+		telefoneSanitizado := validator.SanitizarTelefone(*req.Telefone)
+		if telefoneSanitizado != "" {
+			if err := validator.ValidarTelefoneBrasileiro(*req.Telefone); err != nil {
+				return nil, err
+			}
+			user.Telefone = telefoneSanitizado
+		} else {
+			// Permitir limpar o telefone
+			user.Telefone = ""
+		}
 	}
 
-	// Salvar alterações
+	if req.Email != nil && *req.Email != "" {
+		// DATA VALIDATION: Normalizar email
+		novoEmail := password.NormalizarEmail(*req.Email)
+		
+		// Verificar se email já está em uso
+		existingUser, err := s.db.Where("email = ? AND id != ?", novoEmail, userID).First(&model.Usuario{}).Error
+		if err == nil {
+			return nil, errors.New("email já está em uso por outro usuário")
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("erro ao verificar email")
+		}
+		
+		user.Email = novoEmail
+	}
+
+	// Salvar alterações (apenas os campos modificados)
 	if err := s.repo.UpdateUser(user); err != nil {
 		return nil, errors.New("erro ao atualizar perfil")
+	}
+
+	// AUDIT LOG: Registrar alteração de perfil
+	dadosNovos := map[string]interface{}{
+		"nome":     user.Nome,
+		"email":    user.Email,
+		"telefone": user.Telefone,
+	}
+	
+	// Obter empresa_id do contrato
+	var empresaID uint
+	if user.Contrato.ID > 0 {
+		empresaID = user.Contrato.EmpresaID
+	}
+	
+	if s.auditLogger != nil {
+		_ = s.auditLogger.LogAction(userID, empresaID, "UPDATE_PROFILE", "usuario", userID, dadosAntigos, dadosNovos, ip, userAgent)
 	}
 
 	// Retornar perfil atualizado
@@ -164,10 +223,15 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest) (*Profile
 }
 
 // ChangePassword altera a senha do usuário
-func (s *service) ChangePassword(userID uint, req ChangePasswordRequest) error {
+func (s *service) ChangePassword(userID uint, req ChangePasswordRequest, ip, userAgent string) error {
 	// Validar se nova senha e confirmação são iguais
 	if req.NovaSenha != req.ConfirmarSenha {
 		return errors.New("nova senha e confirmação não coincidem")
+	}
+
+	// SECURITY FIX: Validar força da nova senha
+	if err := password.ValidarForcaSenha(req.NovaSenha); err != nil {
+		return err
 	}
 
 	user, err := s.repo.GetUserByID(userID)
@@ -194,6 +258,16 @@ func (s *service) ChangePassword(userID uint, req ChangePasswordRequest) error {
 	// Salvar alterações
 	if err := s.repo.UpdateUser(user); err != nil {
 		return errors.New("erro ao atualizar senha")
+	}
+
+	// AUDIT LOG: Registrar alteração de senha
+	var empresaID uint
+	if user.Contrato.ID > 0 {
+		empresaID = user.Contrato.EmpresaID
+	}
+	
+	if s.auditLogger != nil {
+		_ = s.auditLogger.LogAction(userID, empresaID, "CHANGE_PASSWORD", "usuario", userID, nil, map[string]interface{}{"changed": true}, ip, userAgent)
 	}
 
 	return nil
@@ -501,4 +575,67 @@ func extractCategory(permissionName string) string {
 	}
 
 	return "outros"
+}
+
+// UpdateCPF atualiza o CPF de um usuário (apenas admin com permissão EDITAR_USUARIO)
+func (s *service) UpdateCPF(adminID, targetUserID uint, req UpdateCPFRequest, ip, userAgent string) error {
+	// Validar CPF
+	if err := validator.ValidarCPF(req.CPF); err != nil {
+		return err
+	}
+
+	// Buscar usuário alvo
+	targetUser, err := s.repo.GetUserByID(targetUserID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("usuário não encontrado")
+		}
+		return err
+	}
+
+	// Guardar CPF antigo para audit log
+	cpfAntigo := targetUser.CPF
+
+	// Sanitizar CPF (remover pontos e traços)
+	cpfSanitizado := validator.SanitizarCPF(req.CPF)
+
+	// Verificar se CPF já está em uso por outro usuário
+	existingUser := &model.Usuario{}
+	err = s.db.Where("cpf = ? AND id != ?", cpfSanitizado, targetUserID).First(existingUser).Error
+	if err == nil {
+		return errors.New("CPF já está em uso por outro usuário")
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.New("erro ao verificar CPF")
+	}
+
+	// Atualizar CPF
+	targetUser.CPF = cpfSanitizado
+
+	// Salvar alterações
+	if err := s.repo.UpdateUser(targetUser); err != nil {
+		return errors.New("erro ao atualizar CPF")
+	}
+
+	// AUDIT LOG: Registrar alteração de CPF por admin
+	var empresaID uint
+	if targetUser.Contrato.ID > 0 {
+		empresaID = targetUser.Contrato.EmpresaID
+	}
+
+	if s.auditLogger != nil {
+		dadosAntigos := map[string]interface{}{
+			"cpf":             cpfAntigo,
+			"admin_id":        adminID,
+			"target_user_id":  targetUserID,
+		}
+		dadosNovos := map[string]interface{}{
+			"cpf":             cpfSanitizado,
+			"admin_id":        adminID,
+			"target_user_id":  targetUserID,
+		}
+		_ = s.auditLogger.LogAction(adminID, empresaID, "UPDATE_CPF_BY_ADMIN", "usuario", targetUserID, dadosAntigos, dadosNovos, ip, userAgent)
+	}
+
+	return nil
 }

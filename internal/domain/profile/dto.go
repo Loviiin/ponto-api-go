@@ -74,6 +74,12 @@ type LocalidadeInfo struct {
 type UpdateProfileRequest struct {
 	Nome     *string `json:"nome" binding:"omitempty,min=3,max=255"`
 	Telefone *string `json:"telefone" binding:"omitempty,min=10,max=20"`
+	Email    *string `json:"email" binding:"omitempty,email"`
+}
+
+// UpdateCPFRequest representa a requisição de alteração de CPF (apenas admin)
+type UpdateCPFRequest struct {
+	NovoCPF string `json:"novo_cpf" binding:"required,min=11,max=14"`
 }
 
 // ChangePasswordRequest representa a requisição de alteração de senha

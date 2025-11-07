@@ -32,6 +32,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/profile"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 
+	"github.com/Loviiin/ponto-api-go/pkg/audit"
 	"github.com/Loviiin/ponto-api-go/pkg/brasilapi"
 	"github.com/Loviiin/ponto-api-go/pkg/cache"
 	"github.com/Loviiin/ponto-api-go/pkg/cloudinary"
@@ -87,7 +88,10 @@ func resetAndSeedDatabase(db *gorm.DB) {
 		&model.Cargo{},
 		&model.Localidade{},
 
-		// 3. Usuário (depende de nada, mas é referenciado)
+		// 3. Audit Log (para logs de auditoria)
+		&model.AuditLog{},
+
+		// 4. Usuário (depende de nada, mas é referenciado)
 		&model.Usuario{},
 
 		// 4. Contrato (depende de Usuario, Cargo, Localidade)
@@ -174,8 +178,8 @@ func main() {
 	if resetDB {
 		resetAndSeedDatabase(db)
 	} else {
-		// Adicionámos o &model.Permissao{} para a migração automática
-		err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{}, &model.Contrato{}, &model.Localidade{})
+		// Adicionámos o &model.Permissao{} e &model.AuditLog{} para a migração automática
+		err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{}, &model.Contrato{}, &model.Localidade{}, &model.AuditLog{})
 		if err != nil {
 			log.Fatal("Falha ao rodar a migração: ", err)
 		}
@@ -280,9 +284,12 @@ func main() {
 		log.Printf("AVISO: Cloudinary não inicializado: %v (upload de avatares desabilitado)", err)
 	}
 
+	// Audit Logger - Serviço de auditoria
+	auditLogger := audit.NewService(db)
+
 	// Profile - Handler de perfil de usuário
 	profileRepo := profile.NewRepository(db, cacheService)
-	profileService := profile.NewService(profileRepo, db, cacheService)
+	profileService := profile.NewService(profileRepo, db, cacheService, auditLogger)
 	profileHandler := profile.NewHandler(profileService, cloudinaryService)
 
 	// --- Middlewares ---
@@ -448,20 +455,25 @@ func main() {
 			rotasProtegidas.GET("/localidades", canManageLocalidades, localidadeHandler.ListarLocalidades)
 			rotasProtegidas.GET("/empresas/:id/localidades", canManageLocalidades, localidadeHandler.GetAllByEmpresa)
 
-			// --- ROTAS DE PERFIL ---
-			// Perfil do usuário autenticado
-			rotasProtegidas.GET("/profile/me", profileHandler.GetMyProfile)
-			rotasProtegidas.PUT("/profile/me", profileHandler.UpdateProfile)
-			rotasProtegidas.PUT("/profile/me/password", profileHandler.ChangePassword)
-			rotasProtegidas.POST("/profile/me/avatar", profileHandler.UploadAvatar)
+		// --- ROTAS DE PERFIL ---
+		// Perfil do usuário autenticado
+		rotasProtegidas.GET("/profile/me", profileHandler.GetMyProfile)
+		rotasProtegidas.PATCH("/profile/me", profileHandler.UpdateProfile) // PATCH para updates parciais
+		rotasProtegidas.PATCH("/profile/me/password", profileHandler.ChangePassword) // PATCH semântico
+		rotasProtegidas.POST("/profile/me/avatar", profileHandler.UploadAvatar)
+		
+		// Estatísticas e permissões
+		rotasProtegidas.GET("/profile/me/stats", profileHandler.GetMyStats)
+		rotasProtegidas.GET("/profile/me/permissions", profileHandler.GetMyPermissions)
 
-			// Estatísticas e permissões
-			rotasProtegidas.GET("/profile/me/stats", profileHandler.GetMyStats)
-			rotasProtegidas.GET("/profile/me/permissions", profileHandler.GetMyPermissions)
+		// Calendário e atividades recentes
+		rotasProtegidas.GET("/profile/me/calendar", profileHandler.GetCalendar)
+		rotasProtegidas.GET("/profile/me/recent-activity", profileHandler.GetRecentActivity)
 
-			// Calendário e atividades recentes
-			rotasProtegidas.GET("/profile/me/calendar", profileHandler.GetCalendar)
-			rotasProtegidas.GET("/profile/me/recent-activity", profileHandler.GetRecentActivity)
+		// --- ROTAS DE ADMIN ---
+		// Atualizar CPF (requer permissão EDITAR_USUARIO)
+		canEditUser := auth.PermissionMiddleware(jwtService, permissions.EDITAR_USUARIO)
+		rotasProtegidas.PATCH("/admin/users/:user_id/cpf", canEditUser, profileHandler.UpdateCPF)
 		}
 	}
 

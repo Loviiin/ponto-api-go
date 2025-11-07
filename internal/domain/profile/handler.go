@@ -94,17 +94,17 @@ func (h *Handler) GetMyProfile(c *gin.Context) {
 
 // UpdateProfile godoc
 // @Summary Atualizar meu perfil
-// @Description Atualiza informações editáveis do perfil (nome, telefone)
+// @Description Atualiza informações editáveis do perfil (nome, telefone, email). Usa PATCH semântico - apenas campos enviados são atualizados. SENHA NUNCA É ALTERADA AQUI.
 // @Tags Profile
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param request body UpdateProfileRequest true "Dados a atualizar"
+// @Param request body UpdateProfileRequest true "Dados a atualizar (apenas campos que deseja modificar)"
 // @Success 200 {object} ProfileResponse
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /profile/me [put]
+// @Router /profile/me [patch]
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	userID, err := getUserIDFromContext(c)
 	if err != nil {
@@ -118,7 +118,11 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	profile, err := h.service.UpdateProfile(userID, req)
+	// Coletar IP e User-Agent para audit log
+	ip := c.ClientIP()
+	userAgent := c.Request.UserAgent()
+
+	profile, err := h.service.UpdateProfile(userID, req, ip, userAgent)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -129,7 +133,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 // ChangePassword godoc
 // @Summary Alterar senha
-// @Description Altera a senha do usuário autenticado
+// @Description Altera a senha do usuário autenticado. Este é o ÚNICO endpoint que pode modificar a senha.
 // @Tags Profile
 // @Security BearerAuth
 // @Accept json
@@ -139,7 +143,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /profile/me/password [put]
+// @Router /profile/me/password [patch]
 func (h *Handler) ChangePassword(c *gin.Context) {
 	userID, err := getUserIDFromContext(c)
 	if err != nil {
@@ -153,7 +157,11 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.ChangePassword(userID, req); err != nil {
+	// Coletar IP e User-Agent para audit log
+	ip := c.ClientIP()
+	userAgent := c.Request.UserAgent()
+
+	if err := h.service.ChangePassword(userID, req, ip, userAgent); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -382,4 +390,53 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 		"message": "avatar atualizado com sucesso",
 		"url":     avatarURL,
 	})
+}
+
+// UpdateCPF godoc
+// @Summary Atualizar CPF de um usuário (Admin)
+// @Description Permite que um admin com permissão EDITAR_USUARIO atualize o CPF de qualquer usuário
+// @Tags Profile
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param user_id path int true "ID do usuário"
+// @Param request body UpdateCPFRequest true "Novo CPF"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /admin/users/{user_id}/cpf [patch]
+func (h *Handler) UpdateCPF(c *gin.Context) {
+	adminID, err := getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Obter ID do usuário alvo
+	targetUserIDStr := c.Param("user_id")
+	targetUserIDUint, err := strconv.ParseUint(targetUserIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de usuário inválido"})
+		return
+	}
+	targetUserID := uint(targetUserIDUint)
+
+	var req UpdateCPFRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dados inválidos", "details": err.Error()})
+		return
+	}
+
+	// Coletar IP e User-Agent para audit log
+	ip := c.ClientIP()
+	userAgent := c.Request.UserAgent()
+
+	if err := h.service.UpdateCPF(adminID, targetUserID, req, ip, userAgent); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "CPF atualizado com sucesso"})
 }

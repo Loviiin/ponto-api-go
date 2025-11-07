@@ -6,16 +6,20 @@ import (
 	"time"
 
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	"github.com/Loviiin/ponto-api-go/pkg/ratelimit"
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
 	authService AuthService
+	loginLimiter *ratelimit.RateLimiter
 }
 
 func NewAuthHandler(service AuthService) *AuthHandler {
 	return &AuthHandler{
 		authService: service,
+		// SECURITY: Rate limiter: máximo 5 tentativas a cada 15 minutos
+		loginLimiter: ratelimit.NewRateLimiter(5, 15*time.Minute),
 	}
 }
 
@@ -54,19 +58,34 @@ type SignUpRequest struct {
 // @Success      200           {object}  map[string]string
 // @Failure      400           {object}  map[string]string
 // @Failure      401           {object}  map[string]string
+// @Failure      429           {object}  map[string]string
 // @Router       /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
-
 	var request LoginRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(400, gin.H{"erro": err.Error()})
 		return
 	}
+
+	// SECURITY: Rate limiting por email para prevenir brute force
+	allowed, timeUntilRetry := h.loginLimiter.IsAllowed(request.Email)
+	if !allowed {
+		minutosRestantes := int(timeUntilRetry.Minutes()) + 1
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"erro": "Muitas tentativas de login falhadas. Tente novamente em " + time.Now().Add(timeUntilRetry).Format("15:04:05"),
+			"retry_after": minutosRestantes,
+		})
+		return
+	}
+
 	authenticate, err := h.authService.Authenticate(request.Email, request.Password)
 	if err != nil {
 		c.JSON(401, gin.H{"erro": err.Error()})
 		return
 	}
+
+	// LOGIN BEM-SUCEDIDO: Resetar rate limiter
+	h.loginLimiter.Reset(request.Email)
 	c.JSON(200, gin.H{"token": authenticate})
 }
 

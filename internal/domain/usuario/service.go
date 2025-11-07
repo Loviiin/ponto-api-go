@@ -12,6 +12,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/localidade"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/password"
+	"github.com/Loviiin/ponto-api-go/pkg/validator"
 	"gorm.io/gorm"
 )
 
@@ -71,6 +72,22 @@ func (s *usuarioService) CriarUsuarioEContrato(usuario *model.Usuario, contrato 
 			tx.Rollback()
 		}
 	}()
+
+	// SECURITY FIX: Normalizar email antes de validação
+	usuario.Email = password.NormalizarEmail(usuario.Email)
+
+	// SECURITY FIX: Validar força da senha
+	if err := password.ValidarForcaSenha(usuario.Senha); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// DATA VALIDATION: Sanitizar e validar CPF
+	usuario.CPF = validator.SanitizarCPF(usuario.CPF)
+	if err := validator.ValidarCPF(usuario.CPF); err != nil {
+		tx.Rollback()
+		return err
+	}
 
 	// Validação 1: Email único
 	_, err := s.usuarioRepo.FindByEmail(usuario.Email)
@@ -181,8 +198,11 @@ func (s *usuarioService) Update(id uint, empresaID uint, dados map[string]interf
 		return err
 	}
 
-	// Se email está sendo atualizado, verificar se já está em uso
+	// SECURITY FIX: Se email está sendo atualizado, normalizar
 	if novoEmail, ok := dados["email"].(string); ok && novoEmail != "" {
+		novoEmail = password.NormalizarEmail(novoEmail)
+		dados["email"] = novoEmail
+
 		// Buscar usuário com este email
 		usuarioComEmail, err := s.usuarioRepo.FindByEmail(novoEmail)
 		if err == nil {
@@ -220,6 +240,10 @@ func (s *usuarioService) UpdateWithHierarchy(id uint, empresaID uint, idRequisit
 
 	// Se email está sendo atualizado, verificar se já está em uso
 	if novoEmail, ok := dados["email"].(string); ok && novoEmail != "" {
+		// SECURITY FIX: Normalizar email
+		novoEmail = password.NormalizarEmail(novoEmail)
+		dados["email"] = novoEmail
+
 		usuarioComEmail, err := s.usuarioRepo.FindByEmail(novoEmail)
 		if err == nil {
 			// Email encontrado, verificar se é de outro usuário
