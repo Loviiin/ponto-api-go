@@ -184,7 +184,7 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 	if req.Email != nil && *req.Email != "" {
 		// DATA VALIDATION: Normalizar email
 		novoEmail := password.NormalizarEmail(*req.Email)
-		
+
 		// Verificar se email já está em uso
 		err = s.db.Where("email = ? AND id != ?", novoEmail, userID).First(&model.Usuario{}).Error
 		if err == nil {
@@ -193,7 +193,7 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("erro ao verificar email")
 		}
-		
+
 		updates["email"] = novoEmail
 	}
 
@@ -203,7 +203,7 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 	if len(updates) > 0 {
 		// DEBUG LOG: Ver exatamente o que será atualizado
 		fmt.Printf("[DEBUG] UpdateProfile - userID: %d, updates: %+v\n", userID, updates)
-		
+
 		err = s.db.Model(&model.Usuario{}).Where("id = ?", userID).Updates(updates).Error
 		if err != nil {
 			return nil, errors.New("erro ao atualizar perfil")
@@ -218,7 +218,7 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 	if user.Contrato.ID > 0 {
 		empresaID = user.Contrato.EmpresaID
 	}
-	
+
 	// AUDIT LOG: Registrar alteração de perfil
 	if len(updates) > 0 && s.auditLogger != nil {
 		_ = s.auditLogger.LogAction(&userID, &empresaID, "UPDATE_PROFILE", "usuario", userID, dadosAntigos, updates, ip, userAgent)
@@ -271,7 +271,7 @@ func (s *service) ChangePassword(userID uint, req ChangePasswordRequest, ip, use
 	if user.Contrato.ID > 0 {
 		empresaID = user.Contrato.EmpresaID
 	}
-	
+
 	if s.auditLogger != nil {
 		_ = s.auditLogger.LogAction(&userID, &empresaID, "CHANGE_PASSWORD", "usuario", userID, nil, map[string]interface{}{"changed": true}, ip, userAgent)
 	}
@@ -396,7 +396,7 @@ func (s *service) GetCalendar(userID uint, month, year int) (*CalendarioResponse
 
 	// Criar calendário
 	daysInMonth := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC).Day()
-	
+
 	// Data de hoje para comparação
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
@@ -554,7 +554,7 @@ func calculateWorkHoursFromPontos(pontos []model.RegistroPonto) int {
 	// Criar uma cópia para não modificar o slice original
 	pontosCopy := make([]model.RegistroPonto, len(pontos))
 	copy(pontosCopy, pontos)
-	
+
 	// Ordenar do mais antigo para o mais recente
 	for i := 0; i < len(pontosCopy)-1; i++ {
 		for j := i + 1; j < len(pontosCopy); j++ {
@@ -648,14 +648,14 @@ func (s *service) UpdateCPF(adminID, targetUserID uint, req UpdateCPFRequest, ip
 
 	if s.auditLogger != nil {
 		dadosAntigos := map[string]interface{}{
-			"cpf":             cpfAntigo,
-			"admin_id":        adminID,
-			"target_user_id":  targetUserID,
+			"cpf":            cpfAntigo,
+			"admin_id":       adminID,
+			"target_user_id": targetUserID,
 		}
 		dadosNovos := map[string]interface{}{
-			"cpf":             cpfSanitizado,
-			"admin_id":        adminID,
-			"target_user_id":  targetUserID,
+			"cpf":            cpfSanitizado,
+			"admin_id":       adminID,
+			"target_user_id": targetUserID,
 		}
 		_ = s.auditLogger.LogAction(&adminID, &empresaID, "UPDATE_CPF_BY_ADMIN", "usuario", targetUserID, dadosAntigos, dadosNovos, ip, userAgent)
 	}
