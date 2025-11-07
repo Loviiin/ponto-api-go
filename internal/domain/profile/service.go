@@ -222,7 +222,31 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 	return s.GetMyProfile(userID)
 }
 
-// ChangePassword altera a senha do usuário
+// ChangePassword altera a senha do usuário [builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o ./out/ponto-api ./cmd/api/main.go
+#15 66.29 # github.com/Loviiin/ponto-api-go/internal/domain/profile
+#15 66.29 internal/domain/profile/service.go:188:3: declared and not used: existingUser
+#15 66.29 internal/domain/profile/service.go:188:24: assignment mismatch: 2 variables but 1 value
+#15 66.29 internal/domain/profile/service.go:583:37: req.CPF undefined (type UpdateCPFRequest has no field or method CPF)
+#15 66.29 internal/domain/profile/service.go:600:46: req.CPF undefined (type UpdateCPFRequest has no field or method CPF)
+#15 ERROR: process "/bin/sh -c CGO_ENABLED=0 GOOS=linux go build -o ./out/ponto-api ./cmd/api/main.go" did not complete successfully: exit code: 1
+------
+ > [builder 6/6] RUN CGO_ENABLED=0 GOOS=linux go build -o ./out/ponto-api ./cmd/api/main.go:
+66.29 # github.com/Loviiin/ponto-api-go/internal/domain/profile
+66.29 internal/domain/profile/service.go:188:3: declared and not used: existingUser
+66.29 internal/domain/profile/service.go:188:24: assignment mismatch: 2 variables but 1 value
+66.29 internal/domain/profile/service.go:583:37: req.CPF undefined (type UpdateCPFRequest has no field or method CPF)
+66.29 internal/domain/profile/service.go:600:46: req.CPF undefined (type UpdateCPFRequest has no field or method CPF)
+------
+Dockerfile:20
+--------------------
+  18 |     # -o ./out/ponto-api diz para colocar o executável compilado na pasta 'out' com o nome 'ponto-api'.
+  19 |     # O alvo é o nosso ficheiro principal.
+  20 | >>> RUN CGO_ENABLED=0 GOOS=linux go build -o ./out/ponto-api ./cmd/api/main.go
+  21 |     
+  22 |     # --- Estágio 2: Final ---
+--------------------
+error: failed to solve: process "/bin/sh -c CGO_ENABLED=0 GOOS=linux go build -o ./out/ponto-api ./cmd/api/main.go" did not complete successfully: exit code: 1
+error: exit status 1
 func (s *service) ChangePassword(userID uint, req ChangePasswordRequest, ip, userAgent string) error {
 	// Validar se nova senha e confirmação são iguais
 	if req.NovaSenha != req.ConfirmarSenha {

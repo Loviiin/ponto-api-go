@@ -472,8 +472,7 @@ func main() {
 
 		// --- ROTAS DE ADMIN ---
 		// Atualizar CPF (requer permissão EDITAR_USUARIO)
-		canEditUser := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_USUARIO)
-		rotasProtegidas.PATCH("/admin/users/:user_id/cpf", canEditUser, profileHandler.UpdateCPF)
+		rotasProtegidas.PATCH("/admin/users/:user_id/cpf", canEditUsuario, profileHandler.UpdateCPF)
 		}
 	}
 

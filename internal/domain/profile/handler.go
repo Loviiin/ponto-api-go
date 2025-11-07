@@ -287,18 +287,27 @@ func (h *Handler) GetCalendar(c *gin.Context) {
 	month := int(now.Month())
 	year := now.Year()
 
-	// Parse dos parâmetros
+	// Parse dos parâmetros com validação melhorada
 	if monthParam := c.Query("month"); monthParam != "" {
-		if parsedMonth, err := strconv.Atoi(monthParam); err == nil && parsedMonth >= 1 && parsedMonth <= 12 {
-			month = parsedMonth
+		parsedMonth, err := strconv.Atoi(monthParam)
+		if err != nil || parsedMonth < 1 || parsedMonth > 12 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "mês deve estar entre 1 e 12", "received": monthParam})
+			return
 		}
+		month = parsedMonth
 	}
 
 	if yearParam := c.Query("year"); yearParam != "" {
-		if parsedYear, err := strconv.Atoi(yearParam); err == nil && parsedYear > 2000 {
-			year = parsedYear
+		parsedYear, err := strconv.Atoi(yearParam)
+		if err != nil || parsedYear < 2000 || parsedYear > 2100 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ano deve estar entre 2000 e 2100", "received": yearParam})
+			return
 		}
+		year = parsedYear
 	}
+
+	// Debug: Log dos valores
+	fmt.Printf("[DEBUG] GetCalendar - userID: %d, month: %d, year: %d\n", userID, month, year)
 
 	calendar, err := h.service.GetCalendar(userID, month, year)
 	if err != nil {
