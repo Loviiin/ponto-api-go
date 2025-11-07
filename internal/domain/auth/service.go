@@ -174,24 +174,44 @@ func (s *authService) SignUp(
 			return fmt.Errorf("falha ao criar empresa: %w", err)
 		}
 
-		// 2. Obter dados completos da localidade a partir do CEP e criar
-		localidadeCompleta, err := s.geolocationSvc.GetLocationFromCEP(localidadeParcial.CEP)
-		if err != nil {
-			return fmt.Errorf("falha ao obter dados do CEP: %w", err)
+		// 2. Validar coordenadas enviadas pelo frontend
+		if localidadeParcial.Latitude < -90 || localidadeParcial.Latitude > 90 {
+			return errors.New("latitude inválida (deve estar entre -90 e 90)")
 		}
-		localidadeCompleta.Nome = localidadeParcial.Nome
-		localidadeCompleta.RaioGeofenceMetros = localidadeParcial.RaioGeofenceMetros
-		localidadeCompleta.EmpresaID = empresaReq.ID
+		if localidadeParcial.Longitude < -180 || localidadeParcial.Longitude > 180 {
+			return errors.New("longitude inválida (deve estar entre -180 e 180)")
+		}
 
-		if err := s.localidadeRepo.WithTransaction(tx).Save(localidadeCompleta); err != nil {
+		// Log para debug: verificar coordenadas recebidas
+		fmt.Printf("📍 [SignUp] Coordenadas recebidas do frontend: lat=%.15f, lng=%.15f\n", 
+			localidadeParcial.Latitude, localidadeParcial.Longitude)
+
+		// 3. Se coordenadas não foram enviadas, buscar do CEP como fallback
+		if localidadeParcial.Latitude == 0 && localidadeParcial.Longitude == 0 {
+			localidadeCompleta, err := s.geolocationSvc.GetLocationFromCEP(localidadeParcial.CEP)
+			if err != nil {
+				return fmt.Errorf("falha ao obter dados do CEP: %w", err)
+			}
+			// Preservar dados enviados pelo frontend e preencher apenas o que falta
+			localidadeCompleta.Nome = localidadeParcial.Nome
+			localidadeCompleta.RaioGeofenceMetros = localidadeParcial.RaioGeofenceMetros
+			localidadeCompleta.EmpresaID = empresaReq.ID
+			localidadeParcial = localidadeCompleta
+		} else {
+			// ✅ CORREÇÃO DO BUG: Usar as coordenadas enviadas pelo frontend
+			// O usuário ajustou a posição no mapa, então respeitamos essa escolha
+			localidadeParcial.EmpresaID = empresaReq.ID
+		}
+
+		if err := s.localidadeRepo.WithTransaction(tx).Save(localidadeParcial); err != nil {
 			return fmt.Errorf("falha ao criar localidade: %w", err)
 		}
 
-		// 3. Configurar Cargos e Permissões e obter os cargos padrão
+		// 4. Configurar Cargos e Permissões e obter os cargos padrão
 		permissoes := config.SeedPermissions(tx)
 		donoCargo, _, _ := config.SetupDefaultRolesAndPermissions(tx, empresaReq.ID, permissoes)
 
-		// 4. Preparar os dados do utilizador antes de o criar
+		// 5. Preparar os dados do utilizador antes de o criar
 		// Nota: Empresa e Cargo agora pertencem ao Contrato; o usuário não possui mais esses campos.
 
 		senhaHash, err := password.CriptografaSenha(usuarioReq.Senha)
@@ -207,7 +227,7 @@ func (s *authService) SignUp(
 		novoContrato := &model.Contrato{
 			UsuarioID:    usuarioReq.ID,
 			EmpresaID:    empresaReq.ID,
-			LocalidadeID: localidadeCompleta.ID,
+			LocalidadeID: localidadeParcial.ID,
 			CargoID:      donoCargo.ID,
 			Salario:      dadosContrato.Salario,
 			DataAdmissao: dadosContrato.DataAdmissao,

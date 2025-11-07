@@ -37,6 +37,12 @@ type SignUpRequest struct {
 	Localidade struct {
 		Nome               string  `json:"nome" binding:"required" example:"Matriz Principal"`
 		CEP                string  `json:"cep" binding:"required" example:"01001-000"`
+		Logradouro         string  `json:"logradouro" example:"Rua Exemplo"`
+		Bairro             string  `json:"bairro" example:"Centro"`
+		Cidade             string  `json:"cidade" example:"São Paulo"`
+		Estado             string  `json:"estado" example:"SP"`
+		Latitude           float64 `json:"latitude" binding:"required" example:"-23.550520"`
+		Longitude          float64 `json:"longitude" binding:"required" example:"-46.633308"`
 		RaioGeofenceMetros float64 `json:"raio_geofence_metros" binding:"required" example:"100"`
 	} `json:"localidade"`
 	Usuario struct {
@@ -115,6 +121,12 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 	localidade := &model.Localidade{
 		Nome:               request.Localidade.Nome,
 		CEP:                request.Localidade.CEP,
+		Logradouro:         request.Localidade.Logradouro,
+		Bairro:             request.Localidade.Bairro,
+		Cidade:             request.Localidade.Cidade,
+		Estado:             request.Localidade.Estado,
+		Latitude:           request.Localidade.Latitude,
+		Longitude:          request.Localidade.Longitude,
 		RaioGeofenceMetros: request.Localidade.RaioGeofenceMetros,
 	}
 
