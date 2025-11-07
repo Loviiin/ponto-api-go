@@ -11,7 +11,7 @@ import (
 )
 
 type AuthHandler struct {
-	authService AuthService
+	authService  AuthService
 	loginLimiter *ratelimit.RateLimiter
 }
 
@@ -78,7 +78,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if !allowed {
 		minutosRestantes := int(timeUntilRetry.Minutes()) + 1
 		c.JSON(http.StatusTooManyRequests, gin.H{
-			"erro": "Muitas tentativas de login falhadas. Tente novamente em " + time.Now().Add(timeUntilRetry).Format("15:04:05"),
+			"erro":        "Muitas tentativas de login falhadas. Tente novamente em " + time.Now().Add(timeUntilRetry).Format("15:04:05"),
 			"retry_after": minutosRestantes,
 		})
 		return

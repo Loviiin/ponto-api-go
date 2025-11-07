@@ -88,14 +88,14 @@ func resetAndSeedDatabase(db *gorm.DB) {
 		&model.Cargo{},
 		&model.Localidade{},
 
-		// 3. Audit Log (para logs de auditoria)
-		&model.AuditLog{},
-
-		// 4. Usuário (depende de nada, mas é referenciado)
+		// 3. Usuário (depende de nada, mas é referenciado por outras tabelas)
 		&model.Usuario{},
 
 		// 4. Contrato (depende de Usuario, Cargo, Localidade)
 		&model.Contrato{},
+
+		// 5. Audit Log (depende de Usuario - precisa vir DEPOIS)
+		&model.AuditLog{},
 
 		// 5. RegistroPonto (depende de Usuario e Empresa)
 		&model.RegistroPonto{},
@@ -455,24 +455,24 @@ func main() {
 			rotasProtegidas.GET("/localidades", canManageLocalidades, localidadeHandler.ListarLocalidades)
 			rotasProtegidas.GET("/empresas/:id/localidades", canManageLocalidades, localidadeHandler.GetAllByEmpresa)
 
-		// --- ROTAS DE PERFIL ---
-		// Perfil do usuário autenticado
-		rotasProtegidas.GET("/profile/me", profileHandler.GetMyProfile)
-		rotasProtegidas.PATCH("/profile/me", profileHandler.UpdateProfile) // PATCH para updates parciais
-		rotasProtegidas.PATCH("/profile/me/password", profileHandler.ChangePassword) // PATCH semântico
-		rotasProtegidas.POST("/profile/me/avatar", profileHandler.UploadAvatar)
-		
-		// Estatísticas e permissões
-		rotasProtegidas.GET("/profile/me/stats", profileHandler.GetMyStats)
-		rotasProtegidas.GET("/profile/me/permissions", profileHandler.GetMyPermissions)
+			// --- ROTAS DE PERFIL ---
+			// Perfil do usuário autenticado
+			rotasProtegidas.GET("/profile/me", profileHandler.GetMyProfile)
+			rotasProtegidas.PATCH("/profile/me", profileHandler.UpdateProfile)           // PATCH para updates parciais
+			rotasProtegidas.PATCH("/profile/me/password", profileHandler.ChangePassword) // PATCH semântico
+			rotasProtegidas.POST("/profile/me/avatar", profileHandler.UploadAvatar)
 
-		// Calendário e atividades recentes
-		rotasProtegidas.GET("/profile/me/calendar", profileHandler.GetCalendar)
-		rotasProtegidas.GET("/profile/me/recent-activity", profileHandler.GetRecentActivity)
+			// Estatísticas e permissões
+			rotasProtegidas.GET("/profile/me/stats", profileHandler.GetMyStats)
+			rotasProtegidas.GET("/profile/me/permissions", profileHandler.GetMyPermissions)
 
-		// --- ROTAS DE ADMIN ---
-		// Atualizar CPF (requer permissão EDITAR_USUARIO)
-		rotasProtegidas.PATCH("/admin/users/:user_id/cpf", canEditUsuario, profileHandler.UpdateCPF)
+			// Calendário e atividades recentes
+			rotasProtegidas.GET("/profile/me/calendar", profileHandler.GetCalendar)
+			rotasProtegidas.GET("/profile/me/recent-activity", profileHandler.GetRecentActivity)
+
+			// --- ROTAS DE ADMIN ---
+			// Atualizar CPF (requer permissão EDITAR_USUARIO)
+			rotasProtegidas.PATCH("/admin/users/:user_id/cpf", canEditUsuario, profileHandler.UpdateCPF)
 		}
 	}
 

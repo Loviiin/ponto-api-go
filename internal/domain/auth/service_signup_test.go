@@ -31,15 +31,15 @@ func TestSignUpPreservesCoordinates(t *testing.T) {
 	}
 
 	// Assert: Validar que as coordenadas não foram sobrescritas
-	assert.Equal(t, frontendLat, localidade.Latitude, 
+	assert.Equal(t, frontendLat, localidade.Latitude,
 		"Latitude deve ser a enviada pelo frontend, não a do CEP")
-	assert.Equal(t, frontendLng, localidade.Longitude, 
+	assert.Equal(t, frontendLng, localidade.Longitude,
 		"Longitude deve ser a enviada pelo frontend, não a do CEP")
 
 	// Garantir que não são as coordenadas do CEP
-	assert.NotEqual(t, cepLat, localidade.Latitude, 
+	assert.NotEqual(t, cepLat, localidade.Latitude,
 		"Latitude NÃO deve ser a do CEP")
-	assert.NotEqual(t, cepLng, localidade.Longitude, 
+	assert.NotEqual(t, cepLng, localidade.Longitude,
 		"Longitude NÃO deve ser a do CEP")
 }
 

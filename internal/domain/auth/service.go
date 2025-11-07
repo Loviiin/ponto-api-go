@@ -183,7 +183,7 @@ func (s *authService) SignUp(
 		}
 
 		// Log para debug: verificar coordenadas recebidas
-		fmt.Printf("📍 [SignUp] Coordenadas recebidas do frontend: lat=%.15f, lng=%.15f\n", 
+		fmt.Printf("📍 [SignUp] Coordenadas recebidas do frontend: lat=%.15f, lng=%.15f\n",
 			localidadeParcial.Latitude, localidadeParcial.Longitude)
 
 		// 3. Se coordenadas não foram enviadas, buscar do CEP como fallback
