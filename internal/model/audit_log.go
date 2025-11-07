@@ -9,8 +9,8 @@ import (
 // AuditLog registra todas as alterações importantes no sistema
 type AuditLog struct {
 	ID           uint           `gorm:"primaryKey" json:"id"`
-	UsuarioID    uint           `gorm:"index" json:"usuario_id"`  // Removido not null para permitir logs de sistema
-	EmpresaID    uint           `gorm:"index" json:"empresa_id"`  // Removido not null para permitir logs globais
+	UsuarioID    *uint          `gorm:"index" json:"usuario_id"`  // Nullable para permitir logs de sistema
+	EmpresaID    *uint          `gorm:"index" json:"empresa_id"`  // Nullable para permitir logs globais
 	Acao         string         `gorm:"not null" json:"acao"`     // ex: "UPDATE_PROFILE", "CHANGE_PASSWORD", "UPDATE_CPF"
 	Entidade     string         `gorm:"not null" json:"entidade"` // ex: "usuario", "ponto", "banco_horas"
 	EntidadeID   uint           `json:"entidade_id,omitempty"`

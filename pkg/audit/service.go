@@ -10,7 +10,7 @@ import (
 
 // Service define a interface para serviço de auditoria
 type Service interface {
-	LogAction(usuarioID, empresaID uint, acao, entidade string, entidadeID uint, dadosAntigos, dadosNovos interface{}, ip, userAgent string) error
+	LogAction(usuarioID, empresaID *uint, acao, entidade string, entidadeID uint, dadosAntigos, dadosNovos interface{}, ip, userAgent string) error
 	GetUserAuditLogs(usuarioID uint, limit int) ([]model.AuditLog, error)
 	GetEntityAuditLogs(entidade string, entidadeID uint, limit int) ([]model.AuditLog, error)
 }
@@ -25,7 +25,7 @@ func NewService(db *gorm.DB) Service {
 }
 
 // LogAction registra uma ação no log de auditoria
-func (s *service) LogAction(usuarioID, empresaID uint, acao, entidade string, entidadeID uint, dadosAntigos, dadosNovos interface{}, ip, userAgent string) error {
+func (s *service) LogAction(usuarioID, empresaID *uint, acao, entidade string, entidadeID uint, dadosAntigos, dadosNovos interface{}, ip, userAgent string) error {
 	// Converter dados para JSON
 	dadosAntigosJSON := ""
 	if dadosAntigos != nil {

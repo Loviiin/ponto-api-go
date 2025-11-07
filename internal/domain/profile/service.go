@@ -221,7 +221,7 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 	
 	// AUDIT LOG: Registrar alteração de perfil
 	if len(updates) > 0 && s.auditLogger != nil {
-		_ = s.auditLogger.LogAction(userID, empresaID, "UPDATE_PROFILE", "usuario", userID, dadosAntigos, updates, ip, userAgent)
+		_ = s.auditLogger.LogAction(&userID, &empresaID, "UPDATE_PROFILE", "usuario", userID, dadosAntigos, updates, ip, userAgent)
 	}
 
 	// Retornar perfil atualizado
@@ -273,7 +273,7 @@ func (s *service) ChangePassword(userID uint, req ChangePasswordRequest, ip, use
 	}
 	
 	if s.auditLogger != nil {
-		_ = s.auditLogger.LogAction(userID, empresaID, "CHANGE_PASSWORD", "usuario", userID, nil, map[string]interface{}{"changed": true}, ip, userAgent)
+		_ = s.auditLogger.LogAction(&userID, &empresaID, "CHANGE_PASSWORD", "usuario", userID, nil, map[string]interface{}{"changed": true}, ip, userAgent)
 	}
 
 	return nil
@@ -657,7 +657,7 @@ func (s *service) UpdateCPF(adminID, targetUserID uint, req UpdateCPFRequest, ip
 			"admin_id":        adminID,
 			"target_user_id":  targetUserID,
 		}
-		_ = s.auditLogger.LogAction(adminID, empresaID, "UPDATE_CPF_BY_ADMIN", "usuario", targetUserID, dadosAntigos, dadosNovos, ip, userAgent)
+		_ = s.auditLogger.LogAction(&adminID, &empresaID, "UPDATE_CPF_BY_ADMIN", "usuario", targetUserID, dadosAntigos, dadosNovos, ip, userAgent)
 	}
 
 	return nil
