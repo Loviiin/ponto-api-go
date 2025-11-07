@@ -159,11 +159,12 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 		"telefone": user.Telefone,
 	}
 
-	// CRITICAL: Atualizar APENAS campos enviados (PATCH semântico)
-	// Senha NUNCA deve ser alterada aqui!
-	
+	// CRITICAL FIX: Usar map para UPDATE SELETIVO - apenas campos enviados
+	// Isso evita sobrescrever senha e outros campos não incluídos
+	updates := make(map[string]interface{})
+
 	if req.Nome != nil && *req.Nome != "" {
-		user.Nome = *req.Nome
+		updates["nome"] = *req.Nome
 	}
 
 	if req.Telefone != nil {
@@ -173,10 +174,10 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 			if err := validator.ValidarTelefoneBrasileiro(*req.Telefone); err != nil {
 				return nil, err
 			}
-			user.Telefone = telefoneSanitizado
+			updates["telefone"] = telefoneSanitizado
 		} else {
 			// Permitir limpar o telefone
-			user.Telefone = ""
+			updates["telefone"] = ""
 		}
 	}
 
@@ -193,29 +194,34 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 			return nil, errors.New("erro ao verificar email")
 		}
 		
-		user.Email = novoEmail
+		updates["email"] = novoEmail
 	}
 
-	// Salvar alterações (apenas os campos modificados)
-	if err := s.repo.UpdateUser(user); err != nil {
-		return nil, errors.New("erro ao atualizar perfil")
+	// CRITICAL: Usar db.Model().Updates() para UPDATE PARCIAL
+	// Isso garante que APENAS os campos no map sejam atualizados
+	// A senha e outros campos NÃO serão tocados
+	if len(updates) > 0 {
+		// DEBUG LOG: Ver exatamente o que será atualizado
+		fmt.Printf("[DEBUG] UpdateProfile - userID: %d, updates: %+v\n", userID, updates)
+		
+		err = s.db.Model(&model.Usuario{}).Where("id = ?", userID).Updates(updates).Error
+		if err != nil {
+			return nil, errors.New("erro ao atualizar perfil")
+		}
+
+		// Invalidar cache após update bem-sucedido
+		s.repo.InvalidateUserCache(userID)
 	}
 
-	// AUDIT LOG: Registrar alteração de perfil
-	dadosNovos := map[string]interface{}{
-		"nome":     user.Nome,
-		"email":    user.Email,
-		"telefone": user.Telefone,
-	}
-	
-	// Obter empresa_id do contrato
+	// Obter empresa_id do contrato para audit log
 	var empresaID uint
 	if user.Contrato.ID > 0 {
 		empresaID = user.Contrato.EmpresaID
 	}
 	
-	if s.auditLogger != nil {
-		_ = s.auditLogger.LogAction(userID, empresaID, "UPDATE_PROFILE", "usuario", userID, dadosAntigos, dadosNovos, ip, userAgent)
+	// AUDIT LOG: Registrar alteração de perfil
+	if len(updates) > 0 && s.auditLogger != nil {
+		_ = s.auditLogger.LogAction(userID, empresaID, "UPDATE_PROFILE", "usuario", userID, dadosAntigos, updates, ip, userAgent)
 	}
 
 	// Retornar perfil atualizado
@@ -389,8 +395,11 @@ func (s *service) GetCalendar(userID uint, month, year int) (*CalendarioResponse
 	}
 
 	// Criar calendário
-	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 	daysInMonth := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC).Day()
+	
+	// Data de hoje para comparação
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 
 	dias := make([]CalendarioDia, daysInMonth)
 	for i := 1; i <= daysInMonth; i++ {
@@ -408,7 +417,8 @@ func (s *service) GetCalendar(userID uint, month, year int) (*CalendarioResponse
 			tipo = "normal"
 		} else if weekday == time.Saturday || weekday == time.Sunday {
 			status = "fim_de_semana"
-		} else if currentDate.After(startDate.AddDate(0, 1, 0)) {
+		} else if currentDate.After(today) {
+			// Se a data é depois de hoje, é futuro
 			status = "futuro"
 		} else {
 			status = "ausente"
@@ -540,12 +550,25 @@ func calculateWorkHoursFromPontos(pontos []model.RegistroPonto) int {
 		return 0
 	}
 
-	// Ordenar por timestamp
-	// Assumir que pontos pares são entradas e ímpares são saídas
+	// Ordenar por timestamp antes de calcular
+	// Criar uma cópia para não modificar o slice original
+	pontosCopy := make([]model.RegistroPonto, len(pontos))
+	copy(pontosCopy, pontos)
+	
+	// Ordenar do mais antigo para o mais recente
+	for i := 0; i < len(pontosCopy)-1; i++ {
+		for j := i + 1; j < len(pontosCopy); j++ {
+			if pontosCopy[i].Timestamp.After(pontosCopy[j].Timestamp) {
+				pontosCopy[i], pontosCopy[j] = pontosCopy[j], pontosCopy[i]
+			}
+		}
+	}
+
+	// Calcular horas trabalhadas agrupando pares (entrada/saída)
 	totalMinutes := 0
-	for i := 0; i < len(pontos)-1; i += 2 {
-		entrada := pontos[i].Timestamp
-		saida := pontos[i+1].Timestamp
+	for i := 0; i < len(pontosCopy)-1; i += 2 {
+		entrada := pontosCopy[i].Timestamp
+		saida := pontosCopy[i+1].Timestamp
 		duracao := saida.Sub(entrada)
 		totalMinutes += int(duracao.Minutes())
 	}

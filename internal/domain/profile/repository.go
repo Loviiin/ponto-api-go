@@ -16,6 +16,7 @@ type Repository interface {
 	// Dados do Usuário
 	GetUserByID(userID uint) (*model.Usuario, error)
 	UpdateUser(user *model.Usuario) error
+	InvalidateUserCache(userID uint)
 
 	// Estatísticas de Ponto
 	GetPontoStatsByUserAndMonth(userID uint, month, year int) (*PontoMonthStats, error)
@@ -98,11 +99,16 @@ func (r *repository) UpdateUser(user *model.Usuario) error {
 	err := r.db.Save(user).Error
 	if err == nil {
 		// Invalidar cache
-		ctx := context.Background()
-		cacheKey := fmt.Sprintf("profile:user:%d", user.ID)
-		r.cache.Delete(ctx, cacheKey)
+		r.InvalidateUserCache(user.ID)
 	}
 	return err
+}
+
+// InvalidateUserCache invalida o cache de um usuário específico
+func (r *repository) InvalidateUserCache(userID uint) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("profile:user:%d", userID)
+	r.cache.Delete(ctx, cacheKey)
 }
 
 // GetPontoStatsByUserAndMonth retorna estatísticas de ponto para um mês específico
