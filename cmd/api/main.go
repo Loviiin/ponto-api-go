@@ -61,6 +61,7 @@ func resetAndSeedDatabase(db *gorm.DB) {
 	err := db.Migrator().DropTable(
 		"usuario_cargos",   // Tabela de junção para Usuario e Cargo
 		"cargo_permissoes", // Tabela de junção para Cargo e Permissao
+		&model.AuditLog{},  // Precisa ser dropado antes de Usuario
 		&model.RegistroPonto{},
 		&model.Justificativa{},
 		&model.LogBancoHoras{},
