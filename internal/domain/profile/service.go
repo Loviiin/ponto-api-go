@@ -185,7 +185,7 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 		novoEmail := password.NormalizarEmail(*req.Email)
 		
 		// Verificar se email já está em uso
-		existingUser, err := s.db.Where("email = ? AND id != ?", novoEmail, userID).First(&model.Usuario{}).Error
+		err = s.db.Where("email = ? AND id != ?", novoEmail, userID).First(&model.Usuario{}).Error
 		if err == nil {
 			return nil, errors.New("email já está em uso por outro usuário")
 		}
@@ -580,7 +580,7 @@ func extractCategory(permissionName string) string {
 // UpdateCPF atualiza o CPF de um usuário (apenas admin com permissão EDITAR_USUARIO)
 func (s *service) UpdateCPF(adminID, targetUserID uint, req UpdateCPFRequest, ip, userAgent string) error {
 	// Validar CPF
-	if err := validator.ValidarCPF(req.CPF); err != nil {
+	if err := validator.ValidarCPF(req.NovoCPF); err != nil {
 		return err
 	}
 
@@ -597,7 +597,7 @@ func (s *service) UpdateCPF(adminID, targetUserID uint, req UpdateCPFRequest, ip
 	cpfAntigo := targetUser.CPF
 
 	// Sanitizar CPF (remover pontos e traços)
-	cpfSanitizado := validator.SanitizarCPF(req.CPF)
+	cpfSanitizado := validator.SanitizarCPF(req.NovoCPF)
 
 	// Verificar se CPF já está em uso por outro usuário
 	existingUser := &model.Usuario{}
