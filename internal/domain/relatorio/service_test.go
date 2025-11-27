@@ -16,18 +16,18 @@ import (
 // Implement full interfaces expected by relatorio service constructor.
 type mockPontoRepo struct{ regs []model.RegistroPonto }
 
-func (m *mockPontoRepo) SavePonto(p *model.RegistroPonto) error { return nil }
-func (m *mockPontoRepo) FindPontosByUserIDAndDate(userID uint, dia time.Time) ([]model.RegistroPonto, error) {
+func (m *mockPontoRepo) SavePonto(ctx context.Context, p *model.RegistroPonto) error { return nil }
+func (m *mockPontoRepo) FindPontosByUserIDAndDate(ctx context.Context, userID uint, dia time.Time) ([]model.RegistroPonto, error) {
 	return nil, nil
 }
-func (m *mockPontoRepo) FindPontosByUserIDAndDateRange(userID uint, inicio, fim time.Time) ([]model.RegistroPonto, error) {
+func (m *mockPontoRepo) FindPontosByUserIDAndDateRange(ctx context.Context, userID uint, inicio, fim time.Time) ([]model.RegistroPonto, error) {
 	return m.regs, nil
 }
 func (m *mockPontoRepo) WithTransaction(tx *gorm.DB) ponto.RegistroPontoRepository { return m }
-func (m *mockPontoRepo) FindPontoByID(pontoID uint, empresaID uint) (*model.RegistroPonto, error) {
+func (m *mockPontoRepo) FindPontoByID(ctx context.Context, pontoID uint, empresaID uint) (*model.RegistroPonto, error) {
 	return &model.RegistroPonto{ID: pontoID}, nil
 }
-func (m *mockPontoRepo) UpdatePonto(p *model.RegistroPonto) error { return nil }
+func (m *mockPontoRepo) UpdatePonto(ctx context.Context, p *model.RegistroPonto) error { return nil }
 
 // Minimal usuario reader already defined in service.go as usuarioReader; implement it.
 type mockUserRepo struct {
@@ -123,7 +123,7 @@ func (m *mockBancoHorasService) CalcularSaldoParaUsuario(usuarioID uint, empresa
 func (m *mockBancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint, dia time.Time) (*model.Contrato, error) {
 	return &model.Contrato{}, nil
 }
-func (m *mockBancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint) (*bancohoras.DashboardResponse, error) {
+func (m *mockBancoHorasService) GetDashboardForUsuario(usuarioID uint, empresaID uint, inicio, fim *time.Time) (*bancohoras.DashboardResponse, error) {
 	return &bancohoras.DashboardResponse{}, nil
 }
 func (m *mockBancoHorasService) GetSaldoAtualUsuario(usuarioID uint, empresaID uint) (int, error) {

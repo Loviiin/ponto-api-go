@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Loviiin/ponto-api-go/internal/constants"
 	"github.com/Loviiin/ponto-api-go/internal/domain/localidade"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
 	"github.com/Loviiin/ponto-api-go/internal/model"
@@ -19,12 +20,12 @@ import (
 )
 
 type PontoService interface {
-	BaterPonto(usuarioID uint, empresaID uint, latitude, longitude float64) (*model.RegistroPonto, error)
-	GetPontosDoDia(usuarioID uint, dia time.Time) ([]model.RegistroPonto, error)
-	AjustarPonto(usuarioID, empresaID, adminID uint, timestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error)
-	EditarPonto(pontoID, empresaID uint, novoTimestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error)
-	FindPontoByID(pontoID, empresaID uint) (*model.RegistroPonto, error)
-	GerarRelatorio(userID, empresaID uint, inicio, fim time.Time, formato string) ([]byte, string, string, error)
+	BaterPonto(ctx context.Context, usuarioID uint, empresaID uint, latitude, longitude float64) (*model.RegistroPonto, error)
+	GetPontosDoDia(ctx context.Context, usuarioID uint, dia time.Time) ([]model.RegistroPonto, error)
+	AjustarPonto(ctx context.Context, usuarioID, empresaID, adminID uint, timestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error)
+	EditarPonto(ctx context.Context, pontoID, empresaID uint, novoTimestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error)
+	FindPontoByID(ctx context.Context, pontoID, empresaID uint) (*model.RegistroPonto, error)
+	GerarRelatorio(ctx context.Context, userID, empresaID uint, inicio, fim time.Time, formato string) ([]byte, string, string, error)
 }
 
 var ErrFormatoInvalido = errors.New("formato inválido; use 'csv' ou 'pdf'")
@@ -69,8 +70,8 @@ func NewPontoServiceWithCache(
 	}
 }
 
-func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, longitude float64) (*model.RegistroPonto, error) {
-	user, err := s.userRepo.FindByID(context.Background(), usuarioID, empresaID)
+func (s *pontoService) BaterPonto(ctx context.Context, usuarioID uint, empresaID uint, latitude, longitude float64) (*model.RegistroPonto, error) {
+	user, err := s.userRepo.FindByID(ctx, usuarioID, empresaID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("usuário não encontrado ou não pertence a esta empresa")
@@ -103,7 +104,7 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 		tipoBatida = "Presencial"
 	}
 
-	loc, err := time.LoadLocation("America/Sao_Paulo")
+	loc, err := time.LoadLocation(constants.TimezoneBR)
 	if err != nil {
 		loc = time.Local
 	}
@@ -117,7 +118,7 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 		Metodo:    tipoBatida,
 	}
 
-	if err := s.pontoRepo.SavePonto(registroPonto); err != nil {
+	if err := s.pontoRepo.SavePonto(ctx, registroPonto); err != nil {
 		return nil, err
 	}
 
@@ -127,12 +128,12 @@ func (s *pontoService) BaterPonto(usuarioID uint, empresaID uint, latitude, long
 	return registroPonto, nil
 }
 
-func (s *pontoService) GetPontosDoDia(usuarioID uint, dia time.Time) ([]model.RegistroPonto, error) {
-	return s.pontoRepo.FindPontosByUserIDAndDate(usuarioID, dia)
+func (s *pontoService) GetPontosDoDia(ctx context.Context, usuarioID uint, dia time.Time) ([]model.RegistroPonto, error) {
+	return s.pontoRepo.FindPontosByUserIDAndDate(ctx, usuarioID, dia)
 }
 
-func (s *pontoService) AjustarPonto(usuarioID, empresaID, adminID uint, timestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error) {
-	_, err := s.userRepo.FindByID(context.Background(), usuarioID, empresaID)
+func (s *pontoService) AjustarPonto(ctx context.Context, usuarioID, empresaID, adminID uint, timestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error) {
+	_, err := s.userRepo.FindByID(ctx, usuarioID, empresaID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("usuário alvo não encontrado ou não pertence a esta empresa")
@@ -149,7 +150,7 @@ func (s *pontoService) AjustarPonto(usuarioID, empresaID, adminID uint, timestam
 		JustificativaID: justificativaID,
 	}
 
-	if err := s.pontoRepo.SavePonto(pontoRegistrado); err != nil {
+	if err := s.pontoRepo.SavePonto(ctx, pontoRegistrado); err != nil {
 		return nil, err
 	}
 
@@ -159,8 +160,8 @@ func (s *pontoService) AjustarPonto(usuarioID, empresaID, adminID uint, timestam
 	return pontoRegistrado, nil
 }
 
-func (s *pontoService) EditarPonto(pontoID, empresaID uint, novoTimestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error) {
-	pontoParaEditar, err := s.pontoRepo.FindPontoByID(pontoID, empresaID)
+func (s *pontoService) EditarPonto(ctx context.Context, pontoID, empresaID uint, novoTimestamp time.Time, justificativaID *uint) (*model.RegistroPonto, error) {
+	pontoParaEditar, err := s.pontoRepo.FindPontoByID(ctx, pontoID, empresaID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("registro de ponto não encontrado ou não pertence a esta empresa")
@@ -173,7 +174,7 @@ func (s *pontoService) EditarPonto(pontoID, empresaID uint, novoTimestamp time.T
 	pontoParaEditar.Metodo = "EDICAO_MANUAL_ADMIN"
 	pontoParaEditar.JustificativaID = justificativaID
 
-	if err := s.pontoRepo.UpdatePonto(pontoParaEditar); err != nil {
+	if err := s.pontoRepo.UpdatePonto(ctx, pontoParaEditar); err != nil {
 		return nil, err
 	}
 
@@ -186,11 +187,11 @@ func (s *pontoService) EditarPonto(pontoID, empresaID uint, novoTimestamp time.T
 	return pontoParaEditar, nil
 }
 
-func (s *pontoService) FindPontoByID(pontoID, empresaID uint) (*model.RegistroPonto, error) {
-	return s.pontoRepo.FindPontoByID(pontoID, empresaID)
+func (s *pontoService) FindPontoByID(ctx context.Context, pontoID, empresaID uint) (*model.RegistroPonto, error) {
+	return s.pontoRepo.FindPontoByID(ctx, pontoID, empresaID)
 }
 
-func (s *pontoService) GerarRelatorio(userID, empresaID uint, inicio, fim time.Time, formato string) ([]byte, string, string, error) {
+func (s *pontoService) GerarRelatorio(ctx context.Context, userID, empresaID uint, inicio, fim time.Time, formato string) ([]byte, string, string, error) {
 	if inicio.After(fim) {
 		inicio, fim = fim, inicio
 	}
@@ -199,11 +200,11 @@ func (s *pontoService) GerarRelatorio(userID, empresaID uint, inicio, fim time.T
 	// Buscar usuário para obter nome (se existir) - guarda nil para testes
 	userName := fmt.Sprintf("Usuário %d", userID)
 	if s.userRepo != nil {
-		if usuarioObj, errUser := s.userRepo.FindByID(context.Background(), userID, empresaID); errUser == nil && usuarioObj != nil && usuarioObj.Nome != "" {
+		if usuarioObj, errUser := s.userRepo.FindByID(ctx, userID, empresaID); errUser == nil && usuarioObj != nil && usuarioObj.Nome != "" {
 			userName = usuarioObj.Nome
 		}
 	}
-	registros, err := s.pontoRepo.FindPontosByUserIDAndDateRange(userID, inicio, fim)
+	registros, err := s.pontoRepo.FindPontosByUserIDAndDateRange(ctx, userID, inicio, fim)
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -219,7 +220,7 @@ func (s *pontoService) GerarRelatorio(userID, empresaID uint, inicio, fim time.T
 }
 
 func gerarRelatorioCSV(registros []model.RegistroPonto, userID uint, userName string, inicio, fim time.Time) ([]byte, string, string, error) {
-	loc, err := time.LoadLocation("America/Sao_Paulo")
+	loc, err := time.LoadLocation(constants.TimezoneBR)
 	if err != nil {
 		loc = time.Local
 	}
@@ -246,7 +247,7 @@ func gerarRelatorioPDF(registros []model.RegistroPonto, userID uint, userName st
 	pdf.SetAutoPageBreak(true, 15)
 
 	// Timezone Brasil
-	loc, err := time.LoadLocation("America/Sao_Paulo")
+	loc, err := time.LoadLocation(constants.TimezoneBR)
 	if err != nil {
 		loc = time.Local
 	}

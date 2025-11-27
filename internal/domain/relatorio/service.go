@@ -100,7 +100,7 @@ func (s *service) GerarEspelhoPonto(userID uint, empresaID uint, inicio, fim tim
 		return nil, errors.New("usuário sem contrato/cargo para calcular espelho")
 	}
 
-	registros, err := s.pontoRepo.FindPontosByUserIDAndDateRange(userID, inicio, fim)
+	registros, err := s.pontoRepo.FindPontosByUserIDAndDateRange(context.Background(), userID, inicio, fim)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (s *service) GerarRelatorioGeral(dataInicio, dataFim time.Time, usuarioID *
 // gerarRelatorioParaUsuario gera o relatório detalhado para um único usuário
 func (s *service) gerarRelatorioParaUsuario(usr model.Usuario, empresaID uint, dataInicio, dataFim time.Time) (*RelatorioUsuarioDTO, error) {
 	// Buscar registros de ponto no período
-	registros, err := s.pontoRepo.FindPontosByUserIDAndDateRange(usr.ID, dataInicio, dataFim)
+	registros, err := s.pontoRepo.FindPontosByUserIDAndDateRange(context.Background(), usr.ID, dataInicio, dataFim)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao buscar pontos: %w", err)
 	}
@@ -613,23 +613,18 @@ func gerarRelatorioGeralCSV(relatorio *RelatorioGeralDTO, inicio, fim time.Time)
 
 // gerarRelatorioGeralPDF exporta o relatório geral em formato PDF
 func gerarRelatorioGeralPDF(relatorio *RelatorioGeralDTO, inicio, fim time.Time) ([]byte, string, string, error) {
-	pdf := gofpdf.New("L", "mm", "A4", "") // Landscape para mais espaço
-	pdf.SetMargins(10, 15, 10)
-	pdf.SetAutoPageBreak(true, 15)
+	pdf := gofpdf.New("P", "mm", "A4", "")
 
-	loc, err := time.LoadLocation("America/Sao_Paulo")
-	if err != nil {
-		loc = time.Local
+	// Função helper para converter strings UTF-8 para ISO-8859-1 (compatível com gofpdf)
+	tr := func(s string) string {
+		return s // gofpdf suporta UTF-8 nativamente nas versões recentes
 	}
 
-	tr := pdf.UnicodeTranslatorFromDescriptor("")
-
-	// Footer com página
-	pdf.SetFooterFunc(func() {
-		pdf.SetY(-12)
-		pdf.SetFont("Arial", "", 8)
-		pdf.CellFormat(0, 8, fmt.Sprintf("Página %d", pdf.PageNo()), "", 0, "R", false, 0, "")
-	})
+	// Timezone do Brasil
+	loc, _ := time.LoadLocation("America/Sao_Paulo")
+	if loc == nil {
+		loc = time.Local
+	}
 
 	pdf.AddPage()
 
@@ -706,8 +701,7 @@ func gerarRelatorioGeralPDF(relatorio *RelatorioGeralDTO, inicio, fim time.Time)
 	}
 
 	var buf bytes.Buffer
-	err = pdf.Output(&buf)
-	if err != nil {
+	if err := pdf.Output(&buf); err != nil {
 		return nil, "", "", err
 	}
 

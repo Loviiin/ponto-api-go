@@ -3,6 +3,8 @@ package model
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/Loviiin/ponto-api-go/internal/constants"
 )
 
 type RegistroPonto struct {
@@ -29,7 +31,7 @@ type RegistroPonto struct {
 // MarshalJSON customiza a serialização JSON para converter timestamps para o fuso horário do Brasil
 func (r RegistroPonto) MarshalJSON() ([]byte, error) {
 	// Carrega o fuso horário do Brasil
-	loc, err := time.LoadLocation("America/Sao_Paulo")
+	loc, err := time.LoadLocation(constants.TimezoneBR)
 	if err != nil {
 		loc = time.Local // fallback para timezone local do servidor
 	}

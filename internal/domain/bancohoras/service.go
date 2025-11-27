@@ -93,7 +93,7 @@ func (s *bancoHorasService) CalcularSaldoParaUsuario(usuarioID uint, empresaID u
 		return 0, errors.New("utilizador não possui um contrato ou cargo ativo para calcular o saldo")
 	}
 
-	pontos, err := s.pontoRepo.FindPontosByUserIDAndDate(user.ID, dia)
+	pontos, err := s.pontoRepo.FindPontosByUserIDAndDate(ctx, user.ID, dia)
 	if err != nil {
 		return 0, err
 	}
@@ -155,11 +155,6 @@ func (s *bancoHorasService) FecharDiaParaUsuario(usuarioID uint, empresaID uint,
 	novoSaldoTotal := saldoAnterior + saldoDoDia
 
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.Contrato{}).Where("id = ?", usuarioAtual.Contrato.ID).
-			Update("saldo_banco_horas_minutos", novoSaldoTotal).Error; err != nil {
-			return err
-		}
-
 		// Cria o log do banco de horas
 		log := &model.LogBancoHoras{
 			UsuarioID:            usuarioID,

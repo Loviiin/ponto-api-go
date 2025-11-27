@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Loviiin/ponto-api-go/internal/constants"
 	"github.com/Loviiin/ponto-api-go/pkg/cloudinary"
 	"github.com/gin-gonic/gin"
 )
@@ -283,7 +284,11 @@ func (h *Handler) GetCalendar(c *gin.Context) {
 	}
 
 	// Default: mês e ano atuais
-	now := time.Now()
+	loc, err := time.LoadLocation(constants.TimezoneBR)
+	if err != nil {
+		loc = time.Local
+	}
+	now := time.Now().In(loc)
 	month := int(now.Month())
 	year := now.Year()
 
@@ -318,88 +323,7 @@ func (h *Handler) GetCalendar(c *gin.Context) {
 	c.JSON(http.StatusOK, calendar)
 }
 
-// UploadAvatar godoc
-// @Summary Upload de foto de perfil
-// @Description Faz upload da foto de perfil do usuário para Cloudinary (CDN global)
-// @Tags Profile
-// @Security BearerAuth
-// @Accept multipart/form-data
-// @Produce json
-// @Param avatar formData file true "Arquivo de imagem (JPEG/PNG, máx 5MB)"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /profile/me/avatar [post]
-func (h *Handler) UploadAvatar(c *gin.Context) {
-	userID, err := getUserIDFromContext(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Verificar se Cloudinary está configurado
-	if h.cloudinaryService == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "serviço de upload não está configurado. Configure CLOUDINARY_URL no .env"})
-		return
-	}
-
-	file, header, err := c.Request.FormFile("avatar")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "arquivo não enviado"})
-		return
-	}
-	defer file.Close()
-
-	// Validar tipo de arquivo
-	contentType := header.Header.Get("Content-Type")
-	if contentType != "image/jpeg" && contentType != "image/png" && contentType != "image/jpg" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "apenas imagens JPEG e PNG são permitidas"})
-		return
-	}
-
-	// Validar tamanho (máximo 5MB)
-	if header.Size > 5*1024*1024 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "arquivo muito grande. Máximo: 5MB"})
-		return
-	}
-
-	// Obter avatar antigo para deletar depois
-	profile, err := h.service.GetMyProfile(userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "erro ao obter perfil atual"})
-		return
-	}
-
-	// Upload para Cloudinary
-	avatarURL, err := h.cloudinaryService.UploadAvatar(file, userID, header.Filename)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("erro ao fazer upload: %v", err)})
-		return
-	}
-
-	// Atualizar campo Avatar no banco de dados
-	if err := h.service.UpdateAvatar(userID, avatarURL); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "erro ao atualizar avatar no perfil"})
-		return
-	}
-
-	// Deletar avatar antigo do Cloudinary (se existir)
-	if profile.Avatar != "" {
-		oldPublicID := cloudinary.ExtractPublicIDFromURL(profile.Avatar)
-		if oldPublicID != "" {
-			// Deletar de forma assíncrona (não bloqueia a resposta)
-			go func() {
-				_ = h.cloudinaryService.DeleteAvatar(oldPublicID)
-			}()
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "avatar atualizado com sucesso",
-		"url":     avatarURL,
-	})
-}
+// UpdateAvatar removed as field is no longer in model
 
 // UpdateCPF godoc
 // @Summary Atualizar CPF de um usuário (Admin)

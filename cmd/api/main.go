@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
@@ -12,43 +13,40 @@ import (
 
 	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/config"
-	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
-	"github.com/Loviiin/ponto-api-go/internal/domain/contrato"
-	"github.com/Loviiin/ponto-api-go/internal/domain/justificativa"
-	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
-	"github.com/Loviiin/ponto-api-go/internal/domain/relatorio"
-	"github.com/Loviiin/ponto-api-go/internal/model"
-	"github.com/gin-contrib/cors"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
-
+	"github.com/Loviiin/ponto-api-go/internal/constants"
 	"github.com/Loviiin/ponto-api-go/internal/domain/auth"
+	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/cargo"
 	cephandler "github.com/Loviiin/ponto-api-go/internal/domain/cep"
+	"github.com/Loviiin/ponto-api-go/internal/domain/contrato"
 	"github.com/Loviiin/ponto-api-go/internal/domain/empresa"
+	"github.com/Loviiin/ponto-api-go/internal/domain/justificativa"
 	"github.com/Loviiin/ponto-api-go/internal/domain/localidade"
+	"github.com/Loviiin/ponto-api-go/internal/domain/logbancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/permissao"
 	"github.com/Loviiin/ponto-api-go/internal/domain/ponto"
 	"github.com/Loviiin/ponto-api-go/internal/domain/profile"
+	"github.com/Loviiin/ponto-api-go/internal/domain/relatorio"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
-
+	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/audit"
 	"github.com/Loviiin/ponto-api-go/pkg/brasilapi"
 	"github.com/Loviiin/ponto-api-go/pkg/cache"
-	"github.com/Loviiin/ponto-api-go/pkg/cloudinary"
-
 	"github.com/Loviiin/ponto-api-go/pkg/cep"
+	"github.com/Loviiin/ponto-api-go/pkg/cloudinary"
 	"github.com/Loviiin/ponto-api-go/pkg/distancematrix"
+	"github.com/Loviiin/ponto-api-go/pkg/email"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
+	"github.com/Loviiin/ponto-api-go/pkg/logger"
+	"github.com/Loviiin/ponto-api-go/pkg/permissions"
 	"github.com/Loviiin/ponto-api-go/pkg/scheduler"
 	"github.com/Loviiin/ponto-api-go/pkg/viacep"
-
-	// Vamos usar este pacote para as nossas constantes de permissão
-	"github.com/Loviiin/ponto-api-go/pkg/permissions"
-
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -66,6 +64,7 @@ func resetAndSeedDatabase(db *gorm.DB) {
 		&model.Justificativa{},
 		&model.LogBancoHoras{},
 		&model.Contrato{},
+		&model.PasswordResetToken{}, // NOVO
 		&model.Usuario{},
 		&model.Permissao{},
 		&model.Cargo{},
@@ -91,6 +90,7 @@ func resetAndSeedDatabase(db *gorm.DB) {
 
 		// 3. Usuário (depende de nada, mas é referenciado por outras tabelas)
 		&model.Usuario{},
+		&model.PasswordResetToken{}, // NOVO
 
 		// 4. Contrato (depende de Usuario, Cargo, Localidade)
 		&model.Contrato{},
@@ -154,6 +154,8 @@ var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
 // @description "Digite 'Bearer' seguido de um espaço e o seu token."
 // @type apiKey
 func main() {
+	logger.InitLogger()
+
 	cfg, err := config.LoadConfig(".")
 	if err != nil {
 		log.Fatal("Não foi possível carregar as configurações: ", err)
@@ -161,12 +163,12 @@ func main() {
 
 	var dsn string
 	if strings.HasPrefix(cfg.DBHost, "/") {
-		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=America/Sao_Paulo",
-			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode)
+		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
+			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode, constants.TimezoneBR)
 	} else {
 
-		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=America/Sao_Paulo",
-			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode)
+		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
+			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode, constants.TimezoneBR)
 	}
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -180,7 +182,19 @@ func main() {
 		resetAndSeedDatabase(db)
 	} else {
 		// Adicionámos o &model.Permissao{} e &model.AuditLog{} para a migração automática
-		err = db.AutoMigrate(&model.Usuario{}, &model.RegistroPonto{}, &model.Empresa{}, &model.Cargo{}, &model.Permissao{}, &model.Justificativa{}, &model.LogBancoHoras{}, &model.Contrato{}, &model.Localidade{}, &model.AuditLog{})
+		err = db.AutoMigrate(
+			&model.Usuario{},
+			&model.PasswordResetToken{}, // NOVO
+			&model.RegistroPonto{},
+			&model.Empresa{},
+			&model.Cargo{},
+			&model.Permissao{},
+			&model.Justificativa{},
+			&model.LogBancoHoras{},
+			&model.Contrato{},
+			&model.Localidade{},
+			&model.AuditLog{},
+		)
 		if err != nil {
 			log.Fatal("Falha ao rodar a migração: ", err)
 		}
@@ -226,7 +240,23 @@ func main() {
 		}
 	}
 
+	// Inicializar Serviço de Email
+	emailService := email.NewEmailService(
+		cfg.SMTPHost,
+		cfg.SMTPPort,
+		cfg.SMTPUser,
+		cfg.SMTPPassword,
+		cfg.SMTPFromName,
+		cfg.SMTPFromEmail,
+		cfg.FrontendURL,
+	)
+	if emailService == nil {
+		slog.Warn("Serviço de email não configurado (verifique .env)")
+		// Não falhar o app, apenas logar aviso
+	}
+
 	usuarioRepo := usuario.NewUsuarioRepository(db, cacheService)
+	passwordResetRepo := auth.NewPasswordResetRepository(db)
 	pontoRepo := ponto.NewPontoRepository(db)
 	empresaRepo := empresa.NewEmpresaRepository(db, cacheService)
 	cargoRepo := cargo.NewCargoRepository(db, cacheService)
@@ -251,7 +281,8 @@ func main() {
 	geoService := geolocation.NewService(cepService, distanceMatrixClient, brasilAPIClient)
 
 	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo, localidadeRepo)
-	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, geoService, jwtService, cacheService, db)
+	// Passando emailService para AuthService
+	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, passwordResetRepo, geoService, jwtService, cacheService, db, emailService)
 	pontoService := ponto.NewPontoServiceWithCache(pontoRepo, usuarioRepo, localidadeRepo, db, cacheService)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
@@ -366,6 +397,15 @@ func main() {
 		apiV1.POST("/auth/signup", authHandler.SignUp)
 		apiV1.POST("/auth/login", authHandler.Login)
 
+		// Password Reset
+		apiV1.POST("/auth/forgot-password", authHandler.RequestPasswordReset)
+		apiV1.POST("/auth/reset-password", authHandler.ResetPassword)
+		apiV1.GET("/auth/validate-reset-token", authHandler.ValidateResetToken)
+
+		// Google OAuth (Login)
+		// apiV1.GET("/auth/google/login", authHandler.GoogleLogin)
+		// apiV1.GET("/auth/google/callback", authHandler.GoogleCallback)
+
 		// Rotas para Super-Admin (no futuro, proteger com um middleware de "SuperAdmin")
 		apiV1.POST("/permissoes", permissaoHandler.Create)
 		apiV1.GET("/permissoes", permissaoHandler.FindAll)
@@ -461,7 +501,7 @@ func main() {
 			rotasProtegidas.GET("/profile/me", profileHandler.GetMyProfile)
 			rotasProtegidas.PATCH("/profile/me", profileHandler.UpdateProfile)           // PATCH para updates parciais
 			rotasProtegidas.PATCH("/profile/me/password", profileHandler.ChangePassword) // PATCH semântico
-			rotasProtegidas.POST("/profile/me/avatar", profileHandler.UploadAvatar)
+			// rotasProtegidas.POST("/profile/me/avatar", profileHandler.UploadAvatar) // Removed as field is no longer in model
 
 			// Estatísticas e permissões
 			rotasProtegidas.GET("/profile/me/stats", profileHandler.GetMyStats)
@@ -474,6 +514,10 @@ func main() {
 			// --- ROTAS DE ADMIN ---
 			// Atualizar CPF (requer permissão EDITAR_USUARIO)
 			rotasProtegidas.PATCH("/admin/users/:user_id/cpf", canEditUsuario, profileHandler.UpdateCPF)
+
+			// --- Google OAuth (Vincular Conta) ---
+			// rotasProtegidas.GET("/auth/google/link", authHandler.LinkGoogleAccount)
+			// rotasProtegidas.POST("/auth/google/link/callback", authHandler.LinkGoogleCallback)
 		}
 	}
 

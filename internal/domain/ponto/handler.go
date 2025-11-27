@@ -2,11 +2,13 @@ package ponto
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/Loviiin/ponto-api-go/internal/model"
+	apperrors "github.com/Loviiin/ponto-api-go/pkg/errors"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -70,7 +72,8 @@ type EditarPontoRequest struct {
 func (h *PontoHandler) BaterPonto(c *gin.Context) {
 	valorIDToken, existe := c.Get("userID")
 	if !existe {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "ID do usuário não encontrado no contexto"})
+		err := apperrors.NewInternal(errors.New("ID do usuário não encontrado no contexto"))
+		c.JSON(err.Code, err)
 		return
 	}
 	idTokenString, ok := valorIDToken.(string)
@@ -105,9 +108,11 @@ func (h *PontoHandler) BaterPonto(c *gin.Context) {
 		return
 	}
 
-	pontoRegistrado, err := h.service.BaterPonto(uint(usuarioID), uint(empresaID), requisicao.Latitude, requisicao.Longitude)
+	pontoRegistrado, err := h.service.BaterPonto(c.Request.Context(), uint(usuarioID), uint(empresaID), requisicao.Latitude, requisicao.Longitude)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao registrar o ponto"})
+		slog.Error("Falha ao registrar ponto", "error", err, "user_id", usuarioID)
+		appErr := apperrors.NewInternal(err)
+		c.JSON(appErr.Code, appErr)
 		return
 	}
 
@@ -152,9 +157,11 @@ func (h *PontoHandler) GetRegistosPorUsuarioID(c *gin.Context) {
 			return
 		}
 	}
-	registos, err := h.service.GetPontosDoDia(uint(idUsuarioAlvo), dia)
+	registos, err := h.service.GetPontosDoDia(c.Request.Context(), uint(idUsuarioAlvo), dia)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar registros."})
+		slog.Error("Falha ao buscar registros", "error", err, "user_id", idUsuarioAlvo)
+		appErr := apperrors.NewInternal(err)
+		c.JSON(appErr.Code, appErr)
 		return
 	}
 	c.JSON(http.StatusOK, registos)
@@ -200,9 +207,11 @@ func (h *PontoHandler) GetMeusRegistos(c *gin.Context) {
 		}
 	}
 
-	registos, err := h.service.GetPontosDoDia(uint(usuarioID), dia)
+	registos, err := h.service.GetPontosDoDia(c.Request.Context(), uint(usuarioID), dia)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao buscar os registos de ponto"})
+		slog.Error("Falha ao buscar meus registros", "error", err, "user_id", usuarioID)
+		appErr := apperrors.NewInternal(err)
+		c.JSON(appErr.Code, appErr)
 		return
 	}
 
@@ -256,9 +265,11 @@ func (h *PontoHandler) AjustarPonto(c *gin.Context) {
 	}
 
 	// 2. Chamar o serviço de ponto, passando o ID da justificativa que acabamos de criar.
-	novoPonto, err := h.service.AjustarPonto(req.UsuarioID, empresaID, idAdmin, req.Timestamp, &justificativa.ID)
+	novoPonto, err := h.service.AjustarPonto(c.Request.Context(), req.UsuarioID, empresaID, idAdmin, req.Timestamp, &justificativa.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao ajustar o ponto: " + err.Error()})
+		slog.Error("Falha ao ajustar ponto", "error", err, "admin_id", idAdmin, "target_user_id", req.UsuarioID)
+		appErr := apperrors.NewInternal(err)
+		c.JSON(appErr.Code, appErr)
 		return
 	}
 
@@ -309,7 +320,7 @@ func (h *PontoHandler) EditarPonto(c *gin.Context) {
 		return
 	}
 
-	pontoOriginal, err := h.service.FindPontoByID(pontoID, empresaID)
+	pontoOriginal, err := h.service.FindPontoByID(c.Request.Context(), pontoID, empresaID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Registro de ponto não encontrado ou não pertence a esta empresa."})
@@ -338,9 +349,11 @@ func (h *PontoHandler) EditarPonto(c *gin.Context) {
 		return
 	}
 
-	pontoAtualizado, err := h.service.EditarPonto(pontoID, empresaID, req.Timestamp, &justificativa.ID)
+	pontoAtualizado, err := h.service.EditarPonto(c.Request.Context(), pontoID, empresaID, req.Timestamp, &justificativa.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Falha ao editar o ponto: " + err.Error()})
+		slog.Error("Falha ao editar ponto", "error", err, "ponto_id", pontoID)
+		appErr := apperrors.NewInternal(err)
+		c.JSON(appErr.Code, appErr)
 		return
 	}
 
@@ -425,7 +438,7 @@ func (h *PontoHandler) ExportarRelatorio(c *gin.Context) {
 		return
 	}
 
-	bytesArquivo, contentType, filename, err := h.service.GerarRelatorio(userID, empresaID, inicio, fim, formato)
+	bytesArquivo, contentType, filename, err := h.service.GerarRelatorio(c.Request.Context(), userID, empresaID, inicio, fim, formato)
 	if err != nil {
 		if errors.Is(err, ErrFormatoInvalido) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

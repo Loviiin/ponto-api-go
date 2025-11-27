@@ -20,7 +20,7 @@ type Service interface {
 	GetMyProfile(userID uint) (*ProfileResponse, error)
 	UpdateProfile(userID uint, req UpdateProfileRequest, ip, userAgent string) (*ProfileResponse, error)
 	ChangePassword(userID uint, req ChangePasswordRequest, ip, userAgent string) error
-	UpdateAvatar(userID uint, avatarURL string) error
+	// UpdateAvatar(userID uint, avatarURL string) error // Field removed from model
 	UpdateCPF(adminID, targetUserID uint, req UpdateCPFRequest, ip, userAgent string) error
 
 	// Estatísticas
@@ -60,14 +60,13 @@ func (s *service) GetMyProfile(userID uint) (*ProfileResponse, error) {
 		}
 		return nil, err
 	}
-
 	profile := &ProfileResponse{
-		ID:        user.ID,
-		Nome:      user.Nome,
-		Email:     user.Email,
-		CPF:       maskCPF(user.CPF),
-		Telefone:  user.Telefone,
-		Avatar:    user.Avatar,
+		ID:    user.ID,
+		Nome:  user.Nome,
+		Email: user.Email,
+		CPF:   maskCPF(user.CPF),
+		// Telefone:  user.Telefone, // Field removed
+		// Avatar:    user.Avatar,   // Field removed
 		CreatedAt: user.CreatedAt,
 	}
 
@@ -141,8 +140,6 @@ func (s *service) GetMyProfile(userID uint) (*ProfileResponse, error) {
 }
 
 // UpdateProfile atualiza os dados editáveis do perfil
-// IMPORTANTE: Este método usa PATCH semântico - apenas atualiza campos enviados
-// A senha NUNCA é tocada aqui (tem endpoint separado)
 func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userAgent string) (*ProfileResponse, error) {
 	user, err := s.repo.GetUserByID(userID)
 	if err != nil {
@@ -154,32 +151,18 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 
 	// Guardar dados antigos para audit log
 	dadosAntigos := map[string]interface{}{
-		"nome":     user.Nome,
-		"email":    user.Email,
-		"telefone": user.Telefone,
+		"nome":  user.Nome,
+		"email": user.Email,
+		// "telefone": user.Telefone,
 	}
 
-	// CRITICAL FIX: Usar map para UPDATE SELETIVO - apenas campos enviados
-	// Isso evita sobrescrever senha e outros campos não incluídos
 	updates := make(map[string]interface{})
 
 	if req.Nome != nil && *req.Nome != "" {
 		updates["nome"] = *req.Nome
 	}
 
-	if req.Telefone != nil {
-		// DATA VALIDATION: Sanitizar e validar telefone brasileiro
-		telefoneSanitizado := validator.SanitizarTelefone(*req.Telefone)
-		if telefoneSanitizado != "" {
-			if err := validator.ValidarTelefoneBrasileiro(*req.Telefone); err != nil {
-				return nil, err
-			}
-			updates["telefone"] = telefoneSanitizado
-		} else {
-			// Permitir limpar o telefone
-			updates["telefone"] = ""
-		}
-	}
+	// Telefone logic removed
 
 	if req.Email != nil && *req.Email != "" {
 		// DATA VALIDATION: Normalizar email
@@ -197,13 +180,7 @@ func (s *service) UpdateProfile(userID uint, req UpdateProfileRequest, ip, userA
 		updates["email"] = novoEmail
 	}
 
-	// CRITICAL: Usar db.Model().Updates() para UPDATE PARCIAL
-	// Isso garante que APENAS os campos no map sejam atualizados
-	// A senha e outros campos NÃO serão tocados
 	if len(updates) > 0 {
-		// DEBUG LOG: Ver exatamente o que será atualizado
-		fmt.Printf("[DEBUG] UpdateProfile - userID: %d, updates: %+v\n", userID, updates)
-
 		err = s.db.Model(&model.Usuario{}).Where("id = ?", userID).Updates(updates).Error
 		if err != nil {
 			return nil, errors.New("erro ao atualizar perfil")
@@ -274,25 +251,6 @@ func (s *service) ChangePassword(userID uint, req ChangePasswordRequest, ip, use
 
 	if s.auditLogger != nil {
 		_ = s.auditLogger.LogAction(&userID, &empresaID, "CHANGE_PASSWORD", "usuario", userID, nil, map[string]interface{}{"changed": true}, ip, userAgent)
-	}
-
-	return nil
-}
-
-// UpdateAvatar atualiza a URL do avatar do usuário
-func (s *service) UpdateAvatar(userID uint, avatarURL string) error {
-	user, err := s.repo.GetUserByID(userID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("usuário não encontrado")
-		}
-		return err
-	}
-
-	user.Avatar = avatarURL
-
-	if err := s.repo.UpdateUser(user); err != nil {
-		return errors.New("erro ao atualizar avatar")
 	}
 
 	return nil

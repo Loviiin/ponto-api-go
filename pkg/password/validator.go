@@ -12,6 +12,7 @@ import (
 // - Pelo menos 1 letra maiúscula
 // - Pelo menos 1 letra minúscula
 // - Pelo menos 1 número
+// - Pelo menos 1 caractere especial
 func ValidarForcaSenha(senha string) error {
 	if len(senha) < 8 {
 		return errors.New("senha deve ter no mínimo 8 caracteres")
@@ -21,6 +22,7 @@ func ValidarForcaSenha(senha string) error {
 		temMaiuscula bool
 		temMinuscula bool
 		temNumero    bool
+		temEspecial  bool
 	)
 
 	for _, char := range senha {
@@ -31,6 +33,8 @@ func ValidarForcaSenha(senha string) error {
 			temMinuscula = true
 		case unicode.IsNumber(char):
 			temNumero = true
+		case unicode.IsPunct(char) || unicode.IsSymbol(char):
+			temEspecial = true
 		}
 	}
 
@@ -44,6 +48,10 @@ func ValidarForcaSenha(senha string) error {
 
 	if !temNumero {
 		return errors.New("senha deve conter pelo menos 1 número")
+	}
+
+	if !temEspecial {
+		return errors.New("senha deve conter pelo menos 1 caractere especial")
 	}
 
 	return nil

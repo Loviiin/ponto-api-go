@@ -6,6 +6,9 @@ type Empresa struct {
 	RazaoSocial  string `gorm:"not null" json:"razao_social"`
 	CNPJ         string `gorm:"unique;not null" json:"cnpj"`
 
+	// Configuração de Vinculação Google (strict ou flexible)
+	GoogleLinkStrategy string `gorm:"default:'flexible'" json:"google_link_strategy,omitempty"`
+
 	// Configurações globais de carga horária (padrão CLT)
 	CargaHorariaPadraoDiariaMinutos  uint `json:"carga_horaria_padrao_diaria_minutos" gorm:"default:480"`   // 8h
 	CargaHorariaPadraoSemanalMinutos uint `json:"carga_horaria_padrao_semanal_minutos" gorm:"default:2640"` // 44h

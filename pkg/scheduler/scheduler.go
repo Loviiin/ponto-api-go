@@ -43,20 +43,19 @@ func (s *Scheduler) Start() {
 }
 
 func (s *Scheduler) executarFechamentoDiario() {
-	log.Println("Iniciando tarefa agendada: Fechamento diário do banco de horas...")
+	log.Println("Iniciando tarefa agendada: Fechamento diário de banco de horas.")
 
-	// Usa o timezone Brasil para calcular o dia anterior
-	loc, err := time.LoadLocation("America/Sao_Paulo")
-	if err != nil {
+	// Calcula o dia anterior (ontem)
+	loc, _ := time.LoadLocation("America/Sao_Paulo")
+	if loc == nil {
 		loc = time.Local
 	}
+	diaAnterior := time.Now().In(loc).AddDate(0, 0, -1)
 
-	agora := time.Now().In(loc)
-	diaAnterior := agora.AddDate(0, 0, -1)
-
+	// Busca todos os usuários ativos
 	usuarios, err := s.usuarioService.FindAll()
 	if err != nil {
-		log.Printf("SCHEDULER: Erro ao buscar usuários para o fechamento diário: %v", err)
+		log.Printf("SCHEDULER: Erro ao buscar usuários ativos: %v", err)
 		return
 	}
 

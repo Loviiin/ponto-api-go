@@ -5,17 +5,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Loviiin/ponto-api-go/internal/constants"
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/ratelimit"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/oauth2"
 )
 
 type AuthHandler struct {
-	authService  AuthService
+	authService  Service
 	loginLimiter *ratelimit.RateLimiter
 }
 
-func NewAuthHandler(service AuthService) *AuthHandler {
+func NewAuthHandler(service Service) *AuthHandler {
 	return &AuthHandler{
 		authService: service,
 		// SECURITY: Rate limiter: máximo 5 tentativas a cada 15 minutos
@@ -77,8 +79,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	allowed, timeUntilRetry := h.loginLimiter.IsAllowed(request.Email)
 	if !allowed {
 		minutosRestantes := int(timeUntilRetry.Minutes()) + 1
+		loc, _ := time.LoadLocation(constants.TimezoneBR)
 		c.JSON(http.StatusTooManyRequests, gin.H{
-			"erro":        "Muitas tentativas de login falhadas. Tente novamente em " + time.Now().Add(timeUntilRetry).Format("15:04:05"),
+			"erro":        "Muitas tentativas de login falhadas. Tente novamente em " + time.Now().In(loc).Add(timeUntilRetry).Format("15:04:05"),
 			"retry_after": minutosRestantes,
 		})
 		return
@@ -158,4 +161,176 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 		"usuario":  novoUsuario,
 		"token":    token,
 	})
+}
+
+// --- Password Reset Handlers ---
+
+type RequestPasswordResetRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+// @Summary      Solicita recuperação de senha
+// @Description  Envia um email com link de recuperação de senha para o usuário.
+// @Tags         Autenticação
+// @Accept       json
+// @Produce      json
+// @Param        request body RequestPasswordResetRequest true "Email do usuário"
+// @Success      200 {object} map[string]string
+// @Router       /auth/forgot-password [post]
+func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
+	var req RequestPasswordResetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
+		return
+	}
+
+	if err := h.authService.RequestPasswordReset(req.Email); err != nil {
+		// Logar erro interno, mas retornar sucesso para não enumerar usuários
+		// logger.Error("Erro ao solicitar reset de senha", err)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"mensagem": "Se o email estiver cadastrado, você receberá instruções para recuperar sua senha."})
+}
+
+type ResetPasswordRequest struct {
+	Token       string `json:"token" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
+// @Summary      Redefine a senha
+// @Description  Redefine a senha do usuário usando o token recebido por email.
+// @Tags         Autenticação
+// @Accept       json
+// @Produce      json
+// @Param        request body ResetPasswordRequest true "Token e nova senha"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} map[string]string
+// @Router       /auth/reset-password [post]
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
+		return
+	}
+
+	if err := h.authService.ResetPassword(req.Token, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"mensagem": "Senha redefinida com sucesso."})
+}
+
+// @Summary      Valida token de recuperação
+// @Description  Verifica se o token é válido e retorna o nome do usuário.
+// @Tags         Autenticação
+// @Accept       json
+// @Produce      json
+// @Param        token query string true "Token de recuperação"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} map[string]string
+// @Router       /auth/validate-reset-token [get]
+func (h *AuthHandler) ValidateResetToken(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": "Token não fornecido"})
+		return
+	}
+
+	user, err := h.authService.ValidateResetToken(token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"valid": true,
+		"nome":  user.Nome,
+	})
+}
+
+// --- Google OAuth Handlers ---
+
+// @Summary      Inicia login com Google
+// @Description  Redireciona o usuário para a página de login do Google.
+// @Tags         Autenticação
+// @Success      302
+// @Router       /auth/google/login [get]
+func (h *AuthHandler) GoogleLogin(c *gin.Context) {
+	url := GetGoogleOAuthConfig().AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	c.Redirect(http.StatusTemporaryRedirect, url)
+}
+
+// @Summary      Callback do login com Google
+// @Description  Recebe o código do Google e autentica o usuário.
+// @Tags         Autenticação
+// @Param        code query string true "Código de autorização do Google"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} map[string]string
+// @Router       /auth/google/callback [get]
+func (h *AuthHandler) GoogleCallback(c *gin.Context) {
+	code := c.Query("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": "Código não fornecido"})
+		return
+	}
+
+	token, user, isNew, err := h.authService.AuthenticateWithGoogle(code)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"erro": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":  token,
+		"user":   user,
+		"is_new": isNew,
+	})
+}
+
+// @Summary      Vincula conta Google (Início)
+// @Description  Inicia o fluxo para vincular uma conta Google ao usuário logado.
+// @Tags         Perfil
+// @Security     BearerAuth
+// @Success      302
+// @Router       /auth/google/link [get]
+func (h *AuthHandler) LinkGoogleAccount(c *gin.Context) {
+	// Adicionar userID ao state para saber quem está vinculando no callback
+	// Por simplicidade, vamos usar apenas um state fixo agora, mas idealmente seria um JWT assinado com o userID
+	// Para MVP, o frontend vai chamar o callback passando o code para um endpoint autenticado
+	url := GetGoogleOAuthConfig().AuthCodeURL("link-account", oauth2.AccessTypeOffline)
+	c.JSON(http.StatusOK, gin.H{"url": url})
+}
+
+type LinkGoogleCallbackRequest struct {
+	Code string `json:"code" binding:"required"`
+}
+
+// @Summary      Confirma vínculo de conta Google
+// @Description  Recebe o código do Google e vincula ao usuário logado.
+// @Tags         Perfil
+// @Security     BearerAuth
+// @Param        request body LinkGoogleCallbackRequest true "Código do Google"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} map[string]string
+// @Router       /auth/google/link/callback [post]
+func (h *AuthHandler) LinkGoogleCallback(c *gin.Context) {
+	var req LinkGoogleCallbackRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
+		return
+	}
+
+	userID := c.GetUint("userID") // Assumindo middleware de auth
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"erro": "Usuário não autenticado"})
+		return
+	}
+
+	if err := h.authService.LinkGoogleAccount(userID, req.Code); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"mensagem": "Conta Google vinculada com sucesso!"})
 }

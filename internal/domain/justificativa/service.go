@@ -1,6 +1,7 @@
 package justificativa
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -51,7 +52,7 @@ func (s *service) SolicitarAjuste(solicitacao *model.Justificativa) error {
 // SolicitarCorrecaoPonto cria uma justificativa específica para correção de ponto existente
 func (s *service) SolicitarCorrecaoPonto(pontoID uint, novaDataHora time.Time, descricao string, usuarioID, empresaID uint) error {
 	// Validar se o ponto existe e pertence ao usuário
-	ponto, err := s.pontoRepo.FindPontoByID(pontoID, empresaID)
+	ponto, err := s.pontoRepo.FindPontoByID(context.Background(), pontoID, empresaID)
 	if err != nil {
 		return errors.New("ponto não encontrado")
 	}
@@ -109,7 +110,7 @@ func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, 
 			if justificativa.Tipo == "CORRECAO_PONTO" && justificativa.PontoID != nil {
 				// Tipo 1: CORREÇÃO DE PONTO EXISTENTE
 				// Buscar o ponto que será corrigido
-				pontoExistente, err := pontoRepoTx.FindPontoByID(*justificativa.PontoID, empresaID)
+				pontoExistente, err := pontoRepoTx.FindPontoByID(context.Background(), *justificativa.PontoID, empresaID)
 				if err != nil {
 					return errors.New("ponto a ser corrigido não encontrado")
 				}
@@ -126,7 +127,7 @@ func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, 
 				pontoExistente.Status = "APROVADO"
 				pontoExistente.JustificativaID = &justificativa.ID
 
-				if err := pontoRepoTx.UpdatePonto(pontoExistente); err != nil {
+				if err := pontoRepoTx.UpdatePonto(context.Background(), pontoExistente); err != nil {
 					return errors.New("erro ao atualizar ponto: " + err.Error())
 				}
 
@@ -147,7 +148,7 @@ func (s *service) AprovarReprovar(justificativaID, empresaID, aprovadorID uint, 
 					Status:          "APROVADO",
 					JustificativaID: &justificativa.ID,
 				}
-				if err := pontoRepoTx.SavePonto(pontoRegistrado); err != nil {
+				if err := pontoRepoTx.SavePonto(context.Background(), pontoRegistrado); err != nil {
 					return err
 				}
 			}

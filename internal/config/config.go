@@ -42,6 +42,22 @@ type Config struct {
 
 	// Cloudinary para upload de avatares
 	CloudinaryURL string `mapstructure:"CLOUDINARY_URL"`
+
+	// SMTP Configuration
+	SMTPHost      string `mapstructure:"SMTP_HOST"`
+	SMTPPort      string `mapstructure:"SMTP_PORT"`
+	SMTPUser      string `mapstructure:"SMTP_USER"`
+	SMTPPassword  string `mapstructure:"SMTP_PASSWORD"`
+	SMTPFromName  string `mapstructure:"SMTP_FROM_NAME"`
+	SMTPFromEmail string `mapstructure:"SMTP_FROM_EMAIL"`
+
+	// Google OAuth
+	GoogleClientID     string `mapstructure:"GOOGLE_CLIENT_ID"`
+	GoogleClientSecret string `mapstructure:"GOOGLE_CLIENT_SECRET"`
+	GoogleRedirectURL  string `mapstructure:"GOOGLE_REDIRECT_URL"`
+
+	// Frontend URL
+	FrontendURL string `mapstructure:"FRONTEND_URL"`
 }
 
 // --- FUNÇÃO LoadConfig COMPLETAMENTE NOVA ---
@@ -126,6 +142,39 @@ func LoadConfig(path string) (config Config, err error) {
 	}
 	// Cloudinary
 	if err = viper.BindEnv("CLOUDINARY_URL"); err != nil {
+		return
+	}
+	// SMTP
+	if err = viper.BindEnv("SMTP_HOST"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("SMTP_PORT"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("SMTP_USER"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("SMTP_PASSWORD"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("SMTP_FROM_NAME"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("SMTP_FROM_EMAIL"); err != nil {
+		return
+	}
+	// Google OAuth
+	if err = viper.BindEnv("GOOGLE_CLIENT_ID"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("GOOGLE_CLIENT_SECRET"); err != nil {
+		return
+	}
+	if err = viper.BindEnv("GOOGLE_REDIRECT_URL"); err != nil {
+		return
+	}
+	// Frontend URL
+	if err = viper.BindEnv("FRONTEND_URL"); err != nil {
 		return
 	}
 	// --- FIM DA CORREÇÃO ---
