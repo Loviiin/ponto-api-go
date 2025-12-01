@@ -40,73 +40,75 @@ func (f *fakeVia) GetCEPInfo(cep string) (*model.Localidade, error) {
 
 var _ viacep.Client = (*fakeVia)(nil)
 
-func Test_GetAddressByCEP_InvalidFormat(t *testing.T) {
+func Test_ObterEnderecoPorCEP_FormatoInvalido(t *testing.T) {
 	fb := &fakeBrasil{}
 	fv := &fakeVia{}
 	svc := NewService(fb, fv)
 
-	_, err := svc.GetAddressByCEP("123") // not 8 digits
+	_, err := svc.GetAddressByCEP("123") // não tem 8 dígitos
 	if err == nil {
-		t.Fatalf("expected error for invalid CEP format, got nil")
+		t.Fatalf("esperava erro para formato de CEP inválido, recebeu nil")
 	}
 	if err.Error() != "formato de CEP inválido" {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("erro inesperado: %v", err)
 	}
 	if fb.called || fv.called {
-		t.Fatalf("providers should not be called for invalid CEP: brasil=%v via=%v", fb.called, fv.called)
+		t.Fatalf("provedores não deveriam ser chamados para CEP inválido: brasil=%v via=%v", fb.called, fv.called)
 	}
 }
 
-func Test_GetAddressByCEP_BrasilAPISuccess(t *testing.T) {
-	fb := &fakeBrasil{resp: &model.Localidade{CEP: "01001000", Cidade: "São Paulo", Estado: "SP"}}
-	fv := &fakeVia{}
-	svc := NewService(fb, fv)
-
-	got, err := svc.GetAddressByCEP("01001-000")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !fb.called {
-		t.Fatalf("expected BrasilAPI to be called")
-	}
-	if fv.called {
-		t.Fatalf("did not expect ViaCEP to be called when BrasilAPI succeeds")
-	}
-	if fb.lastCEP != "01001000" {
-		t.Fatalf("expected normalized CEP passed to BrasilAPI, got %s", fb.lastCEP)
-	}
-	if got.CEP != "01001000" || got.Cidade != "São Paulo" || got.Estado != "SP" {
-		t.Fatalf("unexpected result: %+v", got)
-	}
-}
-
-func Test_GetAddressByCEP_FallbackToViaCEP(t *testing.T) {
-	fb := &fakeBrasil{err: errors.New("service down")}
+func Test_ObterEnderecoPorCEP_ViaCEPSucesso(t *testing.T) {
+	// Configuração: ViaCEP retorna sucesso, BrasilAPI não deve ser chamado
+	fb := &fakeBrasil{}
 	fv := &fakeVia{resp: &model.Localidade{CEP: "01001000", Cidade: "São Paulo", Estado: "SP"}}
 	svc := NewService(fb, fv)
 
 	got, err := svc.GetAddressByCEP("01001-000")
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("erro inesperado: %v", err)
 	}
-	if !fb.called || !fv.called {
-		t.Fatalf("expected both providers to be called: brasil=%v via=%v", fb.called, fv.called)
+	if !fv.called {
+		t.Fatalf("esperava que ViaCEP fosse chamado")
+	}
+	if fb.called {
+		t.Fatalf("não esperava que BrasilAPI fosse chamado quando ViaCEP tem sucesso")
 	}
 	if fv.lastCEP != "01001000" {
-		t.Fatalf("expected normalized CEP passed to ViaCEP, got %s", fv.lastCEP)
+		t.Fatalf("esperava CEP normalizado passado para ViaCEP, recebeu %s", fv.lastCEP)
 	}
-	if got.Cidade != "São Paulo" || got.Estado != "SP" {
-		t.Fatalf("unexpected result: %+v", got)
+	if got.CEP != "01001000" || got.Cidade != "São Paulo" || got.Estado != "SP" {
+		t.Fatalf("resultado inesperado: %+v", got)
 	}
 }
 
-func Test_GetAddressByCEP_BothFail(t *testing.T) {
-	fb := &fakeBrasil{err: errors.New("not found")}
-	fv := &fakeVia{err: errors.New("not found")}
+func Test_ObterEnderecoPorCEP_FallbackParaBrasilAPI(t *testing.T) {
+	// Configuração: ViaCEP falha, deve tentar BrasilAPI
+	fb := &fakeBrasil{resp: &model.Localidade{CEP: "01001000", Cidade: "São Paulo", Estado: "SP"}}
+	fv := &fakeVia{err: errors.New("serviço fora do ar")}
+	svc := NewService(fb, fv)
+
+	got, err := svc.GetAddressByCEP("01001-000")
+	if err != nil {
+		t.Fatalf("erro inesperado: %v", err)
+	}
+	if !fv.called || !fb.called {
+		t.Fatalf("esperava que ambos os provedores fossem chamados: via=%v brasil=%v", fv.called, fb.called)
+	}
+	if fb.lastCEP != "01001000" {
+		t.Fatalf("esperava CEP normalizado passado para BrasilAPI, recebeu %s", fb.lastCEP)
+	}
+	if got.Cidade != "São Paulo" || got.Estado != "SP" {
+		t.Fatalf("resultado inesperado: %+v", got)
+	}
+}
+
+func Test_ObterEnderecoPorCEP_AmbosFalham(t *testing.T) {
+	fb := &fakeBrasil{err: errors.New("não encontrado")}
+	fv := &fakeVia{err: errors.New("não encontrado")}
 	svc := NewService(fb, fv)
 
 	_, err := svc.GetAddressByCEP("01001-000")
 	if err == nil {
-		t.Fatalf("expected error when both providers fail")
+		t.Fatalf("esperava erro quando ambos os provedores falham")
 	}
 }

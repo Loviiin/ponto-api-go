@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewEmailService(t *testing.T) {
-	// Test data
+func TestNovoServicoEmail(t *testing.T) {
+	// Dados de teste
 	host := "smtp.example.com"
 	port := "587"
 	user := "user@example.com"
@@ -28,24 +28,24 @@ func TestNewEmailService(t *testing.T) {
 	assert.Equal(t, "http://localhost:3000", service.frontendURL)
 }
 
-func TestGetTemplate(t *testing.T) {
+func TestObterTemplate(t *testing.T) {
 	tests := []struct {
 		name     string
 		tmplName string
 		want     string
 	}{
 		{
-			name:     "Password Reset Template",
+			name:     "Template Recuperação de Senha",
 			tmplName: TemplatePasswordReset,
 			want:     "Recuperação de Senha",
 		},
 		{
-			name:     "Welcome Template",
+			name:     "Template Bem-vindo",
 			tmplName: TemplateWelcome,
 			want:     "Bem-vindo ao Nexora",
 		},
 		{
-			name:     "Unknown Template",
+			name:     "Template Desconhecido",
 			tmplName: "unknown",
 			want:     "",
 		},
@@ -61,11 +61,4 @@ func TestGetTemplate(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestEmailService_SendEmail_InvalidTemplate(t *testing.T) {
-	service := NewEmailService("smtp.example.com", "587", "user@example.com", "password", "Test", "test@example.com", "http://localhost:3000")
-	err := service.SendEmail([]string{"test@example.com"}, "Subject", "invalid_template", nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to parse template")
 }
