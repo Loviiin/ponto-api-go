@@ -268,6 +268,11 @@ func (s *authService) SignUp(
 
 // precacheUserProfile pré-carrega dados do perfil em background (melhora performance do GET /profile/me)
 func (s *authService) precacheUserProfile(userID, empresaID uint) {
+	// Skip in test environment where DB might be nil
+	if s.db == nil {
+		return
+	}
+
 	ctx := context.Background()
 
 	// 1. Cachear permissões do cargo (usado em middleware)

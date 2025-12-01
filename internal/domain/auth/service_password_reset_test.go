@@ -112,30 +112,6 @@ func (m *MockPasswordResetEmailService) SendEmailWithRetry(to []string, subject 
 	return args.Error(0)
 }
 
-type MockCacheService struct {
-	mock.Mock
-}
-
-func (m *MockCacheService) Get(ctx context.Context, key string) (string, error) {
-	args := m.Called(ctx, key)
-	return args.String(0), args.Error(1)
-}
-
-func (m *MockCacheService) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
-	args := m.Called(ctx, key, value, ttl)
-	return args.Error(0)
-}
-
-func (m *MockCacheService) Delete(ctx context.Context, key string) error {
-	args := m.Called(ctx, key)
-	return args.Error(0)
-}
-
-func (m *MockCacheService) FlushAll(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
 // Tests
 func TestAuthService_RequestPasswordReset_Success(t *testing.T) {
 	// Setup mocks

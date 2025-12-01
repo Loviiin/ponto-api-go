@@ -322,6 +322,7 @@ func (h *UsuarioHandler) DeleteHandler(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+	c.Writer.WriteHeaderNow()
 }
 
 // @Summary      Atualiza um usuário
