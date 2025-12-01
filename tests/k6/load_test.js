@@ -16,7 +16,7 @@ export default function () {
     const loginUrl = 'http://localhost:8080/api/v1/auth/login';
     const loginPayload = JSON.stringify({
         email: 'colaborador@ponto.com',
-        password: __ENV.COLAB_PASSWORD || 'colabsenha',
+        password: 'colabsenha',
     });
     const loginParams = {
         headers: {
