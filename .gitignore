@@ -26,6 +26,8 @@ go.work
 go.work.sum
 
 # env file
+.env
+ponto-api-go.env
 
 # Editor/IDE
 # .idea/
@@ -35,3 +37,5 @@ go.work.sum
 .Dockerfile.swp
 .Dockerfile
 .copilot-instructions.md
+.scannerwork
+coverage/
