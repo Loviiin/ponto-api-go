@@ -361,7 +361,7 @@ func (h *CargoHandler) DeleteCargo(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	c.JSON(http.StatusNoContent, nil)
 }
 
 // @Summary      Adiciona permissão a um cargo

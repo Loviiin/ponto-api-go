@@ -233,3 +233,57 @@ func TestProfileService_ChangePassword(t *testing.T) {
 		assert.Equal(t, "nova senha e confirmação não coincidem", err.Error())
 	})
 }
+
+// Test de validação de permissões do usuário
+func TestProfileService_GetMyPermissions(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mockRepo := new(MockProfileRepo)
+		service := NewService(mockRepo, nil, nil, nil)
+
+		permissoes := []model.Permissao{
+			{ID: 1, Nome: "VISUALIZAR_PONTO"},
+			{ID: 2, Nome: "EDITAR_PONTO"},
+		}
+
+		mockRepo.On("GetPermissoesByUserID", uint(1)).Return(permissoes, nil)
+
+		permissions, err := service.GetMyPermissions(1)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, permissions)
+		assert.Equal(t, 2, len(permissions.Permissoes))
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+// Test para ChangePassword com senha incorreta
+func TestProfileService_ChangePassword_WrongPassword(t *testing.T) {
+	mockRepo := new(MockProfileRepo)
+	service := NewService(mockRepo, nil, nil, nil)
+
+	currentPassword := "SenhaAtual123!"
+	hashedCurrent, _ := password.CriptografaSenha(currentPassword)
+
+	user := &model.Usuario{
+		ID:    1,
+		Senha: hashedCurrent,
+		Contrato: model.Contrato{
+			ID:        1,
+			EmpresaID: 1,
+		},
+	}
+
+	req := ChangePasswordRequest{
+		SenhaAtual:     "SenhaErrada!",
+		NovaSenha:      "NovaSenha123!",
+		ConfirmarSenha: "NovaSenha123!",
+	}
+
+	mockRepo.On("GetUserByID", uint(1)).Return(user, nil)
+
+	err := service.ChangePassword(1, req, "127.0.0.1", "TestAgent")
+
+	assert.Error(t, err)
+	assert.Equal(t, "senha atual incorreta", err.Error())
+	mockRepo.AssertExpectations(t)
+}

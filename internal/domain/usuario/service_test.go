@@ -295,3 +295,85 @@ func TestUsuarioService_Delete(t *testing.T) {
 	assert.NoError(t, err)
 	mockRepo.AssertExpectations(t)
 }
+
+func TestUsuarioService_GetAll(t *testing.T) {
+	mockRepo := new(MockUsuarioRepo)
+	service := NewUsuarioService(nil, mockRepo, nil, nil, nil, nil)
+
+	usuarios := []model.Usuario{
+		{ID: 1, Nome: "Usuario 1"},
+		{ID: 2, Nome: "Usuario 2"},
+	}
+
+	mockRepo.On("GetAll", uint(1)).Return(usuarios, nil)
+
+	result, err := service.GetAll(1)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(result))
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUsuarioService_GetAllPaginated(t *testing.T) {
+	mockRepo := new(MockUsuarioRepo)
+	service := NewUsuarioService(nil, mockRepo, nil, nil, nil, nil)
+
+	usuarios := []model.Usuario{
+		{ID: 1, Nome: "Usuario 1"},
+		{ID: 2, Nome: "Usuario 2"},
+	}
+
+	mockRepo.On("GetAllPaginated", uint(1), 1, 10).Return(usuarios, int64(2), nil)
+
+	result, total, err := service.GetAllPaginated(1, 1, 10)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(result))
+	assert.Equal(t, int64(2), total)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUsuarioService_FindAll(t *testing.T) {
+	mockRepo := new(MockUsuarioRepo)
+	service := NewUsuarioService(nil, mockRepo, nil, nil, nil, nil)
+
+	usuarios := []model.Usuario{
+		{ID: 1, Nome: "Usuario 1"},
+		{ID: 2, Nome: "Usuario 2"},
+		{ID: 3, Nome: "Usuario 3"},
+	}
+
+	mockRepo.On("FindAll").Return(usuarios, nil)
+
+	result, err := service.FindAll()
+
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(result))
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUsuarioService_Delete_NotFound(t *testing.T) {
+	mockRepo := new(MockUsuarioRepo)
+	service := NewUsuarioService(nil, mockRepo, nil, nil, nil, nil)
+
+	mockRepo.On("FindByID", mock.Anything, uint(999), uint(1)).Return(nil, errors.New("not found"))
+
+	err := service.Delete(999, 1)
+
+	assert.Error(t, err)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestUsuarioService_Update_NotFound(t *testing.T) {
+	mockRepo := new(MockUsuarioRepo)
+	service := NewUsuarioService(nil, mockRepo, nil, nil, nil, nil)
+
+	dados := map[string]interface{}{"nome": "Novo Nome"}
+
+	mockRepo.On("FindByID", mock.Anything, uint(999), uint(1)).Return(nil, errors.New("not found"))
+
+	err := service.Update(999, 1, dados)
+
+	assert.Error(t, err)
+	mockRepo.AssertExpectations(t)
+}

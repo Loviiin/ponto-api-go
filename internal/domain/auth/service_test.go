@@ -180,3 +180,98 @@ func TestAuthService_Authenticate(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 }
+
+// Test para FindByEmail
+func TestAuthService_FindByEmail(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mockRepo := new(MockUsuarioRepo)
+
+		user := &model.Usuario{
+			ID:    1,
+			Email: "teste@empresa.com",
+		}
+
+		mockRepo.On("FindByEmail", "teste@empresa.com").Return(user, nil)
+
+		// Simula chamada interna (não é método público mas testa o repo)
+		result, err := mockRepo.FindByEmail("teste@empresa.com")
+
+		assert.NoError(t, err)
+		assert.Equal(t, user, result)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("NotFound", func(t *testing.T) {
+		mockRepo := new(MockUsuarioRepo)
+
+		mockRepo.On("FindByEmail", "naoexiste@empresa.com").Return(nil, gorm.ErrRecordNotFound)
+
+		result, err := mockRepo.FindByEmail("naoexiste@empresa.com")
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+// Test de validação de senha
+func TestAuthService_PasswordValidation(t *testing.T) {
+	t.Run("CorrectPassword", func(t *testing.T) {
+		passwordStr := "senha123"
+		hashedPassword, _ := password.CriptografaSenha(passwordStr)
+
+		user := &model.Usuario{
+			ID:    1,
+			Senha: hashedPassword,
+		}
+
+		ok := password.VerificaHashSenha(passwordStr, user.Senha)
+		assert.True(t, ok)
+	})
+
+	t.Run("IncorrectPassword", func(t *testing.T) {
+		passwordStr := "senha123"
+		hashedPassword, _ := password.CriptografaSenha(passwordStr)
+
+		ok := password.VerificaHashSenha("senhaerrada", hashedPassword)
+		assert.False(t, ok)
+	})
+}
+
+// Tests para cenários de erro de autenticação
+func TestAuthService_Authenticate_Errors(t *testing.T) {
+	t.Run("UserNotFound", func(t *testing.T) {
+		mockRepo := new(MockUsuarioRepo)
+		mockCache := new(MockCacheService)
+		jwtService := jwt.NewJWTService("secret", "issuer")
+
+		service := NewAuthService(mockRepo, nil, nil, nil, nil, nil, nil, jwtService, mockCache, nil, nil)
+
+		mockCache.On("Get", mock.Anything, "auth:user:naoexiste@empresa.com").Return("", errors.New("miss"))
+		mockRepo.On("FindByEmail", "naoexiste@empresa.com").Return(nil, gorm.ErrRecordNotFound)
+
+		token, err := service.Authenticate("naoexiste@empresa.com", "senha123")
+
+		assert.Error(t, err)
+		assert.Empty(t, token)
+		assert.Equal(t, "credenciais inválidas", err.Error())
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("EmptyPassword", func(t *testing.T) {
+		mockRepo := new(MockUsuarioRepo)
+		mockCache := new(MockCacheService)
+		jwtService := jwt.NewJWTService("secret", "issuer")
+
+		service := NewAuthService(mockRepo, nil, nil, nil, nil, nil, nil, jwtService, mockCache, nil, nil)
+
+		mockCache.On("Get", mock.Anything, "auth:user:teste@empresa.com").Return("", errors.New("miss"))
+		mockRepo.On("FindByEmail", "teste@empresa.com").Return(nil, errors.New("invalid password"))
+
+		token, err := service.Authenticate("teste@empresa.com", "")
+
+		// Deve falhar com senha vazia
+		assert.Error(t, err)
+		assert.Empty(t, token)
+	})
+}

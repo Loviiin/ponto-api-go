@@ -198,3 +198,84 @@ func TestCargoHandler_GetCargoByID(t *testing.T) {
 		mockFuncoes.AssertExpectations(t)
 	})
 }
+
+func TestCargoHandler_GetAllCargos(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("Success", func(t *testing.T) {
+		mockService := new(MockCargoService)
+		mockFuncoes := new(MockFuncoes)
+		handler := NewCargoHandler(mockService, mockFuncoes)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+
+		mockFuncoes.On("GetUintIDFromContext", c, "empresaID").Return(uint(1), nil)
+		cargos := []model.Cargo{
+			{ID: 1, Nome: "Cargo 1"},
+			{ID: 2, Nome: "Cargo 2"},
+		}
+		mockService.On("GetAllByEmpresaID", uint(1)).Return(cargos, nil)
+
+		handler.GetAllCargos(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+		mockFuncoes.AssertExpectations(t)
+	})
+}
+
+func TestCargoHandler_UpdateCargo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("Success", func(t *testing.T) {
+		mockService := new(MockCargoService)
+		mockFuncoes := new(MockFuncoes)
+		handler := NewCargoHandler(mockService, mockFuncoes)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = []gin.Param{{Key: "id", Value: "1"}}
+
+		requestBody := map[string]interface{}{"nome": "Cargo Atualizado"}
+		jsonBody, _ := json.Marshal(requestBody)
+		c.Request, _ = http.NewRequest("PUT", "/cargos/1", bytes.NewBuffer(jsonBody))
+
+		mockFuncoes.On("GetUintIDFromContext", c, "empresaID").Return(uint(1), nil)
+		mockFuncoes.On("StrParaUint", "1").Return(uint(1), nil)
+		mockService.On("FindByID", uint(1), uint(1)).Return(&model.Cargo{ID: 1, Nome: "Cargo Antigo", NivelHierarquia: 5}, nil)
+		mockService.On("FindByName", "Cargo Atualizado", uint(1)).Return(nil, nil)
+		mockService.On("Update", uint(1), uint(1), mock.Anything).Return(nil)
+
+		handler.UpdateCargo(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+		mockFuncoes.AssertExpectations(t)
+	})
+}
+
+func TestCargoHandler_DeleteCargo(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("Success", func(t *testing.T) {
+		mockService := new(MockCargoService)
+		mockFuncoes := new(MockFuncoes)
+		handler := NewCargoHandler(mockService, mockFuncoes)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = []gin.Param{{Key: "id", Value: "1"}}
+
+		mockFuncoes.On("GetUintIDFromContext", c, "empresaID").Return(uint(1), nil)
+		mockFuncoes.On("StrParaUint", "1").Return(uint(1), nil)
+		mockService.On("HasUsuarios", uint(1), uint(1)).Return(false, nil)
+		mockService.On("Delete", uint(1), uint(1)).Return(nil)
+
+		handler.DeleteCargo(c)
+
+		assert.Equal(t, http.StatusNoContent, w.Code)
+		mockService.AssertExpectations(t)
+		mockFuncoes.AssertExpectations(t)
+	})
+}

@@ -303,3 +303,148 @@ func TestUsuarioHandler_UpdateUsuarioHandler(t *testing.T) {
 		mockFuncoes.AssertExpectations(t)
 	})
 }
+
+func TestUsuarioHandler_GetAllUsuariosHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("Success", func(t *testing.T) {
+		mockService := new(MockUsuarioService)
+		mockFuncoes := new(MockFuncoes)
+		handler := NewUsuarioHandler(mockService, mockFuncoes)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request, _ = http.NewRequest("GET", "/usuarios", nil)
+
+		mockFuncoes.On("GetUintIDFromContext", c, "empresaID").Return(uint(1), nil)
+
+		usuarios := []model.Usuario{
+			{ID: 1, Nome: "Usuario 1"},
+			{ID: 2, Nome: "Usuario 2"},
+		}
+		mockService.On("GetAllPaginated", uint(1), 1, 50).Return(usuarios, int64(2), nil)
+
+		handler.GetAllUsuariosHandler(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+		mockFuncoes.AssertExpectations(t)
+	})
+
+	t.Run("EmptyList", func(t *testing.T) {
+		mockService := new(MockUsuarioService)
+		mockFuncoes := new(MockFuncoes)
+		handler := NewUsuarioHandler(mockService, mockFuncoes)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request, _ = http.NewRequest("GET", "/usuarios", nil)
+
+		mockFuncoes.On("GetUintIDFromContext", c, "empresaID").Return(uint(1), nil)
+
+		mockService.On("GetAllPaginated", uint(1), 1, 50).Return([]model.Usuario{}, int64(0), nil)
+
+		handler.GetAllUsuariosHandler(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+		mockFuncoes.AssertExpectations(t)
+	})
+}
+
+func TestUsuarioHandler_PatchUsuarioHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("Success", func(t *testing.T) {
+		mockService := new(MockUsuarioService)
+		mockFuncoes := new(MockFuncoes)
+		handler := NewUsuarioHandler(mockService, mockFuncoes)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Params = []gin.Param{{Key: "id", Value: "2"}}
+
+		nomeAtualizado := "Nome Atualizado"
+		requestBody := PatchUsuarioRequest{
+			Nome: &nomeAtualizado,
+		}
+		jsonBody, _ := json.Marshal(requestBody)
+		c.Request, _ = http.NewRequest("PATCH", "/usuarios/2", bytes.NewBuffer(jsonBody))
+
+		mockFuncoes.On("GetUintIDFromContext", c, "empresaID").Return(uint(1), nil)
+		mockFuncoes.On("GetUintIDFromContext", c, "userID").Return(uint(1), nil)
+		mockFuncoes.On("StrParaUint", "2").Return(uint(2), nil)
+
+		requester := &model.Usuario{
+			ID: 1,
+			Contrato: model.Contrato{
+				ID: 1,
+				Cargo: model.Cargo{
+					ID: 1,
+					Permissoes: []model.Permissao{
+						{Nome: "EDITAR_USUARIO"},
+					},
+				},
+			},
+		}
+		mockService.On("FindByID", uint(1), uint(1)).Return(requester, nil)
+		mockService.On("UpdateWithHierarchy", uint(2), uint(1), uint(1), mock.Anything).Return(nil)
+		updatedUser := &model.Usuario{ID: 2, Nome: nomeAtualizado}
+		mockService.On("FindByID", uint(2), uint(1)).Return(updatedUser, nil)
+
+		handler.PatchUsuarioHandler(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+		mockFuncoes.AssertExpectations(t)
+	})
+}
+
+func TestUsuarioHandler_GetMeuPerfil(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("Success", func(t *testing.T) {
+		mockService := new(MockUsuarioService)
+		mockFuncoes := new(MockFuncoes)
+		handler := NewUsuarioHandler(mockService, mockFuncoes)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+
+		mockFuncoes.On("GetUintIDFromContext", c, "empresaID").Return(uint(1), nil)
+		mockFuncoes.On("GetUintIDFromContext", c, "userID").Return(uint(1), nil)
+
+		user := &model.Usuario{
+			ID:    1,
+			Nome:  "Usuario Teste",
+			Email: "teste@empresa.com",
+		}
+		mockService.On("FindByID", uint(1), uint(1)).Return(user, nil)
+
+		handler.GetMeuPerfil(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		mockService.AssertExpectations(t)
+		mockFuncoes.AssertExpectations(t)
+	})
+
+	t.Run("UserNotFound", func(t *testing.T) {
+		mockService := new(MockUsuarioService)
+		mockFuncoes := new(MockFuncoes)
+		handler := NewUsuarioHandler(mockService, mockFuncoes)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+
+		mockFuncoes.On("GetUintIDFromContext", c, "empresaID").Return(uint(1), nil)
+		mockFuncoes.On("GetUintIDFromContext", c, "userID").Return(uint(999), nil)
+
+		mockService.On("FindByID", uint(999), uint(1)).Return(nil, gorm.ErrRecordNotFound)
+
+		handler.GetMeuPerfil(c)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		mockService.AssertExpectations(t)
+		mockFuncoes.AssertExpectations(t)
+	})
+}
