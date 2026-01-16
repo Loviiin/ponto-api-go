@@ -1,6 +1,6 @@
 # --- Estágio 1: Build ---
 # Começamos com uma imagem oficial do Go. A tag 'alpine' é de uma versão leve.
-FROM golang:1.24.5-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Definimos o nosso diretório de trabalho dentro do container
 WORKDIR /app
