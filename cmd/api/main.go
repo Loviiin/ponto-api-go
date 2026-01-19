@@ -9,7 +9,6 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/config"
@@ -153,79 +152,51 @@ var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
 // @name Authorization
 // @description "Digite 'Bearer' seguido de um espaço e o seu token."
 // @type apiKey
+
+func criaSchemaDatabase(db *gorm.DB) {
+	err := db.AutoMigrate(
+		&model.Usuario{},
+		&model.PasswordResetToken{},
+		&model.RegistroPonto{},
+		&model.Empresa{},
+		&model.Cargo{},
+		&model.Permissao{},
+		&model.Justificativa{},
+		&model.LogBancoHoras{},
+		&model.Contrato{},
+		&model.Localidade{},
+		&model.AuditLog{},
+	)
+	if err != nil {
+		log.Fatal("Falha ao rodar a migração: ", err)
+	}
+	log.Println("Migração do banco de dados executada com sucesso.")
+}
+
+func resetaCache(cacheService cache.Service) {
+	//Implementação da função de resetar o cache(Decidir se vai resetar junto com o DB ou criar 2 funções separadas)
+}
+
 func main() {
 	logger.InitLogger()
-
-	cfg, err := config.LoadConfig(".")
-	if err != nil {
-		log.Fatal("Não foi possível carregar as configurações: ", err)
-	}
-
-	var dsn string
-	if strings.HasPrefix(cfg.DBHost, "/") {
-		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
-			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode, constants.TimezoneBR)
-	} else {
-
-		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
-			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode, constants.TimezoneBR)
-	}
-
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatal("Falha ao conectar ao banco de dados: ", err)
-	}
-	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
-
-	resetDB := os.Getenv("RESET_DB_ON_START") == "true"
-	if resetDB {
-		resetAndSeedDatabase(db)
-	} else {
-		// Adicionámos o &model.Permissao{} e &model.AuditLog{} para a migração automática
-		err = db.AutoMigrate(
-			&model.Usuario{},
-			&model.PasswordResetToken{}, // NOVO
-			&model.RegistroPonto{},
-			&model.Empresa{},
-			&model.Cargo{},
-			&model.Permissao{},
-			&model.Justificativa{},
-			&model.LogBancoHoras{},
-			&model.Contrato{},
-			&model.Localidade{},
-			&model.AuditLog{},
-		)
-		if err != nil {
-			log.Fatal("Falha ao rodar a migração: ", err)
-		}
-		log.Println("Migração do banco de dados executada com sucesso.")
-		config.SeedPermissions(db)
-		config.SeedSuperAdmin(db)
-	}
-
-	// --- Inicialização de Serviços e Repositórios ---
-	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
 	funcoesService := funcoes.NewFuncoes()
 
+	//Carrega as configurações de ambiente
+	cfg := CarregaConfig()
+
+	//Conecta ao banco de dados
+	BancoDeDados := conectaBD(cfg)
+
+	// Verifica se deve resetar o banco de dados
+	resetaBanco(BancoDeDados)
+	criaSchemaDatabase(BancoDeDados)
+
+	// Popula permissões padrão e super-admin
+	config.SeedPermissions(BancoDeDados)
+	config.SeedSuperAdmin(BancoDeDados)
+
 	// Inicializa o serviço de cache: preferir Upstash REST se variáveis estiverem presentes
-	var cacheService cache.Service
-	upstashURL := cfg.UpstashRedisRestURL
-	upstashToken := cfg.UpstashRedisRestToken
-	if upstashURL != "" && upstashToken != "" {
-		cs, cErr := cache.NewUpstashService(upstashURL, upstashToken)
-		if cErr != nil {
-			log.Panicf("Falha ao inicializar Upstash REST: %v", cErr)
-		}
-		cacheService = cs
-		log.Println("Cache: usando Upstash REST API")
-	} else {
-		cs, cErr := cache.NewRedisService(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
-		if cErr != nil {
-			log.Panicf("Falha ao conectar ao Redis: %v", cErr)
-		}
-		cacheService = cs
-		log.Println("Cache: usando Redis nativo")
-	}
+    cacheService := inicializaCache(cfg)
 
 	// Se resetDB == true, limpa também o cache se o provider suportar.
 	if resetDB {
@@ -265,6 +236,8 @@ func main() {
 	logBancoHorasRepo := logbancohoras.NewRepository(db)
 	contratoRepo := contrato.NewContratoRepository(db)
 	localidadeRepo := localidade.NewRepository(db)
+
+	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
 
 	// CEP providers (BrasilAPI primário + ViaCEP fallback)
 	brasilAPIClient := brasilapi.NewClient(cfg.BrasilApiUrl)
@@ -530,4 +503,67 @@ func main() {
 	if err != nil {
 		log.Fatal("Falha ao iniciar o servidor: ", err)
 	}
+}
+
+
+
+func CarregaConfig() *config.Config {
+	cfg, err := config.LoadConfig(".")
+	if err != nil {
+		log.Fatal("Não foi possível carregar as configurações: ", err)
+	}
+	log.Printf("Configurações carregadas: %+v\n", cfg)
+
+	return &cfg
+}
+
+func conectaBD(cfg *config.Config) *gorm.DB {
+
+	dbconf := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
+	cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode, constants.TimezoneBR)
+
+	db,err := gorm.Open(postgres.Open(dbconf), &gorm.Config{})
+	if err != nil {
+		log.Fatal("Não foi possivel Conectar ao banco de dados: ", err)
+	}
+	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
+
+	return db
+}
+
+func resetaBanco(db *gorm.DB) {
+	if resetDB := os.Getenv("RESET_DB_ON_START") == "true"; resetDB {
+		log.Println("RESET_DB_ON_START está definido como true. Resetando o banco de dados...")
+		resetAndSeedDatabase(db)
+	} else {
+		log.Println("RESET_DB_ON_START não está definido como true. Pulando reset do banco de dados.")
+	}
+}
+
+func inicializaCache(cfg *config.Config) cache.Service {
+    if cs, err := initUpstashCache(cfg); err == nil {
+        log.Println("Cache: Usando Upstash REST API")
+        return cs
+    } else if cfg.UpstashRedisRestURL != "" {
+        log.Printf("Aviso: Falha ao conectar Upstash (%v). Tentando Redis local...", err)
+    }
+
+    cs, err := initRedisCache(cfg)
+    if err != nil {
+        log.Panicf("CRÍTICO: Falha ao conectar em qualquer cache (Redis/Upstash): %v", err)
+    }
+
+    log.Println("Cache: Usando Redis Nativo")
+    return cs
+}
+
+func initUpstashCache(cfg *config.Config) (cache.Service, error) {
+    if cfg.UpstashRedisRestURL == "" || cfg.UpstashRedisRestToken == "" {
+        return nil, fmt.Errorf("credenciais do Upstash não configuradas")
+    }
+    return cache.NewUpstashService(cfg.UpstashRedisRestURL, cfg.UpstashRedisRestToken)
+}
+
+func initRedisCache(cfg *config.Config) (cache.Service, error) {
+    return cache.NewRedisService(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 }
