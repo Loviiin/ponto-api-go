@@ -1,11 +1,7 @@
-// Em internal/config/config.go
-
 package config
 
 import (
-	// Viper é a biblioteca que vamos usar para ler o arquivo .env
-	"strings" // <-- NOVO IMPORT
-
+	"strings"
 	"github.com/spf13/viper"
 )
 
@@ -22,10 +18,9 @@ type Config struct {
 	DBUser     string `mapstructure:"DB_USER"`
 	DBPassword string `mapstructure:"DB_PASSWORD"`
 	DBName     string `mapstructure:"DB_NAME"`
-	// NOVO CAMPO para o modo SSL
 	DBSSLMode string `mapstructure:"DB_SSLMODE"`
 
-	// Chave secreta para assinar os tokens JWT (usaremos mais tarde)
+	// Chave secreta para assinar os tokens JWT
 	JWTSecretKey string `mapstructure:"JWT_SECRET_KEY"`
 	// Chave da API do Distance Matrix AI para geocodificação
 	DistanceMatrixAPIKey string `mapstructure:"DISTANCEMATRIX_API_KEY"`
@@ -60,10 +55,8 @@ type Config struct {
 	FrontendURL string `mapstructure:"FRONTEND_URL"`
 }
 
-// --- FUNÇÃO LoadConfig COMPLETAMENTE NOVA ---
 // LoadConfig lê as configurações. É flexível para ambientes locais e de produção.
 func LoadConfig(path string) (config Config, err error) {
-	// --- INÍCIO DA CORREÇÃO ---
 	// Configura o Viper para ler variáveis de ambiente (ex: API_PORT)
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
@@ -115,7 +108,6 @@ func LoadConfig(path string) (config Config, err error) {
 	if err != nil {
 		return
 	}
-	// Geocoding provider (Distance Matrix AI)
 	if err = viper.BindEnv("DISTANCEMATRIX_API_KEY"); err != nil {
 		return
 	}
@@ -123,14 +115,12 @@ func LoadConfig(path string) (config Config, err error) {
 	if err != nil {
 		return
 	}
-	// Cache: Upstash REST
 	if err = viper.BindEnv("UPSTASH_REDIS_REST_URL"); err != nil {
 		return
 	}
 	if err = viper.BindEnv("UPSTASH_REDIS_REST_TOKEN"); err != nil {
 		return
 	}
-	// Cache: Redis nativo
 	if err = viper.BindEnv("REDIS_ADDR"); err != nil {
 		return
 	}
@@ -140,11 +130,9 @@ func LoadConfig(path string) (config Config, err error) {
 	if err = viper.BindEnv("REDIS_DB"); err != nil {
 		return
 	}
-	// Cloudinary
 	if err = viper.BindEnv("CLOUDINARY_URL"); err != nil {
 		return
 	}
-	// SMTP
 	if err = viper.BindEnv("SMTP_HOST"); err != nil {
 		return
 	}
@@ -163,7 +151,6 @@ func LoadConfig(path string) (config Config, err error) {
 	if err = viper.BindEnv("SMTP_FROM_EMAIL"); err != nil {
 		return
 	}
-	// Google OAuth
 	if err = viper.BindEnv("GOOGLE_CLIENT_ID"); err != nil {
 		return
 	}
@@ -173,11 +160,9 @@ func LoadConfig(path string) (config Config, err error) {
 	if err = viper.BindEnv("GOOGLE_REDIRECT_URL"); err != nil {
 		return
 	}
-	// Frontend URL
 	if err = viper.BindEnv("FRONTEND_URL"); err != nil {
 		return
 	}
-	// --- FIM DA CORREÇÃO ---
 
 	// "Deserializa" os valores lidos para dentro da nossa struct 'config'.
 	err = viper.Unmarshal(&config)
