@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./out/ponto-api ./cmd/
 
 # --- Estágio 2: Final ---
 # Começamos com uma imagem 'alpine', que é uma das menores imagens Linux disponíveis.
-FROM alpine:latest
+FROM alpine:3.23.2
 
 # Instala tzdata para suporte a timezones e ca-certificates para HTTPS
 RUN apk add --no-cache tzdata ca-certificates
