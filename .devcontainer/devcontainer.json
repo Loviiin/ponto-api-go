@@ -1,0 +1,45 @@
+{
+    "name": "API e Banco de Dados",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "ponto-api",
+    "workspaceFolder": "/workspace",
+    "forwardPorts": [8083],
+    
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "esbenp.prettier-vscode",
+                "formulahendry.auto-close-tag",
+                "formulahendry.auto-rename-tag",
+                "mhutchie.git-graph",
+                "eamodio.gitlens",
+                "ms-vscode.vscode-typescript-next",
+                "ms-golang.go",
+                "ms-yaml.vscode-yaml",
+                "golangci-lint.vscode-golangci-lint",
+                "tamasfe.even-better-toml"
+            ]
+        }
+    },
+    
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {},
+        "ghcr.io/devcontainers/features/go:1": {
+            "version": "1.25"
+        },
+        "ghcr.io/devcontainers-extra/features/zsh-plugins:0": {},
+        "ghcr.io/audacioustux/devcontainers/taskfile:1": {},
+        "ghcr.io/devcontainers-extra/features/k6:1": {},
+        "ghcr.io/guiyomh/features/golangci-lint:0": {},
+        
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+            "moby": "true",
+            "installDockerBuildx": "true",
+            "version": "latest"
+        }
+    },
+    
+    "postCreateCommand": "go mod download && git config --global --add safe.directory /workspace",
+    "remoteUser": "vscode"
+}
