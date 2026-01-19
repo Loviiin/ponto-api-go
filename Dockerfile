@@ -25,11 +25,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./out/ponto-api ./cmd/
 FROM alpine:3.23.2
 
 # Instala tzdata para suporte a timezones e ca-certificates para HTTPS
-RUN apk add --no-cache tzdata ca-certificates
-
-# Cria um grupo e usuário não-root para rodar a aplicação com mais segurança
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
+RUN apk add --no-cache tzdata ca-certificates \
+	# Cria um grupo e usuário não-root para rodar a aplicação com mais segurança
+	&& addgroup -S appgroup && adduser -S appuser -G appgroup
+	
 # Novamente, definimos o diretório de trabalho.
 WORKDIR /app
 
