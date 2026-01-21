@@ -39,3 +39,4 @@ ponto-api-go.env
 .copilot-instructions.md
 .scannerwork
 coverage/
+tmp/

@@ -37,7 +37,8 @@
             "moby": "true",
             "installDockerBuildx": "true",
             "version": "latest"
-        }
+        },
+		"ghcr.io/nlstn/devcontainer-features/go-air:1": {}
     },
     
     "postCreateCommand": "go mod download && git config --global --add safe.directory /workspace",

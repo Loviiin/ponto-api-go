@@ -1,19 +1,13 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
-	"log/slog"
 	"net/http"
 	"os"
-	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/Loviiin/ponto-api-go/docs"
 	"github.com/Loviiin/ponto-api-go/internal/config"
-	"github.com/Loviiin/ponto-api-go/internal/constants"
 	"github.com/Loviiin/ponto-api-go/internal/domain/auth"
 	"github.com/Loviiin/ponto-api-go/internal/domain/bancohoras"
 	"github.com/Loviiin/ponto-api-go/internal/domain/cargo"
@@ -28,14 +22,11 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/domain/profile"
 	"github.com/Loviiin/ponto-api-go/internal/domain/relatorio"
 	"github.com/Loviiin/ponto-api-go/internal/domain/usuario"
-	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/audit"
 	"github.com/Loviiin/ponto-api-go/pkg/brasilapi"
-	"github.com/Loviiin/ponto-api-go/pkg/cache"
 	"github.com/Loviiin/ponto-api-go/pkg/cep"
 	"github.com/Loviiin/ponto-api-go/pkg/cloudinary"
 	"github.com/Loviiin/ponto-api-go/pkg/distancematrix"
-	"github.com/Loviiin/ponto-api-go/pkg/email"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
@@ -47,91 +38,9 @@ import (
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+
 )
 
-// NOVO: Função para resetar e popular o banco de dados
-func resetAndSeedDatabase(db *gorm.DB) {
-	log.Println("Iniciando reset do banco de dados...")
-
-	// Apaga as tabelas na ordem correta para evitar problemas de chave estrangeira
-	err := db.Migrator().DropTable(
-		"usuario_cargos",   // Tabela de junção para Usuario e Cargo
-		"cargo_permissoes", // Tabela de junção para Cargo e Permissao
-		&model.AuditLog{},  // Precisa ser dropado antes de Usuario
-		&model.RegistroPonto{},
-		&model.Justificativa{},
-		&model.LogBancoHoras{},
-		&model.Contrato{},
-		&model.PasswordResetToken{}, // NOVO
-		&model.Usuario{},
-		&model.Permissao{},
-		&model.Cargo{},
-		&model.Empresa{},
-		&model.Localidade{},
-	)
-
-	if err != nil {
-		log.Fatalf("Falha ao apagar tabelas: %v", err)
-	}
-	log.Println("Tabelas antigas removidas.")
-
-	// Recria as tabelas (ordem importa: dependências primeiro!)
-	log.Println("Recriando tabelas com AutoMigrate...")
-	err = db.AutoMigrate(
-		// 1. Tabelas base sem dependências
-		&model.Empresa{},
-		&model.Permissao{},
-
-		// 2. Tabelas que dependem de Empresa
-		&model.Cargo{},
-		&model.Localidade{},
-
-		// 3. Usuário (depende de nada, mas é referenciado por outras tabelas)
-		&model.Usuario{},
-		&model.PasswordResetToken{}, // NOVO
-
-		// 4. Contrato (depende de Usuario, Cargo, Localidade)
-		&model.Contrato{},
-
-		// 5. Audit Log (depende de Usuario - precisa vir DEPOIS)
-		&model.AuditLog{},
-
-		// 5. RegistroPonto (depende de Usuario e Empresa)
-		&model.RegistroPonto{},
-
-		// 6. Justificativa (depende de Usuario, Empresa e RegistroPonto)
-		&model.Justificativa{},
-
-		// 7. LogBancoHoras (depende de Usuario)
-		&model.LogBancoHoras{},
-	)
-	if err != nil {
-		log.Fatal("Falha ao rodar a migração: ", err)
-	}
-	log.Println("Tabelas recriadas com sucesso.")
-
-	// Popula com dados iniciais (seeding)
-	log.Println("Populando o banco de dados com dados iniciais...")
-	config.SeedPermissions(db)
-	config.SeedSuperAdmin(db)
-	log.Println("Banco de dados resetado e populado com sucesso!")
-}
-
-// --- CONFIGURAÇÃO DE CORS ---
-// Lista explícita de domínios permitidos (mais seguro e legível)
-var allowedOrigins = map[string]bool{
-	"http://localhost:3000/":                                           true,
-	"http://localhost:3000":                                            true,
-	"https://nexora-app.vercel.app":                                    true,
-	"https://meu-ponto-frontend.vercel.app":                            true,
-	"https://meu-ponto-frontend-git-main-loviins-projects.vercel.app":  true,
-	"https://meu-ponto-frontend-n9lx9odbj-loviins-projects.vercel.app": true,
-}
-
-// Regex para permitir todos os subdomínios de desenvolvimento do GitHub Codespaces
-var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
 
 // @title           Ponto API em Go
 // @version         1.0
@@ -153,118 +62,47 @@ var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
 // @name Authorization
 // @description "Digite 'Bearer' seguido de um espaço e o seu token."
 // @type apiKey
+
 func main() {
 	logger.InitLogger()
-
-	cfg, err := config.LoadConfig(".")
-	if err != nil {
-		log.Fatal("Não foi possível carregar as configurações: ", err)
-	}
-
-	var dsn string
-	if strings.HasPrefix(cfg.DBHost, "/") {
-		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=%s TimeZone=%s",
-			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBSSLMode, constants.TimezoneBR)
-	} else {
-
-		dsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
-			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode, constants.TimezoneBR)
-	}
-
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatal("Falha ao conectar ao banco de dados: ", err)
-	}
-	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
-
-	resetDB := os.Getenv("RESET_DB_ON_START") == "true"
-	if resetDB {
-		resetAndSeedDatabase(db)
-	} else {
-		// Adicionámos o &model.Permissao{} e &model.AuditLog{} para a migração automática
-		err = db.AutoMigrate(
-			&model.Usuario{},
-			&model.PasswordResetToken{}, // NOVO
-			&model.RegistroPonto{},
-			&model.Empresa{},
-			&model.Cargo{},
-			&model.Permissao{},
-			&model.Justificativa{},
-			&model.LogBancoHoras{},
-			&model.Contrato{},
-			&model.Localidade{},
-			&model.AuditLog{},
-		)
-		if err != nil {
-			log.Fatal("Falha ao rodar a migração: ", err)
-		}
-		log.Println("Migração do banco de dados executada com sucesso.")
-		config.SeedPermissions(db)
-		config.SeedSuperAdmin(db)
-	}
-
-	// --- Inicialização de Serviços e Repositórios ---
-	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
 	funcoesService := funcoes.NewFuncoes()
 
-	// Inicializa o serviço de cache: preferir Upstash REST se variáveis estiverem presentes
-	var cacheService cache.Service
-	upstashURL := cfg.UpstashRedisRestURL
-	upstashToken := cfg.UpstashRedisRestToken
-	if upstashURL != "" && upstashToken != "" {
-		cs, cErr := cache.NewUpstashService(upstashURL, upstashToken)
-		if cErr != nil {
-			log.Panicf("Falha ao inicializar Upstash REST: %v", cErr)
-		}
-		cacheService = cs
-		log.Println("Cache: usando Upstash REST API")
-	} else {
-		cs, cErr := cache.NewRedisService(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
-		if cErr != nil {
-			log.Panicf("Falha ao conectar ao Redis: %v", cErr)
-		}
-		cacheService = cs
-		log.Println("Cache: usando Redis nativo")
-	}
+	//Carrega as configurações de ambiente
+	cfg := CarregaConfig()
 
-	// Se resetDB == true, limpa também o cache se o provider suportar.
-	if resetDB {
-		if flusher, ok := cacheService.(cache.Flusher); ok {
-			if err := flusher.FlushAll(context.Background()); err != nil {
-				log.Printf("[cache] falha ao limpar cache após reset DB: %v", err)
-			} else {
-				log.Println("[cache] cache limpo após reset DB")
-			}
-		} else {
-			log.Println("[cache] provider não suporta FlushAll; considere invalidar por prefixo")
-		}
-	}
+	//Conecta ao banco de dados
+	BancoDeDados := conectaBD(cfg)
+
+	// Inicializa o serviço de cache: preferir Upstash REST se variáveis estiverem presentes
+	cacheService := inicializaCache(cfg)
+
+	// Verifica se deve resetar o banco de dados
+	resetaBanco(BancoDeDados)
+
+	resetaCacheComBD(cacheService)
+
+	criaSchemaDatabase(BancoDeDados)
+
+	// Popula permissões padrão e super-admin
+	config.SeedPermissions(BancoDeDados)
+	config.SeedSuperAdmin(BancoDeDados)
+
 
 	// Inicializar Serviço de Email
-	emailService := email.NewEmailService(
-		cfg.SMTPHost,
-		cfg.SMTPPort,
-		cfg.SMTPUser,
-		cfg.SMTPPassword,
-		cfg.SMTPFromName,
-		cfg.SMTPFromEmail,
-		cfg.FrontendURL,
-	)
-	if emailService == nil {
-		slog.Warn("Serviço de email não configurado (verifique .env)")
-		// Não falhar o app, apenas logar aviso
-	}
+	emailService := inicializaEmailService(cfg)
 
-	usuarioRepo := usuario.NewUsuarioRepository(db, cacheService)
-	passwordResetRepo := auth.NewPasswordResetRepository(db)
-	pontoRepo := ponto.NewPontoRepository(db)
-	empresaRepo := empresa.NewEmpresaRepository(db, cacheService)
-	cargoRepo := cargo.NewCargoRepository(db, cacheService)
-	permissaoRepo := permissao.NewRepository(db, cacheService)
-	justificativaRepo := justificativa.NewRepository(db, cacheService)
-	logBancoHorasRepo := logbancohoras.NewRepository(db)
-	contratoRepo := contrato.NewContratoRepository(db)
-	localidadeRepo := localidade.NewRepository(db)
+	usuarioRepo := usuario.NewUsuarioRepository(BancoDeDados, cacheService)
+	passwordResetRepo := auth.NewPasswordResetRepository(BancoDeDados)
+	pontoRepo := ponto.NewPontoRepository(BancoDeDados)
+	empresaRepo := empresa.NewEmpresaRepository(BancoDeDados, cacheService)
+	cargoRepo := cargo.NewCargoRepository(BancoDeDados, cacheService)
+	permissaoRepo := permissao.NewRepository(BancoDeDados, cacheService)
+	justificativaRepo := justificativa.NewRepository(BancoDeDados, cacheService)
+	logBancoHorasRepo := logbancohoras.NewRepository(BancoDeDados)
+	contratoRepo := contrato.NewContratoRepository(BancoDeDados)
+	localidadeRepo := localidade.NewRepository(BancoDeDados)
+
+	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
 
 	// CEP providers (BrasilAPI primário + ViaCEP fallback)
 	brasilAPIClient := brasilapi.NewClient(cfg.BrasilApiUrl)
@@ -280,16 +118,16 @@ func main() {
 	// Serviço de geolocalização: usa cadeia ViaCEP+DistanceMatrix primário e BrasilAPI como fallback
 	geoService := geolocation.NewService(cepService, distanceMatrixClient, brasilAPIClient)
 
-	usuarioService := usuario.NewUsuarioService(db, usuarioRepo, cargoRepo, empresaRepo, contratoRepo, localidadeRepo)
+	usuarioService := usuario.NewUsuarioService(BancoDeDados, usuarioRepo, cargoRepo, empresaRepo, contratoRepo, localidadeRepo)
 	// Passando emailService para AuthService
-	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, passwordResetRepo, geoService, jwtService, cacheService, db, emailService)
-	pontoService := ponto.NewPontoServiceWithCache(pontoRepo, usuarioRepo, localidadeRepo, db, cacheService)
+	authService := auth.NewAuthService(usuarioRepo, empresaRepo, cargoRepo, contratoRepo, localidadeRepo, passwordResetRepo, geoService, jwtService, cacheService, BancoDeDados, emailService)
+	pontoService := ponto.NewPontoServiceWithCache(pontoRepo, usuarioRepo, localidadeRepo, BancoDeDados, cacheService)
 
 	empresaService := empresa.NewEmpresaService(empresaRepo)
 	cargoService := cargo.NewCargoService(cargoRepo)
 	permissaoService := permissao.NewService(permissaoRepo)
-	bancoHorasService := bancohoras.NewBancoHorasServiceWithCache(pontoRepo, usuarioRepo, logBancoHorasRepo, db, cacheService)
-	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, db)
+	bancoHorasService := bancohoras.NewBancoHorasServiceWithCache(pontoRepo, usuarioRepo, logBancoHorasRepo, BancoDeDados, cacheService)
+	justificativaService := justificativa.NewService(justificativaRepo, pontoRepo, BancoDeDados)
 	localidadeService := localidade.NewService(localidadeRepo, geoService, cacheService)
 
 	// CEP handler para consulta direta por CEP
@@ -303,7 +141,7 @@ func main() {
 	authHandler := auth.NewAuthHandler(authService)
 	pontoHandler := ponto.NewPontoHandler(pontoService, justificativaService, bancoHorasService, funcoesService)
 
-	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, db)
+	empresaHandler := empresa.NewEmpresaHandler(empresaService, funcoesService, BancoDeDados)
 	cargoHandler := cargo.NewCargoHandler(cargoService, funcoesService)
 	permissaoHandler := permissao.NewHandler(permissaoService)
 	bancoHorasHandler := bancohoras.NewBancoHorasHandler(bancoHorasService, usuarioService, funcoesService)
@@ -317,17 +155,16 @@ func main() {
 	}
 
 	// Audit Logger - Serviço de auditoria
-	auditLogger := audit.NewService(db)
+	auditLogger := audit.NewService(BancoDeDados)
 
 	// Profile - Handler de perfil de usuário
-	profileRepo := profile.NewRepository(db, cacheService)
-	profileService := profile.NewService(profileRepo, db, cacheService, auditLogger)
+	profileRepo := profile.NewRepository(BancoDeDados, cacheService)
+	profileService := profile.NewService(profileRepo, BancoDeDados, cacheService, auditLogger)
 	profileHandler := profile.NewHandler(profileService, cloudinaryService)
 
 	// --- Middlewares ---
 	authMiddleware := auth.AuthMiddleware(jwtService)
 
-	// Criamos os nossos middlewares de permissão aqui.
 	// Cada um verifica uma permissão específica.
 	canEditEmpresa := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.EDITAR_EMPRESA)
 	canDeleteEmpresa := auth.PermissionMiddleware(usuarioService, funcoesService, permissions.DELETAR_EMPRESA)
@@ -531,3 +368,4 @@ func main() {
 		log.Fatal("Falha ao iniciar o servidor: ", err)
 	}
 }
+
