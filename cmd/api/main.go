@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
@@ -33,6 +34,7 @@ import (
 	"github.com/Loviiin/ponto-api-go/pkg/cep"
 	"github.com/Loviiin/ponto-api-go/pkg/cloudinary"
 	"github.com/Loviiin/ponto-api-go/pkg/distancematrix"
+	"github.com/Loviiin/ponto-api-go/pkg/email"
 	"github.com/Loviiin/ponto-api-go/pkg/funcoes"
 	"github.com/Loviiin/ponto-api-go/pkg/geolocation"
 	"github.com/Loviiin/ponto-api-go/pkg/jwt"
@@ -151,30 +153,6 @@ var allowedOriginRegex = regexp.MustCompile(`^https?:\/\/.*\.app\.github\.dev$`)
 // @description "Digite 'Bearer' seguido de um espaço e o seu token."
 // @type apiKey
 
-func criaSchemaDatabase(db *gorm.DB) {
-	err := db.AutoMigrate(
-		&model.Usuario{},
-		&model.PasswordResetToken{},
-		&model.RegistroPonto{},
-		&model.Empresa{},
-		&model.Cargo{},
-		&model.Permissao{},
-		&model.Justificativa{},
-		&model.LogBancoHoras{},
-		&model.Contrato{},
-		&model.Localidade{},
-		&model.AuditLog{},
-	)
-	if err != nil {
-		log.Fatal("Falha ao rodar a migração: ", err)
-	}
-	log.Println("Migração do banco de dados executada com sucesso.")
-}
-
-func resetaCache(cacheService cache.Service) {
-	//Implementação da função de resetar o cache(Decidir se vai resetar junto com o DB ou criar 2 funções separadas)
-}
-
 func main() {
 	logger.InitLogger()
 	funcoesService := funcoes.NewFuncoes()
@@ -193,35 +171,8 @@ func main() {
 	config.SeedPermissions(BancoDeDados)
 	config.SeedSuperAdmin(BancoDeDados)
 
-	//Carrega as configurações de ambiente
-	cfg := CarregaConfig()
-
-	//Conecta ao banco de dados
-	BancoDeDados := conectaBD(cfg)
-
-	// Verifica se deve resetar o banco de dados
-	resetaBanco(BancoDeDados)
-	criaSchemaDatabase(BancoDeDados)
-
-	// Popula permissões padrão e super-admin
-	config.SeedPermissions(BancoDeDados)
-	config.SeedSuperAdmin(BancoDeDados)
-
 	// Inicializa o serviço de cache: preferir Upstash REST se variáveis estiverem presentes
-    cacheService := inicializaCache(cfg)
-
-	// Se resetDB == true, limpa também o cache se o provider suportar.
-	if resetDB {
-		if flusher, ok := cacheService.(cache.Flusher); ok {
-			if err := flusher.FlushAll(context.Background()); err != nil {
-				log.Printf("[cache] falha ao limpar cache após reset DB: %v", err)
-			} else {
-				log.Println("[cache] cache limpo após reset DB")
-			}
-		} else {
-			log.Println("[cache] provider não suporta FlushAll; considere invalidar por prefixo")
-		}
-	}
+	cacheService := inicializaCache(cfg)
 
 	// Inicializar Serviço de Email
 	emailService := inicializaEmailService(cfg)
@@ -238,7 +189,6 @@ func main() {
 	localidadeRepo := localidade.NewRepository(BancoDeDados)
 
 	jwtService := jwt.NewJWTService(cfg.JWTSecretKey, "ponto-api-go")
-
 
 	// CEP providers (BrasilAPI primário + ViaCEP fallback)
 	brasilAPIClient := brasilapi.NewClient(cfg.BrasilApiUrl)
@@ -572,8 +522,20 @@ func initRedisCache(cfg *config.Config) (cache.Service, error) {
 	return cache.NewRedisService(cfg.RedisAddr, cfg.RedisPassword, cfg.RedisDB)
 }
 
-func criaSchemaDatabase(BancoDeDados *gorm.DB) {
-	err := BancoDeDados.AutoMigrate(
+func resetaCacheComBD(cacheService cache.Service) {
+	//Implementação da função de resetar o cache(Decidir se vai resetar junto com o BancoDeDados ou criar 2 funções separadas)
+	flusher := cacheService.(cache.Flusher)
+	if os.Getenv("RESET_DB_ON_START") == "true" {
+		if err := flusher.FlushAll(context.Background()); err != nil {
+			log.Printf("[cache] falha ao limpar cache após reset BancoDeDados: %v", err)
+		} else {
+			log.Println("[cache] cache limpo após reset BancoDeDados")
+		}
+	}
+}
+
+func criaSchemaDatabase(db *gorm.DB) {
+	err := db.AutoMigrate(
 		&model.Usuario{},
 		&model.PasswordResetToken{},
 		&model.RegistroPonto{},
@@ -592,14 +554,26 @@ func criaSchemaDatabase(BancoDeDados *gorm.DB) {
 	log.Println("Migração do banco de dados executada com sucesso.")
 }
 
-func resetaCacheComBD(cacheService cache.Service) {
-	//Implementação da função de resetar o cache(Decidir se vai resetar junto com o BancoDeDados ou criar 2 funções separadas)
-	flusher := cacheService.(cache.Flusher)
-	if os.Getenv("RESET_DB_ON_START") == "true" {
-		if err := flusher.FlushAll(context.Background()); err != nil {
-			log.Printf("[cache] falha ao limpar cache após reset BancoDeDados: %v", err)
-		} else {
-			log.Println("[cache] cache limpo após reset BancoDeDados")
-		}
+func inicializaEmailService(cfg *config.Config) *email.EmailService {
+	svc := email.NewEmailService(
+		cfg.SMTPHost,
+		cfg.SMTPPort,
+		cfg.SMTPUser,
+		cfg.SMTPPassword,
+		cfg.SMTPFromName,
+		cfg.SMTPFromEmail,
+		cfg.FrontendURL,
+	)
+
+	if cfg.SMTPHost == "" || cfg.SMTPPort == "0" {
+		slog.Warn("Configurações de SMTP ausentes. O serviço de email será desativado.")
+		return nil
 	}
+
+	if svc == nil {
+		slog.Warn("Serviço de email não configurado (verifique .env ou configurações SMTP)")
+		return nil
+	}
+
+	return svc
 }
