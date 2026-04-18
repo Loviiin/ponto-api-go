@@ -86,7 +86,7 @@ func main() {
 	// Popula permissões padrão e super-admin
 	config.SeedPermissions(BancoDeDados)
 	config.SeedSuperAdmin(BancoDeDados)
-	if err := config.ResetAndSeedDemoWorkspace(BancoDeDados); err != nil {
+	if err := config.EnsureDemoWorkspace(BancoDeDados); err != nil {
 		log.Printf("AVISO: não foi possível preparar o demo: %v", err)
 	}
 

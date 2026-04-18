@@ -248,14 +248,16 @@ func SeedSuperAdmin(db *gorm.DB) {
 	}
 }
 
-// ResetAndSeedDemoWorkspace recria o tenant demo do portfólio com credenciais fixas.
-func ResetAndSeedDemoWorkspace(db *gorm.DB) error {
+// EnsureDemoWorkspace garante que o tenant demo exista sem recriá-lo a cada execução.
+func EnsureDemoWorkspace(db *gorm.DB) error {
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := resetDemoWorkspace(tx); err != nil {
-			return err
-		}
 		return seedDemoWorkspace(tx)
 	})
+}
+
+// ResetAndSeedDemoWorkspace é mantido por compatibilidade, mas agora só garante o seed idempotente.
+func ResetAndSeedDemoWorkspace(db *gorm.DB) error {
+	return EnsureDemoWorkspace(db)
 }
 
 func seedDemoWorkspace(db *gorm.DB) error {
@@ -330,69 +332,3 @@ func seedDemoWorkspace(db *gorm.DB) error {
 	return nil
 }
 
-func resetDemoWorkspace(db *gorm.DB) error {
-	var empresa model.Empresa
-	if err := db.Where("cnpj = ?", demoEmpresaCNPJ).First(&empresa).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		return err
-	}
-
-	var cargos []model.Cargo
-	if err := db.Where("empresa_id = ?", empresa.ID).Find(&cargos).Error; err != nil {
-		return err
-	}
-	for i := range cargos {
-		if err := db.Model(&cargos[i]).Association("Permissoes").Clear(); err != nil {
-			return err
-		}
-	}
-
-	var contratos []model.Contrato
-	if err := db.Where("empresa_id = ?", empresa.ID).Find(&contratos).Error; err != nil {
-		return err
-	}
-
-	var usuarioIDs []uint
-	for _, contrato := range contratos {
-		usuarioIDs = append(usuarioIDs, contrato.UsuarioID)
-	}
-
-	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.Justificativa{}).Error; err != nil {
-		return err
-	}
-	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.LogBancoHoras{}).Error; err != nil {
-		return err
-	}
-	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.RegistroPonto{}).Error; err != nil {
-		return err
-	}
-	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.Contrato{}).Error; err != nil {
-		return err
-	}
-	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.AuditLog{}).Error; err != nil {
-		return err
-	}
-
-	if len(usuarioIDs) > 0 {
-		if err := db.Where("usuario_id IN ?", usuarioIDs).Delete(&model.PasswordResetToken{}).Error; err != nil {
-			return err
-		}
-		if err := db.Unscoped().Where("id IN ?", usuarioIDs).Delete(&model.Usuario{}).Error; err != nil {
-			return err
-		}
-	}
-
-	if err := db.Unscoped().Where("empresa_id = ?", empresa.ID).Delete(&model.Cargo{}).Error; err != nil {
-		return err
-	}
-	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.Localidade{}).Error; err != nil {
-		return err
-	}
-	if err := db.Delete(&empresa).Error; err != nil {
-		return err
-	}
-
-	return nil
-}

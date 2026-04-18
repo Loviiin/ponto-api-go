@@ -330,7 +330,7 @@ func (s *authService) InvalidateUserCache(userID uint, email string, empresaID u
 }
 
 func (s *authService) ResetDemoEnvironment() error {
-	if err := config.ResetAndSeedDemoWorkspace(s.db); err != nil {
+	if err := config.EnsureDemoWorkspace(s.db); err != nil {
 		return err
 	}
 
@@ -348,10 +348,6 @@ func (s *authService) ResetDemoEnvironment() error {
 }
 
 func (s *authService) PrepareDemoSession() (*DemoSessionData, error) {
-	if err := s.ResetDemoEnvironment(); err != nil {
-		return nil, err
-	}
-
 	token, err := s.Authenticate("demo@ponto.com", "Demo@12345")
 	if err != nil {
 		return nil, err
@@ -368,7 +364,7 @@ func (s *authService) PrepareDemoSession() (*DemoSessionData, error) {
 	}
 
 	return &DemoSessionData{
-		Mensagem:   "Demo restaurado com sucesso.",
+		Mensagem:   "Demo carregado com sucesso.",
 		Token:      token,
 		Email:      usuario.Email,
 		UsuarioID:  usuario.ID,
