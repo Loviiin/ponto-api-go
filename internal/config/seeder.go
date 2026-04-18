@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -10,6 +11,20 @@ import (
 	"github.com/Loviiin/ponto-api-go/internal/model"
 	"github.com/Loviiin/ponto-api-go/pkg/permissions"
 	"gorm.io/gorm"
+)
+
+const (
+	demoEmpresaCNPJ      = "00000000000192"
+	demoEmpresaNome      = "Demo Ponto"
+	demoLocalidadeNome   = "Matriz Demo"
+	demoLocalidadeCEP    = "01001-000"
+	demoUsuarioNome      = "Demo User"
+	demoUsuarioEmail     = "demo@ponto.com"
+	demoUsuarioCPF       = "11144477735"
+	demoUsuarioSenha     = "Demo@12345"
+	demoUsuarioSalario   = 0.0
+	demoCargoNome        = "Dono"
+	demoCargoHierarquia  = 100
 )
 
 // SeedPermissions cria as permissões padrão no sistema se elas não existirem.
@@ -231,4 +246,153 @@ func SeedSuperAdmin(db *gorm.DB) {
 	} else if err != nil {
 		log.Printf("Erro ao buscar Super Admin: %v", err)
 	}
+}
+
+// ResetAndSeedDemoWorkspace recria o tenant demo do portfólio com credenciais fixas.
+func ResetAndSeedDemoWorkspace(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := resetDemoWorkspace(tx); err != nil {
+			return err
+		}
+		return seedDemoWorkspace(tx)
+	})
+}
+
+func seedDemoWorkspace(db *gorm.DB) error {
+	empresa := model.Empresa{
+		NomeFantasia: demoEmpresaNome,
+		RazaoSocial:  fmt.Sprintf("%s LTDA", demoEmpresaNome),
+		CNPJ:         demoEmpresaCNPJ,
+	}
+	if err := db.Where(model.Empresa{CNPJ: demoEmpresaCNPJ}).FirstOrCreate(&empresa).Error; err != nil {
+		return err
+	}
+
+	localidade := model.Localidade{
+		Nome:               demoLocalidadeNome,
+		EmpresaID:          empresa.ID,
+		CEP:                demoLocalidadeCEP,
+		Cidade:             "São Paulo",
+		Estado:             "SP",
+		Latitude:           -23.550520,
+		Longitude:          -46.633308,
+		RaioGeofenceMetros: 100,
+	}
+	if err := db.Where(model.Localidade{EmpresaID: empresa.ID, Nome: demoLocalidadeNome}).FirstOrCreate(&localidade).Error; err != nil {
+		return err
+	}
+
+	mapaPermissoes := SeedPermissions(db)
+	donoCargo, _, _ := SetupDefaultRolesAndPermissions(db, empresa.ID, mapaPermissoes)
+	if donoCargo.ID == 0 {
+		return fmt.Errorf("falha ao preparar cargo demo")
+	}
+
+	var usuarioDemo model.Usuario
+	err := db.Where("email = ?", demoUsuarioEmail).First(&usuarioDemo).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		hash, hashErr := password.CriptografaSenha(demoUsuarioSenha)
+		if hashErr != nil {
+			return hashErr
+		}
+		usuarioDemo = model.Usuario{
+			Nome:  demoUsuarioNome,
+			Email: demoUsuarioEmail,
+			CPF:   demoUsuarioCPF,
+			Senha: hash,
+		}
+		if err := db.Create(&usuarioDemo).Error; err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	var contratoDemo model.Contrato
+	err = db.Where("usuario_id = ?", usuarioDemo.ID).First(&contratoDemo).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		contratoDemo = model.Contrato{
+			UsuarioID:    usuarioDemo.ID,
+			EmpresaID:    empresa.ID,
+			LocalidadeID: localidade.ID,
+			CargoID:      donoCargo.ID,
+			Salario:      demoUsuarioSalario,
+			DataAdmissao: time.Now(),
+		}
+		if err := db.Create(&contratoDemo).Error; err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	log.Printf("Demo workspace pronto: %s / %s", demoUsuarioEmail, demoUsuarioSenha)
+	return nil
+}
+
+func resetDemoWorkspace(db *gorm.DB) error {
+	var empresa model.Empresa
+	if err := db.Where("cnpj = ?", demoEmpresaCNPJ).First(&empresa).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	var cargos []model.Cargo
+	if err := db.Where("empresa_id = ?", empresa.ID).Find(&cargos).Error; err != nil {
+		return err
+	}
+	for i := range cargos {
+		if err := db.Model(&cargos[i]).Association("Permissoes").Clear(); err != nil {
+			return err
+		}
+	}
+
+	var contratos []model.Contrato
+	if err := db.Where("empresa_id = ?", empresa.ID).Find(&contratos).Error; err != nil {
+		return err
+	}
+
+	var usuarioIDs []uint
+	for _, contrato := range contratos {
+		usuarioIDs = append(usuarioIDs, contrato.UsuarioID)
+	}
+
+	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.Justificativa{}).Error; err != nil {
+		return err
+	}
+	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.LogBancoHoras{}).Error; err != nil {
+		return err
+	}
+	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.RegistroPonto{}).Error; err != nil {
+		return err
+	}
+	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.Contrato{}).Error; err != nil {
+		return err
+	}
+	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.AuditLog{}).Error; err != nil {
+		return err
+	}
+
+	if len(usuarioIDs) > 0 {
+		if err := db.Where("usuario_id IN ?", usuarioIDs).Delete(&model.PasswordResetToken{}).Error; err != nil {
+			return err
+		}
+		if err := db.Unscoped().Where("id IN ?", usuarioIDs).Delete(&model.Usuario{}).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := db.Unscoped().Where("empresa_id = ?", empresa.ID).Delete(&model.Cargo{}).Error; err != nil {
+		return err
+	}
+	if err := db.Where("empresa_id = ?", empresa.ID).Delete(&model.Localidade{}).Error; err != nil {
+		return err
+	}
+	if err := db.Delete(&empresa).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

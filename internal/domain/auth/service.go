@@ -36,6 +36,7 @@ type Service interface {
 	SignUp(empresaReq *model.Empresa, localidadeParcial *model.Localidade, usuarioReq *model.Usuario, dadosContrato *model.Contrato) (*model.Usuario, string, error)
 	RequestPasswordReset(email string) error
 	ResetPassword(token, newPassword string) error
+	ResetDemoEnvironment() error
 	LinkGoogleAccount(userID uint, code string) error
 	AuthenticateWithGoogle(code string) (string, *model.Usuario, bool, error)
 	InvalidateUserCache(userID uint, email string, empresaID uint)
@@ -315,6 +316,24 @@ func (s *authService) InvalidateUserCache(userID uint, email string, empresaID u
 	s.cache.Delete(ctx, fmt.Sprintf("auth:permissions:user:%d", userID))
 	s.cache.Delete(ctx, fmt.Sprintf("profile:user:%d", userID))
 	s.cache.Delete(ctx, fmt.Sprintf("auth:empresa:%d", empresaID))
+}
+
+func (s *authService) ResetDemoEnvironment() error {
+	if err := config.ResetAndSeedDemoWorkspace(s.db); err != nil {
+		return err
+	}
+
+	if s.cache == nil {
+		return nil
+	}
+
+	if flusher, ok := s.cache.(cache.Flusher); ok {
+		if err := flusher.FlushAll(context.Background()); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // --- Password Reset & Google OAuth ---

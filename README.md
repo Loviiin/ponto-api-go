@@ -96,7 +96,15 @@ O prefixo base para todos os endpoints é `/api/v1`.
 
 | Verbo  | Endpoint       | Descrição                                    | Protegido |
 | :----- | :------------- | :------------------------------------------- | :-------- |
+| `POST` | `/auth/demo`   | Restaura o demo e devolve um token pronto.   | Não       |
 | `POST` | `/auth/login`  | Autentica um usuário e retorna um token JWT. | Não       |
+
+Credenciais demo:
+
+- Email: `demo@ponto.com`
+- Senha: `Demo@12345`
+
+O endpoint de demo recria os dados desse tenant antes de autenticar, então cada clique volta o ambiente para um estado limpo.
 
 ### 🏢 Empresas
 

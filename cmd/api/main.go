@@ -86,6 +86,9 @@ func main() {
 	// Popula permissões padrão e super-admin
 	config.SeedPermissions(BancoDeDados)
 	config.SeedSuperAdmin(BancoDeDados)
+	if err := config.ResetAndSeedDemoWorkspace(BancoDeDados); err != nil {
+		log.Printf("AVISO: não foi possível preparar o demo: %v", err)
+	}
 
 
 	// Inicializar Serviço de Email
@@ -231,6 +234,7 @@ func main() {
 			c.JSON(http.StatusOK, gin.H{"status": "UP"})
 		})
 		// Rotas Públicas
+		apiV1.POST("/auth/demo", authHandler.Demo)
 		apiV1.POST("/auth/signup", authHandler.SignUp)
 		apiV1.POST("/auth/login", authHandler.Login)
 

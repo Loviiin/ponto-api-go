@@ -30,6 +30,12 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required" example:"superadmin"`
 }
 
+type DemoLoginResponse struct {
+	Mensagem string `json:"mensagem"`
+	Token    string `json:"token"`
+	Email    string `json:"email"`
+}
+
 type SignUpRequest struct {
 	Empresa struct {
 		NomeFantasia string `json:"nome_fantasia" binding:"required" example:"Minha Empresa"`
@@ -96,6 +102,32 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// LOGIN BEM-SUCEDIDO: Resetar rate limiter
 	h.loginLimiter.Reset(request.Email)
 	c.JSON(200, gin.H{"token": authenticate})
+}
+
+// @Summary      Restaura e autentica o usuário demo
+// @Description  Reseta o tenant demo para um estado limpo e autentica com credenciais hardcoded.
+// @Tags         Autenticação
+// @Produce      json
+// @Success      200 {object} DemoLoginResponse
+// @Failure      500 {object} map[string]string
+// @Router       /auth/demo [post]
+func (h *AuthHandler) Demo(c *gin.Context) {
+	if err := h.authService.ResetDemoEnvironment(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"erro": "Falha ao preparar demo: " + err.Error()})
+		return
+	}
+
+	token, err := h.authService.Authenticate("demo@ponto.com", "Demo@12345")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"erro": "Falha ao autenticar demo: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, DemoLoginResponse{
+		Mensagem: "Demo restaurado com sucesso.",
+		Token:    token,
+		Email:    "demo@ponto.com",
+	})
 }
 
 // @Summary      Realiza o cadastro de uma nova empresa e seu administrador
