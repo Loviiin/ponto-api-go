@@ -16,9 +16,9 @@ COPY . .
 # O comando principal: compilamos a nossa aplicação.
 # CGO_ENABLED=0 cria um binário estático, que não depende de bibliotecas do sistema.
 # -o ./out/ponto-api diz para colocar o executável compilado na pasta 'out' com o nome 'ponto-api'.
-# O alvo é o nosso ficheiro principal.
+# O alvo é o pacote da API, incluindo todos os arquivos do pacote main em cmd/api.
 # -ldflags="-w -s" remove informações de debug para diminuir o binário
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./out/ponto-api ./cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ./out/ponto-api ./cmd/api
 
 # --- Estágio 2: Final ---
 # Começamos com uma imagem 'alpine', que é uma das menores imagens Linux disponíveis.

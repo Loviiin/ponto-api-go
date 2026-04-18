@@ -82,7 +82,7 @@ Siga os passos abaixo para ter o ambiente completo rodando localmente.
 
 5.  **Execute a API**
     ```bash
-    go run ./cmd/api/main.go
+    go run ./cmd/api
     ```
     O servidor estará rodando em `http://localhost:8083` (ou na porta configurada no seu `.env`).
 
