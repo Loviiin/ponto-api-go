@@ -329,7 +329,7 @@ func (s *authService) ResetDemoEnvironment() error {
 
 	if flusher, ok := s.cache.(cache.Flusher); ok {
 		if err := flusher.FlushAll(context.Background()); err != nil {
-			return err
+			slog.Warn("demo cache flush failed, continuing anyway", "error", err)
 		}
 	}
 
