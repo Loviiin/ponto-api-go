@@ -34,6 +34,10 @@ type DemoLoginResponse struct {
 	Mensagem string `json:"mensagem"`
 	Token    string `json:"token"`
 	Email    string `json:"email"`
+	UsuarioID uint   `json:"usuario_id"`
+	EmpresaID uint   `json:"empresa_id"`
+	CargoID   uint   `json:"cargo_id"`
+	Permissoes []string `json:"permissoes"`
 }
 
 type SignUpRequest struct {
@@ -112,21 +116,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Failure      500 {object} map[string]string
 // @Router       /auth/demo [post]
 func (h *AuthHandler) Demo(c *gin.Context) {
-	if err := h.authService.ResetDemoEnvironment(); err != nil {
+	session, err := h.authService.PrepareDemoSession()
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"erro": "Falha ao preparar demo: " + err.Error()})
 		return
 	}
 
-	token, err := h.authService.Authenticate("demo@ponto.com", "Demo@12345")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"erro": "Falha ao autenticar demo: " + err.Error()})
-		return
-	}
-
 	c.JSON(http.StatusOK, DemoLoginResponse{
-		Mensagem: "Demo restaurado com sucesso.",
-		Token:    token,
-		Email:    "demo@ponto.com",
+		Mensagem:   session.Mensagem,
+		Token:      session.Token,
+		Email:      session.Email,
+		UsuarioID:  session.UsuarioID,
+		EmpresaID:  session.EmpresaID,
+		CargoID:    session.CargoID,
+		Permissoes: session.Permissoes,
 	})
 }
 

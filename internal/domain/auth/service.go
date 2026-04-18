@@ -37,10 +37,21 @@ type Service interface {
 	RequestPasswordReset(email string) error
 	ResetPassword(token, newPassword string) error
 	ResetDemoEnvironment() error
+	PrepareDemoSession() (*DemoSessionData, error)
 	LinkGoogleAccount(userID uint, code string) error
 	AuthenticateWithGoogle(code string) (string, *model.Usuario, bool, error)
 	InvalidateUserCache(userID uint, email string, empresaID uint)
 	ValidateResetToken(token string) (*model.Usuario, error)
+}
+
+type DemoSessionData struct {
+	Mensagem   string   `json:"mensagem"`
+	Token      string   `json:"token"`
+	Email      string   `json:"email"`
+	UsuarioID  uint     `json:"usuario_id"`
+	EmpresaID  uint     `json:"empresa_id"`
+	CargoID    uint     `json:"cargo_id"`
+	Permissoes []string `json:"permissoes"`
 }
 
 type authService struct {
@@ -334,6 +345,37 @@ func (s *authService) ResetDemoEnvironment() error {
 	}
 
 	return nil
+}
+
+func (s *authService) PrepareDemoSession() (*DemoSessionData, error) {
+	if err := s.ResetDemoEnvironment(); err != nil {
+		return nil, err
+	}
+
+	token, err := s.Authenticate("demo@ponto.com", "Demo@12345")
+	if err != nil {
+		return nil, err
+	}
+
+	var usuario model.Usuario
+	if err := s.db.Preload("Contrato.Cargo.Permissoes").Where("email = ?", "demo@ponto.com").First(&usuario).Error; err != nil {
+		return nil, err
+	}
+
+	permissoes := make([]string, 0, len(usuario.Contrato.Cargo.Permissoes))
+	for _, permissao := range usuario.Contrato.Cargo.Permissoes {
+		permissoes = append(permissoes, permissao.Nome)
+	}
+
+	return &DemoSessionData{
+		Mensagem:   "Demo restaurado com sucesso.",
+		Token:      token,
+		Email:      usuario.Email,
+		UsuarioID:  usuario.ID,
+		EmpresaID:  usuario.Contrato.EmpresaID,
+		CargoID:    usuario.Contrato.CargoID,
+		Permissoes: permissoes,
+	}, nil
 }
 
 // --- Password Reset & Google OAuth ---
